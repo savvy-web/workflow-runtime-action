@@ -102,8 +102,21 @@ async function downloadNode(version: string): Promise<string> {
 			extractedPath = await tc.extractTar(downloadPath);
 		}
 
+		// Find the actual Node.js directory inside the extracted path
+		// The tarball extracts to a directory like "node-vX.Y.Z-platform-arch"
+		const { readdirSync } = await import("node:fs");
+		const { join } = await import("node:path");
+		const extractedContents = readdirSync(extractedPath);
+		const nodeDir = extractedContents.find((item) => item.startsWith("node-v"));
+
+		if (!nodeDir) {
+			throw new Error(`Could not find Node.js directory in extracted path: ${extractedPath}`);
+		}
+
+		const nodeFullPath = join(extractedPath, nodeDir);
+
 		// Cache the extracted directory
-		const cachedPath = await tc.cacheDir(extractedPath, "node", version);
+		const cachedPath = await tc.cacheDir(nodeFullPath, "node", version);
 
 		core.info(`Node.js ${version} cached at ${cachedPath}`);
 		return cachedPath;
