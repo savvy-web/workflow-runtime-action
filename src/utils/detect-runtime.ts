@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import type { AsyncFunctionArguments } from "./shared-types.js";
+import * as core from "@actions/core";
 
 /**
  * Supported JavaScript runtimes
@@ -77,8 +77,7 @@ async function detectPackageManagerFromPackageJson(): Promise<PackageManager> {
  *
  * This function uses file-based detection to determine the runtime without executing any code.
  */
-async function detectRuntime(coreModule: AsyncFunctionArguments["core"]): Promise<DetectionResult> {
-	const core = coreModule;
+async function detectRuntime(): Promise<DetectionResult> {
 	// Check for Deno
 	if (existsSync("deno.lock") || existsSync("deno.json") || existsSync("deno.jsonc")) {
 		core.info("Detected Deno runtime from lock/config file");
@@ -128,9 +127,9 @@ async function detectRuntime(coreModule: AsyncFunctionArguments["core"]): Promis
  *       await detectRuntime({ core });
  * ```
  */
-export default async ({ core }: AsyncFunctionArguments): Promise<void> => {
+export default async (): Promise<void> => {
 	try {
-		const result = await detectRuntime(core);
+		const result = await detectRuntime();
 
 		// Set outputs
 		core.setOutput("runtime", result.runtime);

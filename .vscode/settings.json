@@ -33,7 +33,7 @@
 		"**/.turbo": true,
 		"**/.vitest": true,
 		"**/*.tsbuildinfo": true,
-		"**/dist": true,
+		"**/dist": false,
 		"**/node_modules": true
 	},
 	"gitlens.statusBar.pullRequests.enabled": true,

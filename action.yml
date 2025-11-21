@@ -31,6 +31,28 @@ inputs:
     required: false
     default: "true"
 
+outputs:
+  node-version:
+    description: "The Node.js version that was installed (e.g., '20.11.0' or 'from-file' if using version file)"
+  node-version-file:
+    description: "The version file used for Node.js version management (e.g., '.nvmrc', '.node-version', or empty if using input)"
+  node-version-source:
+    description: "The source of the Node.js version (nvmrc | node-version | input)"
+  package-manager:
+    description: "The detected or specified package manager (npm | pnpm | yarn)"
+  turbo-enabled:
+    description: "Whether Turbo configuration was detected (true | false)"
+  turbo-config-file:
+    description: "Path to Turbo config file (e.g., 'turbo.json' or empty if not found)"
+  biome-version:
+    description: "The Biome version that was installed (e.g., '2.3.6', 'latest', or empty if not installed)"
+  biome-config-file:
+    description: "Path to Biome config file (e.g., 'biome.jsonc', 'biome.json', or empty if not found)"
+  cache-hit:
+    description: "Whether dependencies were restored from cache (true | partial | false | n/a)"
+
 runs:
   using: "node24"
-  main: "src/index.ts"
+  pre: "dist/pre.js"
+  main: "dist/main.js"
+  post: "dist/post.js"

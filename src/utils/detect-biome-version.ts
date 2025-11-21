@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import type { parse as parseJsonc } from "jsonc-parser";
-import type { AsyncFunctionArguments as BaseAsyncFunctionArguments } from "./shared-types.js";
+import type { AsyncFunctionArguments as BaseAsyncFunctionArguments } from "../types/shared-types.js";
 
 /**
  * Type alias for jsonc-parser parse function

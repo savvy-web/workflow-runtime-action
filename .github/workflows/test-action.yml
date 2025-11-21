@@ -9,10 +9,10 @@ on:
         default: ""
         type: choice
         options:
+          - ""
           - npm
           - pnpm
           - yarn
-          - invalid
       node-version:
         description: "Node.js version (leave empty to use .nvmrc)"
         required: false
@@ -34,6 +34,17 @@ on:
         description: "Turbo team (optional)"
         required: false
         default: ""
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "action.yml"
+      - ".github/workflows/test-action.yml"
+  pull_request:
+    paths:
+      - "src/**"
+      - "action.yml"
+      - ".github/workflows/test-action.yml"
 
 jobs:
   test-action:
@@ -48,12 +59,12 @@ jobs:
         id: setup
         uses: ./
         with:
-          package-manager: ${{ inputs.package-manager }}
-          node-version: ${{ inputs.node-version }}
-          biome-version: ${{ inputs.biome-version }}
-          install-deps: ${{ inputs.install-deps }}
-          turbo-token: ${{ inputs.turbo-token }}
-          turbo-team: ${{ inputs.turbo-team }}
+          package-manager: ${{ inputs.package-manager || '' }}
+          node-version: ${{ inputs.node-version || '' }}
+          biome-version: ${{ inputs.biome-version || '' }}
+          install-deps: ${{ inputs.install-deps != false }}
+          turbo-token: ${{ inputs.turbo-token || '' }}
+          turbo-team: ${{ inputs.turbo-team || '' }}
 
       - name: Display action outputs
         run: |
@@ -61,11 +72,15 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Output | Value |" >> $GITHUB_STEP_SUMMARY
           echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Runtime Version | \`${{ steps.setup.outputs.runtime-version }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| Node Version File | \`${{ steps.setup.outputs.node-version-manager-file || 'none' }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Node Version | \`${{ steps.setup.outputs.node-version }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Node Version File | \`${{ steps.setup.outputs.node-version-file || 'none' }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Node Version Source | \`${{ steps.setup.outputs.node-version-source }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| Package Manager | \`${{ steps.setup.outputs.package-manager }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| Turbo Enabled | \`${{ steps.setup.outputs.turbo-enabled }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Turbo Config File | \`${{ steps.setup.outputs.turbo-config-file || 'none' }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| Biome Version | \`${{ steps.setup.outputs.biome-version || 'not configured' }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Biome Config File | \`${{ steps.setup.outputs.biome-config-file || 'none' }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Cache Hit | \`${{ steps.setup.outputs.cache-hit || 'n/a' }}\` |" >> $GITHUB_STEP_SUMMARY
 
       - name: Verify Node.js installation
         run: |
@@ -74,7 +89,11 @@ jobs:
           echo "### Node.js" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
           node --version >> $GITHUB_STEP_SUMMARY
+          npm --version >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Node.js path:** \`$(which node)\`" >> $GITHUB_STEP_SUMMARY
+          echo "**npm path:** \`$(which npm)\`" >> $GITHUB_STEP_SUMMARY
 
       - name: Verify package manager installation
         run: |
@@ -85,27 +104,34 @@ jobs:
           case "$PM" in
             pnpm)
               pnpm --version >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "pnpm path: $(which pnpm)" >> $GITHUB_STEP_SUMMARY
               ;;
             yarn)
               yarn --version >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "yarn path: $(which yarn)" >> $GITHUB_STEP_SUMMARY
               ;;
             npm)
               npm --version >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "npm path: $(which npm)" >> $GITHUB_STEP_SUMMARY
               ;;
           esac
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
 
-      - name: Verify Turbo installation (if enabled)
+      - name: Verify Turbo detection (if enabled)
         if: steps.setup.outputs.turbo-enabled == 'true'
         run: |
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Turbo" >> $GITHUB_STEP_SUMMARY
+          echo "### Turbo Configuration" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Turbo configuration detected at: \`${{ steps.setup.outputs.turbo-config-file }}\`" >> $GITHUB_STEP_SUMMARY
           if command -v turbo &> /dev/null; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Turbo CLI version:" >> $GITHUB_STEP_SUMMARY
             echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
             turbo --version >> $GITHUB_STEP_SUMMARY
             echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "⚠️ Turbo not installed (configuration detected but CLI not available)" >> $GITHUB_STEP_SUMMARY
           fi
 
       - name: Verify Biome installation (if configured)
@@ -113,12 +139,38 @@ jobs:
         run: |
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Biome" >> $GITHUB_STEP_SUMMARY
+          echo "Expected version: \`${{ steps.setup.outputs.biome-version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Installed version:" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
           biome --version >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Biome path: \`$(which biome)\`" >> $GITHUB_STEP_SUMMARY
+
+      - name: Verify cache status
+        if: inputs.install-deps != false
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Cache Status" >> $GITHUB_STEP_SUMMARY
+          CACHE_HIT="${{ steps.setup.outputs.cache-hit }}"
+          case "$CACHE_HIT" in
+            "true")
+              echo "✅ Cache hit - dependencies restored from cache" >> $GITHUB_STEP_SUMMARY
+              ;;
+            "partial")
+              echo "⚡ Partial cache hit - some dependencies restored from cache" >> $GITHUB_STEP_SUMMARY
+              ;;
+            "false")
+              echo "📦 Cache miss - dependencies installed fresh (will be cached for next run)" >> $GITHUB_STEP_SUMMARY
+              ;;
+            *)
+              echo "ℹ️  Cache status: $CACHE_HIT" >> $GITHUB_STEP_SUMMARY
+              ;;
+          esac
 
       - name: Verify dependencies (if installed)
-        if: inputs.install-deps == true
+        if: inputs.install-deps != false
         run: |
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Dependencies" >> $GITHUB_STEP_SUMMARY
@@ -131,10 +183,11 @@ jobs:
             echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
           else
             echo "❌ Dependencies not found" >> $GITHUB_STEP_SUMMARY
+            exit 1
           fi
 
       - name: Test running commands
-        if: inputs.install-deps == true
+        if: inputs.install-deps != false
         run: |
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "## 🧪 Command Tests" >> $GITHUB_STEP_SUMMARY
@@ -192,12 +245,10 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        pm: [pnpm, yarn, npm]
-        exclude:
-          # Reduce matrix for faster testing
-          - os: macos-latest
-            pm: yarn
-          - os: windows-latest
+        pm: [pnpm, npm]
+        include:
+          # Test yarn only on Ubuntu to save CI time
+          - os: ubuntu-latest
             pm: yarn
 
     steps:
@@ -221,7 +272,19 @@ jobs:
       - name: Run quick validation
         shell: bash
         run: |
-          pnpm typecheck
+          # Use the detected package manager
+          PM="${{ matrix.pm }}"
+          case "$PM" in
+            pnpm)
+              pnpm typecheck
+              ;;
+            yarn)
+              yarn typecheck
+              ;;
+            npm)
+              npm run typecheck
+              ;;
+          esac
 
       - name: Create summary
         if: always()
@@ -235,6 +298,46 @@ jobs:
           fi
           echo "## $ICON ${{ matrix.os }} / ${{ matrix.pm }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Runtime:** \`${{ steps.setup.outputs.runtime-version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Node Version:** \`${{ steps.setup.outputs.node-version }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Package Manager:** \`${{ steps.setup.outputs.package-manager }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Cache Hit:** \`${{ steps.setup.outputs.cache-hit }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Status:** $STATUS" >> $GITHUB_STEP_SUMMARY
+
+  test-cache-effectiveness:
+    name: Test Cache Effectiveness
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: First run (cache miss expected)
+        id: setup1
+        uses: ./
+        with:
+          install-deps: true
+
+      - name: Remove node_modules
+        run: rm -rf node_modules
+
+      - name: Second run (cache hit expected)
+        id: setup2
+        uses: ./
+        with:
+          install-deps: true
+
+      - name: Verify cache effectiveness
+        run: |
+          echo "## 🎯 Cache Effectiveness Test" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Run | Cache Hit | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|-----------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| First | \`${{ steps.setup1.outputs.cache-hit }}\` | Expected: false |" >> $GITHUB_STEP_SUMMARY
+          echo "| Second | \`${{ steps.setup2.outputs.cache-hit }}\` | Expected: true |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ steps.setup2.outputs.cache-hit }}" == "true" ]; then
+            echo "✅ Cache is working correctly!" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Cache did not work as expected" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
