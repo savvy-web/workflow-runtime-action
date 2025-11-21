@@ -325,11 +325,12 @@ async function installDependencies(packageManager: PackageManager): Promise<void
 				command = existsSync("pnpm-lock.yaml") ? ["install", "--frozen-lockfile"] : ["install"];
 				break;
 			case "yarn":
-				// Use frozen lockfile if yarn.lock exists
+				// Use immutable mode if yarn.lock exists
+				// Otherwise explicitly allow lockfile creation (Yarn 4+ defaults to immutable in CI)
 				if (existsSync("yarn.lock")) {
 					command = ["install", "--immutable"];
 				} else {
-					command = ["install"];
+					command = ["install", "--no-immutable"];
 				}
 				break;
 		}
