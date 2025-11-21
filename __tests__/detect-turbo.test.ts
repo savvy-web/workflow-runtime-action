@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import detectTurbo from "../.github/actions/detect-turbo/detect-turbo.js";
-import type { AsyncFunctionArguments } from "../.github/actions/shared/types.js";
+import detectTurbo from "../src/detect-turbo.js";
+import type { AsyncFunctionArguments } from "../src/shared-types.js";
 import type { MockCore } from "./utils/github-mocks.js";
 import { createMockAsyncFunctionArguments, createMockCore } from "./utils/github-mocks.js";
 

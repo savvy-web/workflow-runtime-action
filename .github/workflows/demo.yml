@@ -1,0 +1,80 @@
+name: Demo - Quick Test
+
+on:
+  workflow_dispatch:
+
+jobs:
+  demo-auto-detect:
+    name: Auto-detect Everything
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup runtime (auto-detect)
+        id: setup
+        uses: ./
+
+      - name: Show configuration
+        run: |
+          echo "## 🎯 Auto-Detected Configuration" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Node.js: ${{ steps.setup.outputs.runtime-version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Package Manager: ${{ steps.setup.outputs.package-manager }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Turbo: ${{ steps.setup.outputs.turbo-enabled }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Biome: ${{ steps.setup.outputs.biome-version || 'not configured' }}" >> $GITHUB_STEP_SUMMARY
+
+      - name: Run tests
+        run: pnpm test
+
+  demo-explicit:
+    name: Explicit Configuration
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup runtime (explicit)
+        id: setup
+        uses: ./
+        with:
+          package-manager: pnpm
+          node-version: "20.x"
+          biome-version: "2.3.6"
+          install-deps: true
+
+      - name: Show configuration
+        run: |
+          echo "## 🎯 Explicit Configuration" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Node.js: ${{ steps.setup.outputs.runtime-version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Package Manager: ${{ steps.setup.outputs.package-manager }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Turbo: ${{ steps.setup.outputs.turbo-enabled }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Biome: ${{ steps.setup.outputs.biome-version }}" >> $GITHUB_STEP_SUMMARY
+
+      - name: Verify Biome works
+        run: biome --version
+
+      - name: Run linting
+        run: pnpm lint
+
+  demo-skip-deps:
+    name: Skip Dependency Installation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup runtime (skip deps)
+        id: setup
+        uses: ./
+        with:
+          install-deps: false
+
+      - name: Install with custom flags
+        run: |
+          echo "Installing dependencies with custom flags..."
+          pnpm install --no-frozen-lockfile
+
+      - name: Run typecheck
+        run: pnpm typecheck

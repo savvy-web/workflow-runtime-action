@@ -1,0 +1,240 @@
+name: Test Runtime Action
+
+on:
+  workflow_dispatch:
+    inputs:
+      package-manager:
+        description: "Package manager (leave empty for auto-detect)"
+        required: false
+        default: ""
+        type: choice
+        options:
+          - npm
+          - pnpm
+          - yarn
+          - invalid
+      node-version:
+        description: "Node.js version (leave empty to use .nvmrc)"
+        required: false
+        default: ""
+      biome-version:
+        description: "Biome version (leave empty for auto-detect or skip)"
+        required: false
+        default: ""
+      install-deps:
+        description: "Install dependencies"
+        required: false
+        default: true
+        type: boolean
+      turbo-token:
+        description: "Turbo token (optional)"
+        required: false
+        default: ""
+      turbo-team:
+        description: "Turbo team (optional)"
+        required: false
+        default: ""
+
+jobs:
+  test-action:
+    name: Test Runtime Setup Action
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run action with current settings
+        id: setup
+        uses: ./
+        with:
+          package-manager: ${{ inputs.package-manager }}
+          node-version: ${{ inputs.node-version }}
+          biome-version: ${{ inputs.biome-version }}
+          install-deps: ${{ inputs.install-deps }}
+          turbo-token: ${{ inputs.turbo-token }}
+          turbo-team: ${{ inputs.turbo-team }}
+
+      - name: Display action outputs
+        run: |
+          echo "## 📊 Action Outputs" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Output | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Runtime Version | \`${{ steps.setup.outputs.runtime-version }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Node Version File | \`${{ steps.setup.outputs.node-version-manager-file || 'none' }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Package Manager | \`${{ steps.setup.outputs.package-manager }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Turbo Enabled | \`${{ steps.setup.outputs.turbo-enabled }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Biome Version | \`${{ steps.setup.outputs.biome-version || 'not configured' }}\` |" >> $GITHUB_STEP_SUMMARY
+
+      - name: Verify Node.js installation
+        run: |
+          echo "## 🔍 Environment Verification" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Node.js" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          node --version >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+      - name: Verify package manager installation
+        run: |
+          PM="${{ steps.setup.outputs.package-manager }}"
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Package Manager ($PM)" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          case "$PM" in
+            pnpm)
+              pnpm --version >> $GITHUB_STEP_SUMMARY
+              ;;
+            yarn)
+              yarn --version >> $GITHUB_STEP_SUMMARY
+              ;;
+            npm)
+              npm --version >> $GITHUB_STEP_SUMMARY
+              ;;
+          esac
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+      - name: Verify Turbo installation (if enabled)
+        if: steps.setup.outputs.turbo-enabled == 'true'
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Turbo" >> $GITHUB_STEP_SUMMARY
+          if command -v turbo &> /dev/null; then
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            turbo --version >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ Turbo not installed (configuration detected but CLI not available)" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Verify Biome installation (if configured)
+        if: steps.setup.outputs.biome-version != ''
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Biome" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          biome --version >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+      - name: Verify dependencies (if installed)
+        if: inputs.install-deps == true
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Dependencies" >> $GITHUB_STEP_SUMMARY
+          if [ -d "node_modules" ]; then
+            echo "✅ Dependencies installed successfully" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Node modules size:" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            du -sh node_modules >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Dependencies not found" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Test running commands
+        if: inputs.install-deps == true
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 🧪 Command Tests" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Test typecheck
+          echo "### Type Check" >> $GITHUB_STEP_SUMMARY
+          if pnpm typecheck; then
+            echo "✅ Type check passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Type check failed" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+          # Test lint
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Lint" >> $GITHUB_STEP_SUMMARY
+          if pnpm lint; then
+            echo "✅ Lint check passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Lint check failed" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+          # Test build/test
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Tests" >> $GITHUB_STEP_SUMMARY
+          if pnpm test; then
+            echo "✅ Tests passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Tests failed" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+      - name: Test summary
+        if: always()
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "## ✅ All tests passed!" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "The runtime action is working correctly with the current configuration." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## ❌ Tests failed" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Please check the logs above for details." >> $GITHUB_STEP_SUMMARY
+          fi
+
+  test-matrix:
+    name: Test with ${{ matrix.pm }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        pm: [pnpm, yarn, npm]
+        exclude:
+          # Reduce matrix for faster testing
+          - os: macos-latest
+            pm: yarn
+          - os: windows-latest
+            pm: yarn
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run action with ${{ matrix.pm }}
+        id: setup
+        uses: ./
+        with:
+          package-manager: ${{ matrix.pm }}
+          install-deps: true
+
+      - name: Verify setup
+        shell: bash
+        run: |
+          echo "Testing with ${{ matrix.pm }} on ${{ matrix.os }}"
+          node --version
+          ${{ matrix.pm }} --version
+
+      - name: Run quick validation
+        shell: bash
+        run: |
+          pnpm typecheck
+
+      - name: Create summary
+        if: always()
+        shell: bash
+        run: |
+          STATUS="${{ job.status }}"
+          if [ "$STATUS" == "success" ]; then
+            ICON="✅"
+          else
+            ICON="❌"
+          fi
+          echo "## $ICON ${{ matrix.os }} / ${{ matrix.pm }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Runtime:** \`${{ steps.setup.outputs.runtime-version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Package Manager:** \`${{ steps.setup.outputs.package-manager }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status:** $STATUS" >> $GITHUB_STEP_SUMMARY

@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import type { AsyncFunctionArguments } from "../shared/types.js";
+import type { AsyncFunctionArguments } from "./shared-types.js";
 
 /**
  * Supported JavaScript runtimes

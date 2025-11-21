@@ -1,8 +1,8 @@
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import detectRuntime from "../.github/actions/detect-runtime/detect-runtime.js";
-import type { AsyncFunctionArguments } from "../.github/actions/shared/types.js";
+import detectRuntime from "../src/detect-runtime.js";
+import type { AsyncFunctionArguments } from "../src/shared-types.js";
 import type { MockCore } from "./utils/github-mocks.js";
 import { createMockAsyncFunctionArguments, createMockCore } from "./utils/github-mocks.js";
 

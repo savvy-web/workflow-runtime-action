@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import setupNode from "../.github/actions/node/detect-node-config.js";
-import type { AsyncFunctionArguments } from "../.github/actions/shared/types.js";
+import setupNode from "../src/detect-node-config.js";
+import type { AsyncFunctionArguments } from "../src/shared-types.js";
 import type { MockCore } from "./utils/github-mocks.js";
 import { createMockAsyncFunctionArguments, createMockCore } from "./utils/github-mocks.js";
 

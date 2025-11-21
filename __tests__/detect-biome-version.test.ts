@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import detectBiomeVersion from "../.github/actions/biome/detect-biome-version.js";
+import detectBiomeVersion from "../src/detect-biome-version.js";
 import type { MockCore } from "./utils/github-mocks.js";
 import { createMockCore } from "./utils/github-mocks.js";
 

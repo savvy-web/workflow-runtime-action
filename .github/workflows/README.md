@@ -36,7 +36,7 @@ on:
 
 jobs:
   validate:
-    uses: savvy-web/github-readme-private/.github/workflows/validate.yml@main
+    uses: savvy-web/workflow-runtime-action/.github/workflows/validate.yml@main
     secrets: inherit
 ```
 
@@ -117,7 +117,7 @@ on:
 jobs:
   # Use shared validation
   validate:
-    uses: savvy-web/github-readme-private/.github/workflows/validate.yml@main
+    uses: savvy-web/workflow-runtime-action/.github/workflows/validate.yml@main
     secrets: inherit
 
   # Add custom checks
@@ -125,7 +125,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: savvy-web/github-readme-private/.github/actions/node@main
+      - uses: savvy-web/workflow-runtime-action/.github/actions/node@main
       - run: pnpm audit
       - run: pnpm run security-scan
 ```
@@ -160,7 +160,7 @@ on:
 
 jobs:
   claude:
-    uses: savvy-web/github-readme-private/.github/workflows/claude.yml@main
+    uses: savvy-web/workflow-runtime-action/.github/workflows/claude.yml@main
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 ```
@@ -235,7 +235,7 @@ on:
 
 jobs:
   release:
-    uses: savvy-web/github-readme-private/.github/workflows/release.yml@main
+    uses: savvy-web/workflow-runtime-action/.github/workflows/release.yml@main
     secrets: inherit
 ```
 
@@ -320,7 +320,7 @@ on:
 
 jobs:
   route:
-    uses: savvy-web/github-readme-private/.github/workflows/org-issue-router.yml@main
+    uses: savvy-web/workflow-runtime-action/.github/workflows/org-issue-router.yml@main
     secrets: inherit
 ```
 
@@ -394,7 +394,7 @@ on:
 
 jobs:
   add-to-project:
-    uses: savvy-web/github-readme-private/.github/workflows/project-listener.yml@main
+    uses: savvy-web/workflow-runtime-action/.github/workflows/project-listener.yml@main
     secrets: inherit
 ```
 
@@ -447,19 +447,19 @@ jobs:
   # Validate PRs
   validate:
     if: github.event_name == 'pull_request'
-    uses: savvy-web/github-readme-private/.github/workflows/validate.yml@main
+    uses: savvy-web/workflow-runtime-action/.github/workflows/validate.yml@main
     secrets: inherit
 
   # Add to project
   add-to-project:
     if: github.event_name == 'pull_request'
-    uses: savvy-web/github-readme-private/.github/workflows/project-listener.yml@main
+    uses: savvy-web/workflow-runtime-action/.github/workflows/project-listener.yml@main
     secrets: inherit
 
   # Release on main
   release:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    uses: savvy-web/github-readme-private/.github/workflows/release.yml@main
+    uses: savvy-web/workflow-runtime-action/.github/workflows/release.yml@main
     secrets: inherit
 ```
 
@@ -473,7 +473,7 @@ on: [pull_request]
 jobs:
   # Shared validation
   validate:
-    uses: savvy-web/github-readme-private/.github/workflows/validate.yml@main
+    uses: savvy-web/workflow-runtime-action/.github/workflows/validate.yml@main
     secrets: inherit
 
   # Custom tests
@@ -481,7 +481,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: savvy-web/github-readme-private/.github/actions/node@main
+      - uses: savvy-web/workflow-runtime-action/.github/actions/node@main
       - run: pnpm test:e2e
 
   # Custom security scan
@@ -489,7 +489,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: savvy-web/github-readme-private/.github/actions/node@main
+      - uses: savvy-web/workflow-runtime-action/.github/actions/node@main
       - run: pnpm audit
       - run: pnpm run snyk-test
 ```

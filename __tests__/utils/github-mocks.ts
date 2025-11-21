@@ -1,5 +1,5 @@
 import { vi } from "vitest";
-import type { AsyncFunctionArguments } from "../../.github/actions/shared/types.js";
+import type { AsyncFunctionArguments } from "../../src/shared-types.js";
 
 /**
  * Type for mocked @actions/core module

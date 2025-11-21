@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import type { AsyncFunctionArguments } from "../shared/types.js";
+import type { AsyncFunctionArguments } from "./shared-types.js";
 
 /**
  * Result of Turborepo configuration detection

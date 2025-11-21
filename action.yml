@@ -1,0 +1,36 @@
+name: "Setup Node.js Runtime Environment"
+description: "Comprehensive Node.js runtime setup with automatic package manager detection, dependency caching, Turbo build cache, and optional Biome linter configuration"
+
+branding:
+  icon: "package"
+  color: "green"
+
+inputs:
+  package-manager:
+    description: "Package manager to use (npm | pnpm | yarn). If omitted, will be detected from package.json packageManager field or defaults to npm"
+    required: false
+    default: ""
+  node-version:
+    description: "Version Spec of the version to use in SemVer notation. It also admits such aliases as lts/*, latest, nightly and canary builds. Examples: 12.x, 10.15.1, >=10.15.0, lts/Hydrogen, 16-nightly, latest, node"
+    required: false
+    default: "lts/*"
+  biome-version:
+    description: "Biome version to install (optional). If not provided, version is auto-detected from biome.jsonc or biome.json config file. Leave empty to skip Biome installation."
+    required: false
+    default: ""
+  turbo-token:
+    description: "Turbo remote cache token (optional, for Vercel Remote Cache)"
+    required: false
+    default: ""
+  turbo-team:
+    description: "Turbo team slug (optional, for Vercel Remote Cache)"
+    required: false
+    default: ""
+  install-deps:
+    description: "Whether to install dependencies (true | false). Set to false to skip dependency installation."
+    required: false
+    default: "true"
+
+runs:
+  using: "node24"
+  main: "src/index.ts"
