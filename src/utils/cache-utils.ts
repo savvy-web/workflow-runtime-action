@@ -36,7 +36,7 @@ function getCacheConfig(packageManager: PackageManager): CacheConfig {
 		case "pnpm":
 			return {
 				cachePaths: [plat === "win32" ? "~/AppData/Local/pnpm/store" : "~/.local/share/pnpm/store", "**/node_modules"],
-				lockFilePatterns: ["**/pnpm-lock.yaml"],
+				lockFilePatterns: ["**/pnpm-lock.yaml", "**/pnpm-workspace.yaml", "**/.pnpmfile.cjs"],
 				keyPrefix: `pnpm-${plat}-${architecture}`,
 			};
 
