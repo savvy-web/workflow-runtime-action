@@ -20,8 +20,14 @@ function isCommandAvailable(command) {
 }
 
 export default {
-	// Sort and format package.json files
-	"**/package.json": ["sort-package-json", "biome check --write --max-diagnostics=none"],
+	// Sort and format package.json files (excluding dist/package.json)
+	"**/package.json":
+		/** @param {string[]} filenames */
+		(filenames) => {
+			const filtered = filenames.filter((file) => !file.includes("dist/package.json"));
+			if (filtered.length === 0) return [];
+			return ["sort-package-json", `biome check --write --max-diagnostics=none ${filtered.join(" ")}`];
+		},
 	// Format all other supported files with Biome (excluding package-lock.json)
 	"*.{js,ts,cjs,mjs,d.cts,d.mts,jsx,tsx,json,jsonc}":
 		/** @param {string[]} filenames */

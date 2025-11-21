@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { resolve } from "node:path";
 
@@ -83,6 +83,10 @@ async function build(): Promise<void> {
 		for (const entry of entries) {
 			await buildEntry(entry);
 		}
+
+		// Create package.json in dist/ to mark files as ES modules
+		await writeFile("dist/package.json", JSON.stringify({ type: "module" }, null, "\t"));
+		console.log("✓ Created dist/package.json");
 
 		console.log("\n✓ All builds completed successfully.");
 	} catch (error) {
