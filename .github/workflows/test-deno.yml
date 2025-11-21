@@ -33,7 +33,7 @@ jobs:
 
       - name: Setup Deno (auto-detect)
         id: setup
-        uses: ./.github/actions/runtime
+        uses: ./
         with:
           deno-version: "1.46.3"
 
@@ -82,7 +82,7 @@ jobs:
 
       - name: Setup Deno (from package.json)
         id: setup
-        uses: ./.github/actions/runtime
+        uses: ./
 
       - name: Verify package.json detection
         run: |
@@ -122,7 +122,7 @@ jobs:
 
       - name: Setup Deno (explicit version)
         id: setup
-        uses: ./.github/actions/runtime
+        uses: ./
         with:
           package-manager: deno
           deno-version: "1.46.3"
@@ -162,7 +162,7 @@ jobs:
 
       - name: Setup Deno with dependencies
         id: setup
-        uses: ./.github/actions/runtime
+        uses: ./
         with:
           package-manager: deno
           deno-version: "1.46.3"
@@ -199,7 +199,7 @@ jobs:
 
       - name: Setup Deno with lockfile
         id: setup
-        uses: ./.github/actions/runtime
+        uses: ./
         with:
           package-manager: deno
           deno-version: "1.46.3"

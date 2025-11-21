@@ -33,7 +33,7 @@ jobs:
 
       - name: Setup with Biome auto-detect
         id: setup
-        uses: ./.github/actions/runtime
+        uses: ./
 
       - name: Verify Biome installation
         run: |
@@ -85,7 +85,7 @@ jobs:
 
       - name: Setup with explicit Biome version
         id: setup
-        uses: ./.github/actions/runtime
+        uses: ./
         with:
           biome-version: "2.3.6"
 
@@ -125,7 +125,7 @@ jobs:
 
       - name: Setup with Turbo detection
         id: setup
-        uses: ./.github/actions/runtime
+        uses: ./
 
       - name: Verify Turbo detection
         run: |
@@ -164,7 +164,7 @@ jobs:
 
       - name: First run (cache miss)
         id: setup1
-        uses: ./.github/actions/runtime
+        uses: ./
 
       - name: Verify first run
         run: |
@@ -192,7 +192,7 @@ jobs:
 
       - name: Second run (cache hit expected)
         id: setup2
-        uses: ./.github/actions/runtime
+        uses: ./
 
       - name: Verify second run
         run: |
@@ -231,7 +231,7 @@ jobs:
 
       - name: Setup with install-deps disabled
         id: setup
-        uses: ./.github/actions/runtime
+        uses: ./
         with:
           install-deps: false
 

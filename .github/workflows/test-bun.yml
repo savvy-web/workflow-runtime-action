@@ -33,7 +33,7 @@ jobs:
 
       - name: Setup Bun (auto-detect)
         id: setup
-        uses: ./.github/actions/runtime
+        uses: ./
 
       - name: Verify Bun installation
         run: |
@@ -80,7 +80,7 @@ jobs:
 
       - name: Setup Bun (explicit version)
         id: setup
-        uses: ./.github/actions/runtime
+        uses: ./
         with:
           package-manager: bun
           bun-version: "1.1.42"
@@ -120,7 +120,7 @@ jobs:
 
       - name: Setup Bun and install dependencies
         id: setup
-        uses: ./.github/actions/runtime
+        uses: ./
         with:
           install-deps: true
 
@@ -156,7 +156,7 @@ jobs:
 
       - name: Setup Bun with lockfile
         id: setup
-        uses: ./.github/actions/runtime
+        uses: ./
 
       - name: Verify lockfile detection
         run: |

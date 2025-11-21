@@ -32,6 +32,9 @@ jobs:
       - name: Create test project
         shell: bash
         run: |
+          # Remove repository config files
+          rm -f package.json pnpm-workspace.yaml biome.jsonc turbo.json pnpm-lock.yaml .nvmrc .node-version
+
           # Create project based on package manager
           case "${{ matrix.pm }}" in
             npm)
@@ -105,6 +108,9 @@ jobs:
       - name: Create Bun project
         shell: bash
         run: |
+          # Remove repository config files
+          rm -f package.json pnpm-workspace.yaml biome.jsonc turbo.json pnpm-lock.yaml .nvmrc .node-version
+
           cat > package.json <<'EOF'
           {
             "name": "test-bun",
@@ -143,6 +149,9 @@ jobs:
       - name: Create Deno project
         shell: bash
         run: |
+          # Remove repository config files
+          rm -f package.json pnpm-workspace.yaml biome.jsonc turbo.json pnpm-lock.yaml .nvmrc .node-version deno.json deno.lock
+
           cat > deno.json <<'EOF'
           {
             "tasks": {
@@ -184,6 +193,9 @@ jobs:
       - name: Create multi-runtime project
         shell: bash
         run: |
+          # Remove repository config files
+          rm -f package.json pnpm-workspace.yaml biome.jsonc turbo.json pnpm-lock.yaml .nvmrc .node-version deno.json deno.lock
+
           # Create Node.js project with Deno config
           cat > package.json <<'EOF'
           {

@@ -96,21 +96,21 @@ async function build(): Promise<void> {
 		console.log("✓ Created dist/package.json");
 
 		// Copy built action to .github/actions/runtime for local testing
-		console.log("\nCopying action to .github/actions/runtime...");
-		const runtimeDir = ".github/actions/runtime";
-		await mkdir(runtimeDir, { recursive: true });
-		await mkdir(`${runtimeDir}/dist`, { recursive: true });
+		// console.log("\nCopying action to .github/actions/runtime...");
+		// const runtimeDir = ".github/actions/runtime";
+		// await mkdir(runtimeDir, { recursive: true });
+		// await mkdir(`${runtimeDir}/dist`, { recursive: true });
 
-		// Copy action.yml
-		await copyFile("action.yml", `${runtimeDir}/action.yml`);
-		console.log("✓ Copied action.yml");
+		// // Copy action.yml
+		// await copyFile("action.yml", `${runtimeDir}/action.yml`);
+		// console.log("✓ Copied action.yml");
 
-		// Copy dist files
-		await copyFile("dist/pre.js", `${runtimeDir}/dist/pre.js`);
-		await copyFile("dist/main.js", `${runtimeDir}/dist/main.js`);
-		await copyFile("dist/post.js", `${runtimeDir}/dist/post.js`);
-		await copyFile("dist/package.json", `${runtimeDir}/dist/package.json`);
-		console.log("✓ Copied dist files");
+		// // Copy dist files
+		// await copyFile("dist/pre.js", `${runtimeDir}/dist/pre.js`);
+		// await copyFile("dist/main.js", `${runtimeDir}/dist/main.js`);
+		// await copyFile("dist/post.js", `${runtimeDir}/dist/post.js`);
+		// await copyFile("dist/package.json", `${runtimeDir}/dist/package.json`);
+		// console.log("✓ Copied dist files");
 
 		console.log("\n✓ All builds completed successfully.");
 	} catch (error) {
