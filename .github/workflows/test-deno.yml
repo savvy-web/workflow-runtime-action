@@ -24,24 +24,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Create Deno project with deno.json
+      - name: Setup isolated test environment
         run: |
-          mkdir -p /tmp/action-backup
-          cp -r dist action.yml /tmp/action-backup/
-          rm -rf ./*
-          rm -f pnpm-lock.yaml pnpm-workspace.yaml yarn.lock package-lock.json bun.lockb deno.lock .pnpmfile.cjs
-          cat > deno.json <<'EOF'
-          {
-            "tasks": {
-              "start": "deno run main.ts"
-            }
-          }
-          EOF
-          cat > main.ts <<'EOF'
-          console.log("Hello from Deno!");
-          console.log(`Deno version: ${Deno.version.deno}`);
-          EOF
-          cp -r /tmp/action-backup/* .
+          mkdir -p /tmp/test-workspace
+          cp -r $GITHUB_WORKSPACE/repo/__fixtures__/deno-minimal/* /tmp/test-workspace/
+          cp -r $GITHUB_WORKSPACE/repo/dist /tmp/test-workspace/
+          cp $GITHUB_WORKSPACE/repo/action.yml /tmp/test-workspace/
 
       - name: Setup Deno (auto-detect)
         id: setup
@@ -85,27 +73,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Create project with package.json
+      - name: Setup isolated test environment
         run: |
-          mkdir -p /tmp/action-backup
-          cp -r dist action.yml /tmp/action-backup/
-          rm -rf ./*
-          rm -f pnpm-lock.yaml pnpm-workspace.yaml yarn.lock package-lock.json bun.lockb deno.lock .pnpmfile.cjs
-          cat > package.json <<'EOF'
-          {
-            "name": "deno-packagejson-test",
-            "version": "1.0.0",
-            "packageManager": "deno@1.46.3",
-            "scripts": {
-              "start": "deno run app.ts"
-            }
-          }
-          EOF
-          cat > app.ts <<'EOF'
-          const message: string = "TypeScript works natively in Deno!";
-          console.log(message);
-          EOF
-          cp -r /tmp/action-backup/* .
+          mkdir -p /tmp/test-workspace
+          cp -r $GITHUB_WORKSPACE/repo/__fixtures__/deno-lockfile/* /tmp/test-workspace/
+          cp -r $GITHUB_WORKSPACE/repo/dist /tmp/test-workspace/
+          cp $GITHUB_WORKSPACE/repo/action.yml /tmp/test-workspace/
 
       - name: Setup Deno (from package.json)
         id: setup
@@ -140,21 +113,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Create minimal project
+      - name: Setup isolated test environment
         run: |
-          mkdir -p /tmp/action-backup
-          cp -r dist action.yml /tmp/action-backup/
-          rm -rf ./*
-          rm -f pnpm-lock.yaml pnpm-workspace.yaml yarn.lock package-lock.json bun.lockb deno.lock .pnpmfile.cjs
-          cat > deno.json <<'EOF'
-          {
-            "tasks": {
-              "test": "deno run test.ts"
-            }
-          }
-          EOF
-          echo 'console.log("Explicit version test");' > test.ts
-          cp -r /tmp/action-backup/* .
+          mkdir -p /tmp/test-workspace
+          cp -r $GITHUB_WORKSPACE/repo/__fixtures__/deno-minimal/* /tmp/test-workspace/
+          cp -r $GITHUB_WORKSPACE/repo/dist /tmp/test-workspace/
+          cp $GITHUB_WORKSPACE/repo/action.yml /tmp/test-workspace/
 
       - name: Setup Deno (explicit version)
         id: setup
@@ -189,39 +153,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Create project with dependencies
+      - name: Setup isolated test environment
         run: |
-          mkdir -p /tmp/action-backup
-          cp -r dist action.yml /tmp/action-backup/
-          rm -rf ./*
-          rm -f pnpm-lock.yaml pnpm-workspace.yaml yarn.lock package-lock.json bun.lockb deno.lock .pnpmfile.cjs
-          cat > deno.json <<'EOF'
-          {
-            "imports": {
-              "std/": "https://deno.land/std@0.214.0/"
-            }
-          }
-          EOF
-          cat > deno.lock <<'EOF'
-          {
-            "version": "3",
-            "packages": {
-              "specifiers": {}
-            },
-            "remote": {}
-          }
-          EOF
-          cat > server.ts <<'EOF'
-          import { serve } from "std/http/server.ts";
-
-          const handler = (_req: Request): Response => {
-            return new Response("Hello from Deno server!");
-          };
-
-          console.log("HTTP server configured (would run on :8000)");
-          console.log("Deno with dependencies works!");
-          EOF
-          cp -r /tmp/action-backup/* .
+          mkdir -p /tmp/test-workspace
+          cp -r $GITHUB_WORKSPACE/repo/__fixtures__/deno-minimal/* /tmp/test-workspace/
+          cp -r $GITHUB_WORKSPACE/repo/dist /tmp/test-workspace/
+          cp $GITHUB_WORKSPACE/repo/action.yml /tmp/test-workspace/
 
       - name: Setup Deno with dependencies
         id: setup
@@ -253,30 +190,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Create project with deno.lock
+      - name: Setup isolated test environment
         run: |
-          mkdir -p /tmp/action-backup
-          cp -r dist action.yml /tmp/action-backup/
-          rm -rf ./*
-          rm -f pnpm-lock.yaml pnpm-workspace.yaml yarn.lock package-lock.json bun.lockb deno.lock .pnpmfile.cjs
-          cat > deno.json <<'EOF'
-          {
-            "tasks": {
-              "start": "deno run main.ts"
-            }
-          }
-          EOF
-          cat > deno.lock <<'EOF'
-          {
-            "version": "3",
-            "packages": {
-              "specifiers": {}
-            },
-            "remote": {}
-          }
-          EOF
-          echo 'console.log("Lockfile test");' > main.ts
-          cp -r /tmp/action-backup/* .
+          mkdir -p /tmp/test-workspace
+          cp -r $GITHUB_WORKSPACE/repo/__fixtures__/deno-minimal/* /tmp/test-workspace/
+          cp -r $GITHUB_WORKSPACE/repo/dist /tmp/test-workspace/
+          cp $GITHUB_WORKSPACE/repo/action.yml /tmp/test-workspace/
 
       - name: Setup Deno with lockfile
         id: setup

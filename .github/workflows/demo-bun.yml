@@ -18,33 +18,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Create test Bun project
+      - name: Setup isolated test environment
         run: |
-          # Backup action files
-          mkdir -p /tmp/action-backup
-          cp -r dist action.yml /tmp/action-backup/
-
-          # Create minimal Bun project
-          rm -rf ./*
-          rm -f pnpm-lock.yaml pnpm-workspace.yaml yarn.lock package-lock.json bun.lockb deno.lock .pnpmfile.cjs
-          cat > package.json <<'EOF'
-          {
-            "name": "test-bun-project",
-            "version": "1.0.0",
-            "packageManager": "bun@1.1.42",
-            "scripts": {
-              "start": "bun run index.ts"
-            }
-          }
-          EOF
-
-          cat > index.ts <<'EOF'
-          console.log("Hello from Bun!");
-          console.log(`Bun version: ${Bun.version}`);
-          EOF
-
-          # Restore action files
-          cp -r /tmp/action-backup/* .
+          mkdir -p /tmp/test-workspace
+          cp -r $GITHUB_WORKSPACE/repo/__fixtures__/bun-workspace/* /tmp/test-workspace/
+          cp -r $GITHUB_WORKSPACE/repo/dist /tmp/test-workspace/
+          cp $GITHUB_WORKSPACE/repo/action.yml /tmp/test-workspace/
 
       - name: Setup runtime (auto-detect Bun)
         id: setup
@@ -77,29 +56,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Create test Bun project
+      - name: Setup isolated test environment
         run: |
-          # Backup action files
-          mkdir -p /tmp/action-backup
-          cp -r dist action.yml /tmp/action-backup/
-
-          # Create minimal project
-          rm -rf ./*
-          rm -f pnpm-lock.yaml pnpm-workspace.yaml yarn.lock package-lock.json bun.lockb deno.lock .pnpmfile.cjs
-          cat > package.json <<'EOF'
-          {
-            "name": "test-bun-explicit",
-            "version": "1.0.0"
-          }
-          EOF
-
-          cat > app.ts <<'EOF'
-          const message: string = "TypeScript works with Bun!";
-          console.log(message);
-          EOF
-
-          # Restore action files
-          cp -r /tmp/action-backup/* .
+          mkdir -p /tmp/test-workspace
+          cp -r $GITHUB_WORKSPACE/repo/__fixtures__/bun-workspace/* /tmp/test-workspace/
+          cp -r $GITHUB_WORKSPACE/repo/dist /tmp/test-workspace/
+          cp $GITHUB_WORKSPACE/repo/action.yml /tmp/test-workspace/
 
       - name: Setup runtime (explicit Bun version)
         id: setup

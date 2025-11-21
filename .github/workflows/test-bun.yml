@@ -20,28 +20,21 @@ jobs:
   test-bun-auto-detect:
     name: Bun - Auto-detect from package.json
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: /tmp/test-workspace
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          path: repo
 
-      - name: Create Bun project
+      - name: Setup isolated test environment
         run: |
-          mkdir -p /tmp/action-backup
-          cp -r dist action.yml /tmp/action-backup/
-          rm -rf ./*
-          rm -f pnpm-lock.yaml pnpm-workspace.yaml yarn.lock package-lock.json bun.lockb deno.lock .pnpmfile.cjs
-          cat > package.json <<'EOF'
-          {
-            "name": "bun-test",
-            "version": "1.0.0",
-            "packageManager": "bun@1.1.42"
-          }
-          EOF
-          cat > index.ts <<'EOF'
-          console.log("Hello from Bun!");
-          console.log(`Bun version: ${Bun.version}`);
-          EOF
-          cp -r /tmp/action-backup/* .
+          mkdir -p /tmp/test-workspace
+          cp -r $GITHUB_WORKSPACE/repo/__fixtures__/bun-minimal/* /tmp/test-workspace/
+          cp -r $GITHUB_WORKSPACE/repo/dist /tmp/test-workspace/
+          cp $GITHUB_WORKSPACE/repo/action.yml /tmp/test-workspace/
 
       - name: Setup Bun (auto-detect)
         id: setup
@@ -79,19 +72,21 @@ jobs:
   test-bun-explicit:
     name: Bun - Explicit version
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: /tmp/test-workspace
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          path: repo
 
-      - name: Create project
+      - name: Setup isolated test environment
         run: |
-          mkdir -p /tmp/action-backup
-          cp -r dist action.yml /tmp/action-backup/
-          rm -rf ./*
-          rm -f pnpm-lock.yaml pnpm-workspace.yaml yarn.lock package-lock.json bun.lockb deno.lock .pnpmfile.cjs
-          npm init -y
-          echo 'console.log("Bun explicit version test");' > test.js
-          cp -r /tmp/action-backup/* .
+          mkdir -p /tmp/test-workspace
+          cp -r $GITHUB_WORKSPACE/repo/__fixtures__/bun-minimal/* /tmp/test-workspace/
+          cp -r $GITHUB_WORKSPACE/repo/dist /tmp/test-workspace/
+          cp $GITHUB_WORKSPACE/repo/action.yml /tmp/test-workspace/
 
       - name: Setup Bun (explicit version)
         id: setup
@@ -122,31 +117,21 @@ jobs:
   test-bun-package-install:
     name: Bun - Package installation
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: /tmp/test-workspace
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          path: repo
 
-      - name: Create project with dependencies
+      - name: Setup isolated test environment
         run: |
-          mkdir -p /tmp/action-backup
-          cp -r dist action.yml /tmp/action-backup/
-          rm -rf ./*
-          rm -f pnpm-lock.yaml pnpm-workspace.yaml yarn.lock package-lock.json bun.lockb deno.lock .pnpmfile.cjs
-          cat > package.json <<'EOF'
-          {
-            "name": "bun-deps-test",
-            "version": "1.0.0",
-            "packageManager": "bun@1.1.42",
-            "dependencies": {
-              "lodash": "^4.17.21"
-            }
-          }
-          EOF
-          cat > test.js <<'EOF'
-          const _ = require('lodash');
-          console.log(_.capitalize('hello from bun with lodash'));
-          EOF
-          cp -r /tmp/action-backup/* .
+          mkdir -p /tmp/test-workspace
+          cp -r $GITHUB_WORKSPACE/repo/__fixtures__/bun-deps/* /tmp/test-workspace/
+          cp -r $GITHUB_WORKSPACE/repo/dist /tmp/test-workspace/
+          cp $GITHUB_WORKSPACE/repo/action.yml /tmp/test-workspace/
 
       - name: Setup Bun and install dependencies
         id: setup
@@ -173,26 +158,21 @@ jobs:
   test-bun-lockfile:
     name: Bun - Lock file handling
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: /tmp/test-workspace
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          path: repo
 
-      - name: Create project with bun.lockb
+      - name: Setup isolated test environment
         run: |
-          mkdir -p /tmp/action-backup
-          cp -r dist action.yml /tmp/action-backup/
-          rm -rf ./*
-          rm -f pnpm-lock.yaml pnpm-workspace.yaml yarn.lock package-lock.json bun.lockb deno.lock .pnpmfile.cjs
-          cat > package.json <<'EOF'
-          {
-            "name": "bun-lockfile-test",
-            "version": "1.0.0",
-            "packageManager": "bun@1.1.42"
-          }
-          EOF
-          # Create empty lockfile
-          touch bun.lockb
-          cp -r /tmp/action-backup/* .
+          mkdir -p /tmp/test-workspace
+          cp -r $GITHUB_WORKSPACE/repo/__fixtures__/bun-lockfile/* /tmp/test-workspace/
+          cp -r $GITHUB_WORKSPACE/repo/dist /tmp/test-workspace/
+          cp $GITHUB_WORKSPACE/repo/action.yml /tmp/test-workspace/
 
       - name: Setup Bun with lockfile
         id: setup

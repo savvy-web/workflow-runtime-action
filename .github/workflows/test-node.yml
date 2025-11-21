@@ -24,15 +24,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Create NPM project
+      - name: Setup isolated test environment
         run: |
-          mkdir -p /tmp/action-backup
-          cp -r dist action.yml /tmp/action-backup/
-          rm -rf ./*
-          rm -f pnpm-lock.yaml pnpm-workspace.yaml yarn.lock package-lock.json bun.lockb deno.lock .pnpmfile.cjs
-          npm init -y
-          echo "package-lock.json" > .gitignore
-          cp -r /tmp/action-backup/* .
+          mkdir -p /tmp/test-workspace
+          cp -r $GITHUB_WORKSPACE/repo/__fixtures__/node-pnpm/* /tmp/test-workspace/
+          cp -r $GITHUB_WORKSPACE/repo/dist /tmp/test-workspace/
+          cp $GITHUB_WORKSPACE/repo/action.yml /tmp/test-workspace/
 
       - name: Setup Node.js with NPM
         id: setup
@@ -60,20 +57,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Create PNPM project
+      - name: Setup isolated test environment
         run: |
-          mkdir -p /tmp/action-backup
-          cp -r dist action.yml /tmp/action-backup/
-          rm -rf ./*
-          rm -f pnpm-lock.yaml pnpm-workspace.yaml yarn.lock package-lock.json bun.lockb deno.lock .pnpmfile.cjs
-          cat > package.json <<'EOF'
-          {
-            "name": "pnpm-test",
-            "version": "1.0.0",
-            "packageManager": "pnpm@10.20.0"
-          }
-          EOF
-          cp -r /tmp/action-backup/* .
+          mkdir -p /tmp/test-workspace
+          cp -r $GITHUB_WORKSPACE/repo/__fixtures__/node-pnpm/* /tmp/test-workspace/
+          cp -r $GITHUB_WORKSPACE/repo/dist /tmp/test-workspace/
+          cp $GITHUB_WORKSPACE/repo/action.yml /tmp/test-workspace/
 
       - name: Setup Node.js with PNPM (auto-detect)
         id: setup
@@ -102,20 +91,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Create Yarn project
+      - name: Setup isolated test environment
         run: |
-          mkdir -p /tmp/action-backup
-          cp -r dist action.yml /tmp/action-backup/
-          rm -rf ./*
-          rm -f pnpm-lock.yaml pnpm-workspace.yaml yarn.lock package-lock.json bun.lockb deno.lock .pnpmfile.cjs
-          cat > package.json <<'EOF'
-          {
-            "name": "yarn-test",
-            "version": "1.0.0",
-            "packageManager": "yarn@4.5.3"
-          }
-          EOF
-          cp -r /tmp/action-backup/* .
+          mkdir -p /tmp/test-workspace
+          cp -r $GITHUB_WORKSPACE/repo/__fixtures__/node-pnpm/* /tmp/test-workspace/
+          cp -r $GITHUB_WORKSPACE/repo/dist /tmp/test-workspace/
+          cp $GITHUB_WORKSPACE/repo/action.yml /tmp/test-workspace/
 
       - name: Setup Node.js with Yarn (auto-detect)
         id: setup
@@ -144,15 +125,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Create project with .nvmrc
+      - name: Setup isolated test environment
         run: |
-          mkdir -p /tmp/action-backup
-          cp -r dist action.yml /tmp/action-backup/
-          rm -rf ./*
-          rm -f pnpm-lock.yaml pnpm-workspace.yaml yarn.lock package-lock.json bun.lockb deno.lock .pnpmfile.cjs
-          npm init -y
-          echo "20.11.0" > .nvmrc
-          cp -r /tmp/action-backup/* .
+          mkdir -p /tmp/test-workspace
+          cp -r $GITHUB_WORKSPACE/repo/__fixtures__/node-pnpm/* /tmp/test-workspace/
+          cp -r $GITHUB_WORKSPACE/repo/dist /tmp/test-workspace/
+          cp $GITHUB_WORKSPACE/repo/action.yml /tmp/test-workspace/
 
       - name: Setup Node.js from .nvmrc
         id: setup
@@ -179,14 +157,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Create minimal project
+      - name: Setup isolated test environment
         run: |
-          mkdir -p /tmp/action-backup
-          cp -r dist action.yml /tmp/action-backup/
-          rm -rf ./*
-          rm -f pnpm-lock.yaml pnpm-workspace.yaml yarn.lock package-lock.json bun.lockb deno.lock .pnpmfile.cjs
-          npm init -y
-          cp -r /tmp/action-backup/* .
+          mkdir -p /tmp/test-workspace
+          cp -r $GITHUB_WORKSPACE/repo/__fixtures__/node-pnpm/* /tmp/test-workspace/
+          cp -r $GITHUB_WORKSPACE/repo/dist /tmp/test-workspace/
+          cp $GITHUB_WORKSPACE/repo/action.yml /tmp/test-workspace/
 
       - name: Setup Node.js LTS
         id: setup

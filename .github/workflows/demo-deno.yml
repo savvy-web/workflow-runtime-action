@@ -18,30 +18,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Create test Deno project
+      - name: Setup isolated test environment
         run: |
-          # Backup action files
-          mkdir -p /tmp/action-backup
-          cp -r dist action.yml /tmp/action-backup/
-
-          # Create minimal Deno project
-          rm -rf ./*
-          rm -f pnpm-lock.yaml pnpm-workspace.yaml yarn.lock package-lock.json bun.lockb deno.lock .pnpmfile.cjs
-          cat > deno.json <<'EOF'
-          {
-            "tasks": {
-              "start": "deno run main.ts"
-            }
-          }
-          EOF
-
-          cat > main.ts <<'EOF'
-          console.log("Hello from Deno!");
-          console.log(`Deno version: ${Deno.version.deno}`);
-          EOF
-
-          # Restore action files
-          cp -r /tmp/action-backup/* .
+          mkdir -p /tmp/test-workspace
+          cp -r $GITHUB_WORKSPACE/repo/__fixtures__/deno-minimal/* /tmp/test-workspace/
+          cp -r $GITHUB_WORKSPACE/repo/dist /tmp/test-workspace/
+          cp $GITHUB_WORKSPACE/repo/action.yml /tmp/test-workspace/
 
       - name: Setup runtime (auto-detect Deno from deno.json)
         id: setup
@@ -73,38 +55,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Create test project with package.json
+      - name: Setup isolated test environment
         run: |
-          # Backup action files
-          mkdir -p /tmp/action-backup
-          cp -r dist action.yml /tmp/action-backup/
-
-          # Create project with Deno in package.json
-          rm -rf ./*
-          rm -f pnpm-lock.yaml pnpm-workspace.yaml yarn.lock package-lock.json bun.lockb deno.lock .pnpmfile.cjs
-          cat > package.json <<'EOF'
-          {
-            "name": "test-deno-project",
-            "version": "1.0.0",
-            "packageManager": "deno@1.46.3",
-            "scripts": {
-              "start": "deno run app.ts"
-            }
-          }
-          EOF
-
-          cat > app.ts <<'EOF'
-          const message: string = "TypeScript works natively in Deno!";
-          console.log(message);
-
-          // Deno standard library example
-          const encoder = new TextEncoder();
-          const data = encoder.encode(message);
-          console.log(`Encoded bytes: ${data.length}`);
-          EOF
-
-          # Restore action files
-          cp -r /tmp/action-backup/* .
+          mkdir -p /tmp/test-workspace
+          cp -r $GITHUB_WORKSPACE/repo/__fixtures__/multi-runtime/* /tmp/test-workspace/
+          cp -r $GITHUB_WORKSPACE/repo/dist /tmp/test-workspace/
+          cp $GITHUB_WORKSPACE/repo/action.yml /tmp/test-workspace/
 
       - name: Setup runtime (auto-detect from package.json)
         id: setup
@@ -128,46 +84,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Create Deno project with dependencies
+      - name: Setup isolated test environment
         run: |
-          # Backup action files
-          mkdir -p /tmp/action-backup
-          cp -r dist action.yml /tmp/action-backup/
-
-          # Create project with dependencies
-          rm -rf ./*
-          rm -f pnpm-lock.yaml pnpm-workspace.yaml yarn.lock package-lock.json bun.lockb deno.lock .pnpmfile.cjs
-          cat > deno.json <<'EOF'
-          {
-            "imports": {
-              "std/": "https://deno.land/std@0.214.0/"
-            }
-          }
-          EOF
-
-          cat > deno.lock <<'EOF'
-          {
-            "version": "3",
-            "packages": {
-              "specifiers": {}
-            },
-            "remote": {}
-          }
-          EOF
-
-          cat > server.ts <<'EOF'
-          import { serve } from "std/http/server.ts";
-
-          const handler = (_req: Request): Response => {
-            return new Response("Hello from Deno server!");
-          };
-
-          console.log("HTTP server configured (would run on :8000)");
-          console.log("Deno with dependencies works!");
-          EOF
-
-          # Restore action files
-          cp -r /tmp/action-backup/* .
+          mkdir -p /tmp/test-workspace
+          cp -r $GITHUB_WORKSPACE/repo/__fixtures__/deno-minimal/* /tmp/test-workspace/
+          cp -r $GITHUB_WORKSPACE/repo/dist /tmp/test-workspace/
+          cp $GITHUB_WORKSPACE/repo/action.yml /tmp/test-workspace/
 
       - name: Setup Deno runtime
         id: setup

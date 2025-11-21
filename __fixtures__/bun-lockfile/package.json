@@ -1,0 +1,5 @@
+{
+  "name": "bun-lockfile-test",
+  "version": "1.0.0",
+  "packageManager": "bun@1.1.42"
+}
