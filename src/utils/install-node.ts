@@ -30,6 +30,43 @@ async function readVersionFile(file: string): Promise<string> {
 }
 
 /**
+ * Queries nodejs.org/dist/index.json to resolve version specs
+ *
+ * @param spec - Version spec (e.g., "lts/*", "20.x", "latest")
+ * @returns Resolved version number (e.g., "20.19.5")
+ */
+async function queryNodeVersion(spec: string): Promise<string> {
+	const http = await import("@actions/http-client");
+	const client = new http.HttpClient("workflow-runtime-action");
+
+	try {
+		const response = await client.get("https://nodejs.org/dist/index.json");
+		const body = await response.readBody();
+		const versions = JSON.parse(body) as Array<{ version: string; lts: string | boolean }>;
+
+		// Handle lts/*
+		if (spec === "lts/*" || spec.toLowerCase() === "lts") {
+			const ltsVersion = versions.find((v) => v.lts && typeof v.lts === "string");
+			if (!ltsVersion) throw new Error("Could not find LTS version");
+			return ltsVersion.version.replace(/^v/, "");
+		}
+
+		// Handle version ranges like "20.x" or "20"
+		if (spec.includes(".x") || !spec.includes(".")) {
+			const major = spec.split(".")[0];
+			const matchingVersion = versions.find((v) => v.version.startsWith(`v${major}.`));
+			if (!matchingVersion) throw new Error(`Could not find version matching ${spec}`);
+			return matchingVersion.version.replace(/^v/, "");
+		}
+
+		// Exact version
+		return spec.replace(/^v/, "");
+	} catch (error) {
+		throw new Error(`Failed to query Node.js versions: ${error instanceof Error ? error.message : String(error)}`);
+	}
+}
+
+/**
  * Resolves Node.js version from input or version file
  *
  * @param version - Explicit version from input (e.g., "20.11.0", "lts/*")
@@ -39,17 +76,26 @@ async function readVersionFile(file: string): Promise<string> {
 async function resolveNodeVersion(version: string, versionFile: string): Promise<string> {
 	if (versionFile) {
 		core.info(`Reading Node.js version from ${versionFile}`);
-		return await readVersionFile(versionFile);
+		const fileVersion = await readVersionFile(versionFile);
+		// Version from file might also be "lts/*" or similar
+		if (fileVersion.includes("*") || fileVersion.includes(".x") || fileVersion.toLowerCase() === "lts") {
+			return await queryNodeVersion(fileVersion);
+		}
+		return fileVersion;
 	}
 
 	if (version) {
 		core.info(`Using Node.js version from input: ${version}`);
+		// Resolve version specs
+		if (version.includes("*") || version.includes(".x") || version.toLowerCase().startsWith("lts")) {
+			return await queryNodeVersion(version);
+		}
 		return version;
 	}
 
 	// Default to LTS
 	core.info("No version specified, defaulting to lts/*");
-	return "lts/*";
+	return await queryNodeVersion("lts/*");
 }
 
 /**
