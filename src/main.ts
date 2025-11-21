@@ -321,10 +321,16 @@ async function installDependencies(packageManager: PackageManager): Promise<void
 				command = existsSync("package-lock.json") ? ["ci"] : ["install"];
 				break;
 			case "pnpm":
-				command = ["install", "--frozen-lockfile"];
+				// Use frozen lockfile if pnpm-lock.yaml exists
+				command = existsSync("pnpm-lock.yaml") ? ["install", "--frozen-lockfile"] : ["install"];
 				break;
 			case "yarn":
-				command = ["install", "--frozen-lockfile", "--immutable"];
+				// Use frozen lockfile if yarn.lock exists
+				if (existsSync("yarn.lock")) {
+					command = ["install", "--immutable"];
+				} else {
+					command = ["install"];
+				}
 				break;
 		}
 
