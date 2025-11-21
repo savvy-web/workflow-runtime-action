@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { arch, platform } from "node:os";
 import * as cache from "@actions/cache";
 import * as core from "@actions/core";
+import * as exec from "@actions/exec";
 import type { Globber } from "@actions/glob";
 import * as glob from "@actions/glob";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -11,6 +12,7 @@ import { restoreCache, saveCache } from "../src/utils/cache-utils.js";
 // Mock all dependencies
 vi.mock("@actions/core");
 vi.mock("@actions/cache");
+vi.mock("@actions/exec");
 vi.mock("@actions/glob");
 vi.mock("node:fs/promises");
 vi.mock("node:crypto");
@@ -25,6 +27,7 @@ describe("restoreCache", () => {
 		vi.mocked(arch).mockReturnValue("x64");
 
 		vi.mocked(core.info).mockImplementation(() => {});
+		vi.mocked(core.debug).mockImplementation(() => {});
 		vi.mocked(core.warning).mockImplementation(() => {});
 		vi.mocked(core.startGroup).mockImplementation(() => {});
 		vi.mocked(core.endGroup).mockImplementation(() => {});
@@ -34,6 +37,36 @@ describe("restoreCache", () => {
 
 		vi.mocked(cache.restoreCache).mockResolvedValue(undefined);
 		vi.mocked(cache.saveCache).mockResolvedValue(1);
+
+		// Mock exec.exec for cache path detection
+		// Default: simulate successful cache path detection for each package manager
+		vi.mocked(exec.exec).mockImplementation(async (command, args, options) => {
+			const argsStr = args?.join(" ") || "";
+
+			// Simulate cache path detection commands
+			if (command === "npm" && argsStr === "config get cache") {
+				if (options?.listeners?.stdout) {
+					options.listeners.stdout(Buffer.from("/home/user/.npm\n"));
+				}
+				return 0;
+			}
+
+			if (command === "pnpm" && argsStr === "store path") {
+				if (options?.listeners?.stdout) {
+					options.listeners.stdout(Buffer.from("/home/user/.local/share/pnpm/store\n"));
+				}
+				return 0;
+			}
+
+			if (command === "yarn" && argsStr === "config get cacheFolder") {
+				if (options?.listeners?.stdout) {
+					options.listeners.stdout(Buffer.from("/home/user/.yarn/cache\n"));
+				}
+				return 0;
+			}
+
+			return 0;
+		});
 
 		// Mock globber
 		const globber = {
@@ -58,16 +91,20 @@ describe("restoreCache", () => {
 	});
 
 	describe("npm caching", () => {
-		it("should restore npm cache with correct paths", async () => {
+		it("should restore npm cache with detected path", async () => {
 			await restoreCache("npm");
 
-			expect(cache.restoreCache).toHaveBeenCalledWith(["~/.npm", "**/node_modules"], "npm-linux-x64-abc123def456", [
-				"npm-linux-x64-",
-			]);
+			expect(exec.exec).toHaveBeenCalledWith("npm", ["config", "get", "cache"], expect.any(Object));
+			expect(cache.restoreCache).toHaveBeenCalledWith(
+				["/home/user/.npm", "**/node_modules"],
+				"npm-linux-x64-abc123def456",
+				["npm-linux-x64-"],
+			);
 		});
 
-		it("should use Windows paths on win32", async () => {
+		it("should use default paths when detection fails", async () => {
 			vi.mocked(platform).mockReturnValue("win32");
+			vi.mocked(exec.exec).mockResolvedValue(1); // Simulate failure
 
 			await restoreCache("npm");
 
@@ -96,18 +133,20 @@ describe("restoreCache", () => {
 	});
 
 	describe("pnpm caching", () => {
-		it("should restore pnpm cache with correct paths", async () => {
+		it("should restore pnpm cache with detected path", async () => {
 			await restoreCache("pnpm");
 
+			expect(exec.exec).toHaveBeenCalledWith("pnpm", ["store", "path"], expect.any(Object));
 			expect(cache.restoreCache).toHaveBeenCalledWith(
-				["~/.local/share/pnpm/store", "**/node_modules"],
+				["/home/user/.local/share/pnpm/store", "**/node_modules"],
 				"pnpm-linux-x64-abc123def456",
 				["pnpm-linux-x64-"],
 			);
 		});
 
-		it("should use Windows paths on win32", async () => {
+		it("should use default paths when detection fails", async () => {
 			vi.mocked(platform).mockReturnValue("win32");
+			vi.mocked(exec.exec).mockResolvedValue(1); // Simulate failure
 
 			await restoreCache("pnpm");
 
@@ -129,13 +168,13 @@ describe("restoreCache", () => {
 	});
 
 	describe("yarn caching", () => {
-		it("should restore yarn cache with correct paths", async () => {
+		it("should restore yarn cache with detected path", async () => {
 			await restoreCache("yarn");
 
+			expect(exec.exec).toHaveBeenCalledWith("yarn", ["config", "get", "cacheFolder"], expect.any(Object));
 			expect(cache.restoreCache).toHaveBeenCalledWith(
 				[
-					"~/.yarn/cache",
-					"~/.cache/yarn",
+					"/home/user/.yarn/cache",
 					"**/node_modules",
 					"**/.yarn/cache",
 					"**/.yarn/unplugged",
@@ -146,8 +185,9 @@ describe("restoreCache", () => {
 			);
 		});
 
-		it("should use Windows paths on win32", async () => {
+		it("should use default paths when detection fails", async () => {
 			vi.mocked(platform).mockReturnValue("win32");
+			vi.mocked(exec.exec).mockResolvedValue(1); // Simulate failure
 
 			await restoreCache("yarn");
 
@@ -162,6 +202,57 @@ describe("restoreCache", () => {
 			await restoreCache("yarn");
 
 			expect(glob.create).toHaveBeenCalledWith("**/yarn.lock", expect.any(Object));
+		});
+
+		it("should fallback to yarn cache dir for Yarn Classic", async () => {
+			// Mock Yarn Berry returning "undefined", then Yarn Classic succeeding
+			vi.mocked(exec.exec).mockImplementation(async (command, args, options) => {
+				const argsStr = args?.join(" ") || "";
+
+				if (command === "yarn" && argsStr === "config get cacheFolder") {
+					// Yarn Berry returns "undefined" when cacheFolder not set
+					if (options?.listeners?.stdout) {
+						options.listeners.stdout(Buffer.from("undefined\n"));
+					}
+					return 0;
+				}
+
+				if (command === "yarn" && argsStr === "cache dir") {
+					// Yarn Classic fallback
+					if (options?.listeners?.stdout) {
+						options.listeners.stdout(Buffer.from("/home/user/.cache/yarn/v6\n"));
+					}
+					return 0;
+				}
+
+				return 0;
+			});
+
+			await restoreCache("yarn");
+
+			expect(exec.exec).toHaveBeenCalledWith("yarn", ["config", "get", "cacheFolder"], expect.any(Object));
+			expect(exec.exec).toHaveBeenCalledWith("yarn", ["cache", "dir"], expect.any(Object));
+			expect(cache.restoreCache).toHaveBeenCalledWith(
+				expect.arrayContaining(["/home/user/.cache/yarn/v6"]),
+				"yarn-linux-x64-abc123def456",
+				["yarn-linux-x64-"],
+			);
+		});
+	});
+
+	describe("cache path detection", () => {
+		it("should handle detection errors gracefully", async () => {
+			// Mock exec.exec to throw an error
+			vi.mocked(exec.exec).mockRejectedValue(new Error("Command failed"));
+
+			await restoreCache("npm");
+
+			// Should fallback to default paths
+			expect(cache.restoreCache).toHaveBeenCalledWith(
+				expect.arrayContaining(["~/.npm"]),
+				expect.any(String),
+				expect.any(Array),
+			);
 		});
 	});
 

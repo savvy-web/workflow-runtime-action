@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { arch, platform } from "node:os";
 import * as cache from "@actions/cache";
 import * as core from "@actions/core";
+import * as exec from "@actions/exec";
 import * as glob from "@actions/glob";
 
 /**
@@ -23,44 +24,138 @@ interface CacheConfig {
 }
 
 /**
+ * Detects cache path for a package manager by querying it directly
+ *
+ * @param packageManager - Package manager to query
+ * @returns Detected cache path or null if detection failed
+ */
+async function detectCachePath(packageManager: PackageManager): Promise<string | null> {
+	try {
+		let output = "";
+		const options = {
+			silent: true,
+			listeners: {
+				stdout: (data: Buffer): void => {
+					output += data.toString();
+				},
+			},
+		};
+
+		switch (packageManager) {
+			case "npm": {
+				// npm config get cache
+				const exitCode = await exec.exec("npm", ["config", "get", "cache"], options);
+				if (exitCode === 0 && output.trim()) {
+					return output.trim();
+				}
+				break;
+			}
+
+			case "pnpm": {
+				// pnpm store path
+				const exitCode = await exec.exec("pnpm", ["store", "path"], options);
+				if (exitCode === 0 && output.trim()) {
+					return output.trim();
+				}
+				break;
+			}
+
+			case "yarn": {
+				// Try Yarn Berry first: yarn config get cacheFolder
+				let exitCode = await exec.exec("yarn", ["config", "get", "cacheFolder"], options);
+				if (exitCode === 0 && output.trim() && output.trim() !== "undefined") {
+					return output.trim();
+				}
+
+				// Fallback to Yarn Classic: yarn cache dir
+				output = "";
+				exitCode = await exec.exec("yarn", ["cache", "dir"], options);
+				if (exitCode === 0 && output.trim()) {
+					return output.trim();
+				}
+				break;
+			}
+		}
+	} catch (error) {
+		core.debug(
+			`Failed to detect cache path for ${packageManager}: ${error instanceof Error ? error.message : String(error)}`,
+		);
+	}
+
+	return null;
+}
+
+/**
+ * Gets default fallback cache paths for a package manager
+ *
+ * @param packageManager - The package manager
+ * @returns Default cache paths based on platform
+ */
+function getDefaultCachePaths(packageManager: PackageManager): string[] {
+	const plat = platform();
+
+	switch (packageManager) {
+		case "npm":
+			return [plat === "win32" ? "~/AppData/Local/npm-cache" : "~/.npm"];
+
+		case "pnpm":
+			return [plat === "win32" ? "~/AppData/Local/pnpm/store" : "~/.local/share/pnpm/store"];
+
+		case "yarn":
+			return [
+				plat === "win32" ? "~/AppData/Local/Yarn/Cache" : "~/.yarn/cache",
+				plat === "win32" ? "~/AppData/Local/Yarn/Berry/cache" : "~/.cache/yarn",
+			];
+	}
+}
+
+/**
  * Gets cache configuration for a package manager
  *
  * @param packageManager - The package manager to get config for
- * @returns Cache configuration
+ * @returns Cache configuration with dynamically detected paths
  */
-function getCacheConfig(packageManager: PackageManager): CacheConfig {
+async function getCacheConfig(packageManager: PackageManager): Promise<CacheConfig> {
 	const plat = platform();
 	const architecture = arch();
 
+	// Detect cache path from package manager
+	const detectedPath = await detectCachePath(packageManager);
+
+	// Build cache paths array
+	const globalCachePaths = detectedPath ? [detectedPath] : getDefaultCachePaths(packageManager);
+
+	// Additional paths to cache based on package manager
+	const additionalPaths: string[] = ["**/node_modules"];
+
 	switch (packageManager) {
-		case "pnpm":
-			return {
-				cachePaths: [plat === "win32" ? "~/AppData/Local/pnpm/store" : "~/.local/share/pnpm/store", "**/node_modules"],
-				lockFilePatterns: ["**/pnpm-lock.yaml", "**/pnpm-workspace.yaml", "**/.pnpmfile.cjs"],
-				keyPrefix: `pnpm-${plat}-${architecture}`,
-			};
-
 		case "yarn":
-			return {
-				cachePaths: [
-					plat === "win32" ? "~/AppData/Local/Yarn/Cache" : "~/.yarn/cache",
-					plat === "win32" ? "~/AppData/Local/Yarn/Berry/cache" : "~/.cache/yarn",
-					"**/node_modules",
-					"**/.yarn/cache",
-					"**/.yarn/unplugged",
-					"**/.yarn/install-state.gz",
-				],
-				lockFilePatterns: ["**/yarn.lock"],
-				keyPrefix: `yarn-${plat}-${architecture}`,
-			};
-
-		case "npm":
-			return {
-				cachePaths: [plat === "win32" ? "~/AppData/Local/npm-cache" : "~/.npm", "**/node_modules"],
-				lockFilePatterns: ["**/package-lock.json"],
-				keyPrefix: `npm-${plat}-${architecture}`,
-			};
+			// Yarn also needs to cache project-level .yarn directories
+			additionalPaths.push("**/.yarn/cache", "**/.yarn/unplugged", "**/.yarn/install-state.gz");
+			break;
 	}
+
+	const cachePaths = [...globalCachePaths, ...additionalPaths];
+
+	// Lock file patterns
+	const lockFilePatterns =
+		packageManager === "npm"
+			? ["**/package-lock.json"]
+			: packageManager === "pnpm"
+				? ["**/pnpm-lock.yaml", "**/pnpm-workspace.yaml", "**/.pnpmfile.cjs"]
+				: ["**/yarn.lock"];
+
+	if (detectedPath) {
+		core.info(`Detected ${packageManager} cache path: ${detectedPath}`);
+	} else {
+		core.debug(`Using default ${packageManager} cache paths: ${globalCachePaths.join(", ")}`);
+	}
+
+	return {
+		cachePaths,
+		lockFilePatterns,
+		keyPrefix: `${packageManager}-${plat}-${architecture}`,
+	};
 }
 
 /**
@@ -106,7 +201,7 @@ async function hashFiles(files: string[]): Promise<string> {
  * @returns Cache key string
  */
 async function generateCacheKey(packageManager: PackageManager, lockFiles: string[]): Promise<string> {
-	const config = getCacheConfig(packageManager);
+	const config = await getCacheConfig(packageManager);
 	const fileHash = await hashFiles(lockFiles);
 
 	return `${config.keyPrefix}-${fileHash}`;
@@ -118,8 +213,8 @@ async function generateCacheKey(packageManager: PackageManager, lockFiles: strin
  * @param packageManager - Package manager being cached
  * @returns Array of restore key prefixes
  */
-function generateRestoreKeys(packageManager: PackageManager): string[] {
-	const config = getCacheConfig(packageManager);
+async function generateRestoreKeys(packageManager: PackageManager): Promise<string[]> {
+	const config = await getCacheConfig(packageManager);
 	return [`${config.keyPrefix}-`];
 }
 
@@ -133,7 +228,7 @@ export async function restoreCache(packageManager: PackageManager): Promise<stri
 	core.startGroup(`📦 Restoring ${packageManager} cache`);
 
 	try {
-		const config = getCacheConfig(packageManager);
+		const config = await getCacheConfig(packageManager);
 
 		// Find lock files
 		const lockFiles = await findLockFiles(config.lockFilePatterns);
@@ -148,7 +243,7 @@ export async function restoreCache(packageManager: PackageManager): Promise<stri
 
 		// Generate cache keys
 		const primaryKey = await generateCacheKey(packageManager, lockFiles);
-		const restoreKeys = generateRestoreKeys(packageManager);
+		const restoreKeys = await generateRestoreKeys(packageManager);
 
 		core.info(`Primary key: ${primaryKey}`);
 		core.info(`Restore keys: ${restoreKeys.join(", ")}`);
