@@ -26,6 +26,7 @@ jobs:
 
           # Create minimal Deno project
           rm -rf ./*
+          rm -f pnpm-lock.yaml pnpm-workspace.yaml yarn.lock package-lock.json bun.lockb deno.lock .pnpmfile.cjs
           cat > deno.json <<'EOF'
           {
             "tasks": {
@@ -80,6 +81,7 @@ jobs:
 
           # Create project with Deno in package.json
           rm -rf ./*
+          rm -f pnpm-lock.yaml pnpm-workspace.yaml yarn.lock package-lock.json bun.lockb deno.lock .pnpmfile.cjs
           cat > package.json <<'EOF'
           {
             "name": "test-deno-project",
@@ -134,6 +136,7 @@ jobs:
 
           # Create project with dependencies
           rm -rf ./*
+          rm -f pnpm-lock.yaml pnpm-workspace.yaml yarn.lock package-lock.json bun.lockb deno.lock .pnpmfile.cjs
           cat > deno.json <<'EOF'
           {
             "imports": {

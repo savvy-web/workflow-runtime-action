@@ -29,6 +29,7 @@ jobs:
           mkdir -p /tmp/action-backup
           cp -r dist action.yml /tmp/action-backup/
           rm -rf ./*
+          rm -f pnpm-lock.yaml pnpm-workspace.yaml yarn.lock package-lock.json bun.lockb deno.lock .pnpmfile.cjs
           cat > deno.json <<'EOF'
           {
             "tasks": {
@@ -89,6 +90,7 @@ jobs:
           mkdir -p /tmp/action-backup
           cp -r dist action.yml /tmp/action-backup/
           rm -rf ./*
+          rm -f pnpm-lock.yaml pnpm-workspace.yaml yarn.lock package-lock.json bun.lockb deno.lock .pnpmfile.cjs
           cat > package.json <<'EOF'
           {
             "name": "deno-packagejson-test",
@@ -143,6 +145,7 @@ jobs:
           mkdir -p /tmp/action-backup
           cp -r dist action.yml /tmp/action-backup/
           rm -rf ./*
+          rm -f pnpm-lock.yaml pnpm-workspace.yaml yarn.lock package-lock.json bun.lockb deno.lock .pnpmfile.cjs
           cat > deno.json <<'EOF'
           {
             "tasks": {
@@ -191,6 +194,7 @@ jobs:
           mkdir -p /tmp/action-backup
           cp -r dist action.yml /tmp/action-backup/
           rm -rf ./*
+          rm -f pnpm-lock.yaml pnpm-workspace.yaml yarn.lock package-lock.json bun.lockb deno.lock .pnpmfile.cjs
           cat > deno.json <<'EOF'
           {
             "imports": {
@@ -254,6 +258,7 @@ jobs:
           mkdir -p /tmp/action-backup
           cp -r dist action.yml /tmp/action-backup/
           rm -rf ./*
+          rm -f pnpm-lock.yaml pnpm-workspace.yaml yarn.lock package-lock.json bun.lockb deno.lock .pnpmfile.cjs
           cat > deno.json <<'EOF'
           {
             "tasks": {

@@ -29,6 +29,7 @@ jobs:
           mkdir -p /tmp/action-backup
           cp -r dist action.yml /tmp/action-backup/
           rm -rf ./*
+          rm -f pnpm-lock.yaml pnpm-workspace.yaml yarn.lock package-lock.json bun.lockb deno.lock .pnpmfile.cjs
           cat > package.json <<'EOF'
           {
             "name": "bun-test",
@@ -87,6 +88,7 @@ jobs:
           mkdir -p /tmp/action-backup
           cp -r dist action.yml /tmp/action-backup/
           rm -rf ./*
+          rm -f pnpm-lock.yaml pnpm-workspace.yaml yarn.lock package-lock.json bun.lockb deno.lock .pnpmfile.cjs
           npm init -y
           echo 'console.log("Bun explicit version test");' > test.js
           cp -r /tmp/action-backup/* .
@@ -129,6 +131,7 @@ jobs:
           mkdir -p /tmp/action-backup
           cp -r dist action.yml /tmp/action-backup/
           rm -rf ./*
+          rm -f pnpm-lock.yaml pnpm-workspace.yaml yarn.lock package-lock.json bun.lockb deno.lock .pnpmfile.cjs
           cat > package.json <<'EOF'
           {
             "name": "bun-deps-test",
@@ -179,6 +182,7 @@ jobs:
           mkdir -p /tmp/action-backup
           cp -r dist action.yml /tmp/action-backup/
           rm -rf ./*
+          rm -f pnpm-lock.yaml pnpm-workspace.yaml yarn.lock package-lock.json bun.lockb deno.lock .pnpmfile.cjs
           cat > package.json <<'EOF'
           {
             "name": "bun-lockfile-test",

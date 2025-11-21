@@ -448,10 +448,11 @@ async function installDependencies(packageManager: PackageManager): Promise<void
 				command = existsSync("bun.lockb") ? ["install", "--frozen-lockfile"] : ["install"];
 				break;
 			case "deno":
-				// Deno uses 'deno install' to cache dependencies
-				// Check if deno.lock exists for frozen mode
-				command = existsSync("deno.lock") ? ["install", "--frozen"] : ["install"];
-				break;
+				// Deno caches dependencies automatically on first use
+				// Skip explicit install step as 'deno install' is for CLI tools in Deno 1.x
+				core.info("Deno caches dependencies automatically, skipping install step");
+				core.endGroup();
+				return;
 		}
 
 		await exec.exec(packageManager, command);

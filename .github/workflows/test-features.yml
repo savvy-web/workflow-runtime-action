@@ -29,6 +29,7 @@ jobs:
           mkdir -p /tmp/action-backup
           cp -r dist action.yml /tmp/action-backup/
           rm -rf ./*
+          rm -f pnpm-lock.yaml pnpm-workspace.yaml yarn.lock package-lock.json bun.lockb deno.lock .pnpmfile.cjs
           npm init -y
           cat > biome.jsonc <<'EOF'
           {
@@ -90,6 +91,7 @@ jobs:
           mkdir -p /tmp/action-backup
           cp -r dist action.yml /tmp/action-backup/
           rm -rf ./*
+          rm -f pnpm-lock.yaml pnpm-workspace.yaml yarn.lock package-lock.json bun.lockb deno.lock .pnpmfile.cjs
           npm init -y
           echo 'const y = 2;' > test.js
           cp -r /tmp/action-backup/* .
@@ -132,6 +134,7 @@ jobs:
           mkdir -p /tmp/action-backup
           cp -r dist action.yml /tmp/action-backup/
           rm -rf ./*
+          rm -f pnpm-lock.yaml pnpm-workspace.yaml yarn.lock package-lock.json bun.lockb deno.lock .pnpmfile.cjs
           cat > package.json <<'EOF'
           {
             "name": "turbo-monorepo",
@@ -199,6 +202,7 @@ jobs:
           mkdir -p /tmp/action-backup
           cp -r dist action.yml /tmp/action-backup/
           rm -rf ./*
+          rm -f pnpm-lock.yaml pnpm-workspace.yaml yarn.lock package-lock.json bun.lockb deno.lock .pnpmfile.cjs
           cat > package.json <<'EOF'
           {
             "name": "cache-test",
@@ -276,6 +280,7 @@ jobs:
           mkdir -p /tmp/action-backup
           cp -r dist action.yml /tmp/action-backup/
           rm -rf ./*
+          rm -f pnpm-lock.yaml pnpm-workspace.yaml yarn.lock package-lock.json bun.lockb deno.lock .pnpmfile.cjs
           cat > package.json <<'EOF'
           {
             "name": "skip-deps-test",

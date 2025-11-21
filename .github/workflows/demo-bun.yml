@@ -26,6 +26,7 @@ jobs:
 
           # Create minimal Bun project
           rm -rf ./*
+          rm -f pnpm-lock.yaml pnpm-workspace.yaml yarn.lock package-lock.json bun.lockb deno.lock .pnpmfile.cjs
           cat > package.json <<'EOF'
           {
             "name": "test-bun-project",
@@ -84,6 +85,7 @@ jobs:
 
           # Create minimal project
           rm -rf ./*
+          rm -f pnpm-lock.yaml pnpm-workspace.yaml yarn.lock package-lock.json bun.lockb deno.lock .pnpmfile.cjs
           cat > package.json <<'EOF'
           {
             "name": "test-bun-explicit",

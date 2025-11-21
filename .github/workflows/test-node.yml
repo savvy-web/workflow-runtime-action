@@ -29,6 +29,7 @@ jobs:
           mkdir -p /tmp/action-backup
           cp -r dist action.yml /tmp/action-backup/
           rm -rf ./*
+          rm -f pnpm-lock.yaml pnpm-workspace.yaml yarn.lock package-lock.json bun.lockb deno.lock .pnpmfile.cjs
           npm init -y
           echo "package-lock.json" > .gitignore
           cp -r /tmp/action-backup/* .
@@ -64,6 +65,7 @@ jobs:
           mkdir -p /tmp/action-backup
           cp -r dist action.yml /tmp/action-backup/
           rm -rf ./*
+          rm -f pnpm-lock.yaml pnpm-workspace.yaml yarn.lock package-lock.json bun.lockb deno.lock .pnpmfile.cjs
           cat > package.json <<'EOF'
           {
             "name": "pnpm-test",
@@ -105,6 +107,7 @@ jobs:
           mkdir -p /tmp/action-backup
           cp -r dist action.yml /tmp/action-backup/
           rm -rf ./*
+          rm -f pnpm-lock.yaml pnpm-workspace.yaml yarn.lock package-lock.json bun.lockb deno.lock .pnpmfile.cjs
           cat > package.json <<'EOF'
           {
             "name": "yarn-test",
@@ -146,6 +149,7 @@ jobs:
           mkdir -p /tmp/action-backup
           cp -r dist action.yml /tmp/action-backup/
           rm -rf ./*
+          rm -f pnpm-lock.yaml pnpm-workspace.yaml yarn.lock package-lock.json bun.lockb deno.lock .pnpmfile.cjs
           npm init -y
           echo "20.11.0" > .nvmrc
           cp -r /tmp/action-backup/* .
@@ -180,6 +184,7 @@ jobs:
           mkdir -p /tmp/action-backup
           cp -r dist action.yml /tmp/action-backup/
           rm -rf ./*
+          rm -f pnpm-lock.yaml pnpm-workspace.yaml yarn.lock package-lock.json bun.lockb deno.lock .pnpmfile.cjs
           npm init -y
           cp -r /tmp/action-backup/* .
 
