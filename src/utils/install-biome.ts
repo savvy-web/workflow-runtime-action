@@ -44,7 +44,8 @@ function getBiomeBinaryName(): string {
  */
 async function downloadBiome(version: string): Promise<string> {
 	const binaryName = getBiomeBinaryName();
-	const downloadUrl = `https://github.com/biomejs/biome/releases/download/cli%2Fv${version}/${binaryName}`;
+	// Biome uses @biomejs/biome@version tag format (URL-encoded: %40biomejs%2Fbiome%40version)
+	const downloadUrl = `https://github.com/biomejs/biome/releases/download/%40biomejs%2Fbiome%40${version}/${binaryName}`;
 
 	core.info(`Downloading Biome ${version} from ${downloadUrl}`);
 
