@@ -121,7 +121,10 @@ describe("restoreCache", () => {
 		it("should find pnpm-lock.yaml files", async () => {
 			await restoreCache("pnpm");
 
-			expect(glob.create).toHaveBeenCalledWith("**/pnpm-lock.yaml", expect.any(Object));
+			expect(glob.create).toHaveBeenCalledWith(
+				"**/pnpm-lock.yaml\n**/pnpm-workspace.yaml\n**/.pnpmfile.cjs",
+				expect.any(Object),
+			);
 		});
 	});
 

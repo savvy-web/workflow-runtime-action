@@ -48,7 +48,9 @@ describe("installNode", () => {
 				]),
 			),
 		});
-		vi.mocked(HttpClient).mockImplementation(() => ({ get: mockGet }) as unknown as InstanceType<typeof HttpClient>);
+		vi.mocked(HttpClient).mockImplementation(function (this: InstanceType<typeof HttpClient>) {
+			return { get: mockGet } as unknown as InstanceType<typeof HttpClient>;
+		} as unknown as typeof HttpClient);
 	});
 
 	afterEach(() => {
