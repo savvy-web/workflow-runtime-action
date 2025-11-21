@@ -623,7 +623,7 @@ This approach:
 
 ### Updating Integration Tests
 
-The integration tests use a backup/restore pattern to create isolated test environments. When adding or modifying integration tests, follow these guidelines:
+The integration tests use a **fixtures-based isolated testing approach**. All tests run in isolated `/tmp/test-workspace` directories using pre-configured project templates from the `__fixtures__/` directory.
 
 #### Test Workflow Structure
 
@@ -636,132 +636,170 @@ Integration tests are organized in `.github/workflows/`:
 * **`demo-bun.yml`** - Bun demo workflows (minimal, workspace, multi-PM)
 * **`demo-deno.yml`** - Deno demo workflows (minimal, multi-runtime)
 
-#### Standard Test Pattern
+#### Available Test Fixtures
 
-Each test scenario follows this pattern:
-
-```yaml
-- name: Create test project
-  run: |
-    # 1. Backup action files (only dist and action.yml)
-    mkdir -p /tmp/action-backup
-    cp -r dist action.yml /tmp/action-backup/
-
-    # 2. Remove all files in working directory
-    rm -rf ./*
-
-    # 3. CRITICAL: Explicitly remove lockfiles to prevent conflicts
-    rm -f pnpm-lock.yaml pnpm-workspace.yaml yarn.lock package-lock.json bun.lockb deno.lock .pnpmfile.cjs
-
-    # 4. Create minimal test project
-    npm init -y
-    cat > package.json <<'EOF'
-    {
-      "name": "test-project",
-      "packageManager": "pnpm@10.20.0"
-    }
-    EOF
-
-    # 5. Restore action files
-    cp -r /tmp/action-backup/* .
-
-- name: Run action
-  id: setup
-  uses: ./
-```
-
-#### Why Explicit Lockfile Removal is Critical
-
-**Problem:** The repository contains real lockfiles (`pnpm-lock.yaml`, `pnpm-workspace.yaml`) from development. When tests create minimal projects, these lockfiles don't match the simplified `package.json`, causing errors:
+The `__fixtures__/` directory contains pre-configured test projects:
 
 ```text
-ERR_PNPM_OUTDATED_LOCKFILE: Cannot install with "frozen-lockfile"
-because pnpm-lock.yaml is not up to date with package.json
+__fixtures__/
+├── README.md              # Fixtures documentation
+├── node-minimal/          # Basic Node.js with npm
+├── node-pnpm/             # Node.js with pnpm
+├── node-yarn/             # Node.js with Yarn
+├── bun-minimal/           # Basic Bun with index.ts, test.js
+├── bun-workspace/         # Bun workspace with packages/
+├── bun-deps/              # Bun with lodash dependency
+├── bun-lockfile/          # Bun with bun.lockb
+├── deno-minimal/          # Basic Deno with main.ts
+├── deno-deps/             # Deno with npm:lodash import
+├── deno-lockfile/         # Deno with deno.lock
+├── biome-auto/            # Biome config for auto-detection
+├── turbo-monorepo/        # Turborepo with packages/
+├── cache-test/            # Project with dependencies
+└── multi-runtime/         # Node.js (pnpm) + Deno
 ```
 
-**Solution:** Always include the explicit lockfile removal step after `rm -rf ./*`:
+#### Standard Test Pattern
 
-```bash
-rm -f pnpm-lock.yaml pnpm-workspace.yaml yarn.lock package-lock.json bun.lockb deno.lock .pnpmfile.cjs
-```
-
-This ensures:
-
-* No leftover lockfiles from the repository
-* Clean test environment for each scenario
-* Package managers can create appropriate lockfiles for test projects
-* No conflicts between real dependencies and test dependencies
-
-#### Adding New Test Scenarios
-
-When adding a new test scenario:
-
-1. **Choose the appropriate workflow file** based on what you're testing
-2. **Copy an existing test job** as a template
-3. **Update the test project creation** to match your scenario
-4. **Always include lockfile removal** after `rm -rf ./*`
-5. **Verify the action outputs** match expected values
-6. **Add verification steps** to ensure the scenario works
-
-Example - Adding a new Bun workspace test:
+All test jobs follow this isolated testing pattern:
 
 ```yaml
-test-bun-workspace-custom:
-  name: Bun - Custom workspace config
+test-example:
+  name: Example Test
   runs-on: ubuntu-latest
+  defaults:
+    run:
+      working-directory: /tmp/test-workspace
   steps:
     - name: Checkout
       uses: actions/checkout@v6
+      with:
+        path: repo  # Checkout to subdirectory, not root
 
-    - name: Create Bun workspace
+    - name: Setup isolated test environment
       run: |
-        mkdir -p /tmp/action-backup
-        cp -r dist action.yml /tmp/action-backup/
-        rm -rf ./*
-        rm -f pnpm-lock.yaml pnpm-workspace.yaml yarn.lock package-lock.json bun.lockb deno.lock .pnpmfile.cjs
+        mkdir -p /tmp/test-workspace
+        cp -r $GITHUB_WORKSPACE/repo/__fixtures__/[fixture-name]/* /tmp/test-workspace/
+        cp -r $GITHUB_WORKSPACE/repo/dist /tmp/test-workspace/
+        cp $GITHUB_WORKSPACE/repo/action.yml /tmp/test-workspace/
 
-        # Create workspace root
-        cat > package.json <<'EOF'
-        {
-          "name": "bun-workspace-custom",
-          "workspaces": ["packages/*"],
-          "packageManager": "bun@1.1.42"
-        }
-        EOF
+    - name: Run action
+      id: setup
+      uses: ./  # Runs in /tmp/test-workspace
 
-        # Create workspace package
-        mkdir -p packages/custom-pkg
-        cat > packages/custom-pkg/package.json <<'EOF'
-        {
-          "name": "@workspace/custom-pkg",
-          "dependencies": {
-            "lodash": "^4.17.21"
-          }
-        }
-        EOF
+    - name: Verify results
+      run: |
+        # Verification steps run in /tmp/test-workspace
+        echo "Test passed!"
+```
 
-        cp -r /tmp/action-backup/* .
+#### Why This Approach Works
 
-    - name: Setup Bun
+**Benefits of Fixtures-Based Testing:**
+
+1. **True Isolation** - Tests run in `/tmp/test-workspace`, completely separate from repository
+2. **No Repository Contamination** - No .git directory, no lockfiles, no hidden files
+3. **Version-Controlled Tests** - Fixtures are committed, reproducible, and reviewable
+4. **Easy to Maintain** - No complex heredoc project creation or cleanup logic
+5. **Fast to Write** - Just copy an existing fixture and modify
+
+**Problems Solved:**
+
+* ❌ `ERR_PNPM_OUTDATED_LOCKFILE` - No lockfile conflicts
+* ❌ Repository .git interference - Tests don't touch repository
+* ❌ Hidden file contamination - Clean environment every time
+* ❌ Fragile cleanup logic - No cleanup needed
+
+#### Adding New Test Scenarios
+
+##### Option 1: Use Existing Fixture
+
+If an existing fixture meets your needs, just reference it:
+
+```yaml
+test-bun-workspace-example:
+  name: Bun - Workspace Test
+  runs-on: ubuntu-latest
+  defaults:
+    run:
+      working-directory: /tmp/test-workspace
+  steps:
+    - uses: actions/checkout@v6
+      with:
+        path: repo
+
+    - name: Setup isolated test environment
+      run: |
+        mkdir -p /tmp/test-workspace
+        cp -r $GITHUB_WORKSPACE/repo/__fixtures__/bun-workspace/* /tmp/test-workspace/
+        cp -r $GITHUB_WORKSPACE/repo/dist /tmp/test-workspace/
+        cp $GITHUB_WORKSPACE/repo/action.yml /tmp/test-workspace/
+
+    - name: Run action
       id: setup
       uses: ./
-      with:
-        runtime: bun
-        bun-version: "1.1.42"
 
-    - name: Verify workspace setup
+    - name: Verify results
       run: |
-        echo "## Custom Bun Workspace Test" >> $GITHUB_STEP_SUMMARY
-        echo "- Runtime: \`${{ steps.setup.outputs.runtime }}\`" >> $GITHUB_STEP_SUMMARY
-        echo "- Bun Version: \`${{ steps.setup.outputs.bun-version }}\`" >> $GITHUB_STEP_SUMMARY
-
-        # Verify Bun is installed
         bun --version
+        test -d node_modules
+        echo "✅ Test passed!"
+```
 
-        # Verify dependencies in workspace package
-        test -d packages/custom-pkg/node_modules/lodash
+##### Option 2: Create New Fixture
 
-        echo "✅ Custom workspace test passed" >> $GITHUB_STEP_SUMMARY
+If you need a new test scenario, create a fixture in `__fixtures__/`:
+
+1. **Create fixture directory:**
+
+   ```bash
+   mkdir -p __fixtures__/my-new-fixture
+   ```
+
+2. **Add project files:**
+
+   ```bash
+   # For a Node.js project
+   cat > __fixtures__/my-new-fixture/package.json <<'EOF'
+   {
+     "name": "my-test-project",
+     "packageManager": "pnpm@10.20.0"
+   }
+   EOF
+   ```
+
+3. **Use in workflow:**
+
+   ```yaml
+   - name: Setup isolated test environment
+     run: |
+       mkdir -p /tmp/test-workspace
+       cp -r $GITHUB_WORKSPACE/repo/__fixtures__/my-new-fixture/* /tmp/test-workspace/
+       cp -r $GITHUB_WORKSPACE/repo/dist /tmp/test-workspace/
+       cp $GITHUB_WORKSPACE/repo/action.yml /tmp/test-workspace/
+   ```
+
+4. **Commit fixture:**
+
+   ```bash
+   git add __fixtures__/my-new-fixture/
+   git commit -m "feat: add my-new-fixture test scenario"
+   ```
+
+##### Option 3: Modify Fixture in Setup Step
+
+For one-off modifications, copy a fixture and modify it during setup:
+
+```yaml
+- name: Setup isolated test environment
+  run: |
+    mkdir -p /tmp/test-workspace
+    cp -r $GITHUB_WORKSPACE/repo/__fixtures__/bun-minimal/* /tmp/test-workspace/
+    cp -r $GITHUB_WORKSPACE/repo/dist /tmp/test-workspace/
+    cp $GITHUB_WORKSPACE/repo/action.yml /tmp/test-workspace/
+
+    # Add custom file for this test
+    echo 'console.log("Custom test");' > custom-test.js
 ```
 
 #### Common Test Patterns
@@ -769,71 +807,70 @@ test-bun-workspace-custom:
 **Testing cache effectiveness:**
 
 ```yaml
-- name: First run (cache miss)
-  id: setup1
-  uses: ./
+defaults:
+  run:
+    working-directory: /tmp/test-workspace
+steps:
+  - uses: actions/checkout@v6
+    with:
+      path: repo
 
-- name: Clear node_modules
-  run: rm -rf node_modules
+  - name: Setup isolated test environment
+    run: |
+      mkdir -p /tmp/test-workspace
+      cp -r $GITHUB_WORKSPACE/repo/__fixtures__/cache-test/* /tmp/test-workspace/
+      cp -r $GITHUB_WORKSPACE/repo/dist /tmp/test-workspace/
+      cp $GITHUB_WORKSPACE/repo/action.yml /tmp/test-workspace/
 
-- name: Second run (cache hit expected)
-  id: setup2
-  uses: ./
+  - name: First run (cache miss)
+    id: setup1
+    uses: ./
 
-- name: Verify cache hit
-  run: |
-    if [ "${{ steps.setup2.outputs.cache-hit }}" == "false" ]; then
-      echo "❌ Expected cache hit"
-      exit 1
-    fi
+  - name: Clear node_modules
+    run: rm -rf node_modules
+
+  - name: Second run (cache hit expected)
+    id: setup2
+    uses: ./
+
+  - name: Verify cache hit
+    run: |
+      if [ "${{ steps.setup2.outputs.cache-hit }}" == "false" ]; then
+        echo "❌ Expected cache hit"
+        exit 1
+      fi
 ```
 
 **Testing multi-runtime scenarios:**
 
+Use the `multi-runtime` fixture which has both package.json and deno.json:
+
 ```yaml
-- name: Create multi-runtime project
+- name: Setup isolated test environment
   run: |
-    mkdir -p /tmp/action-backup
-    cp -r dist action.yml /tmp/action-backup/
-    rm -rf ./*
-    rm -f pnpm-lock.yaml pnpm-workspace.yaml yarn.lock package-lock.json bun.lockb deno.lock .pnpmfile.cjs
+    mkdir -p /tmp/test-workspace
+    cp -r $GITHUB_WORKSPACE/repo/__fixtures__/multi-runtime/* /tmp/test-workspace/
+    cp -r $GITHUB_WORKSPACE/repo/dist /tmp/test-workspace/
+    cp $GITHUB_WORKSPACE/repo/action.yml /tmp/test-workspace/
 
-    # Create Node.js package
-    cat > package.json <<'EOF'
-    {
-      "packageManager": "pnpm@10.20.0"
-    }
-    EOF
-
-    # Create Deno config
-    cat > deno.json <<'EOF'
-    {
-      "tasks": {
-        "dev": "deno run main.ts"
-      }
-    }
-    EOF
-
-    cp -r /tmp/action-backup/* .
-
-- name: Setup (should detect multi-runtime)
+- name: Run action (should detect multi-runtime)
   uses: ./
 ```
 
-**Testing version detection:**
+**Testing with version files:**
+
+Add a version file to any fixture during setup:
 
 ```yaml
-- name: Create project with version file
+- name: Setup isolated test environment
   run: |
-    mkdir -p /tmp/action-backup
-    cp -r dist action.yml /tmp/action-backup/
-    rm -rf ./*
-    rm -f pnpm-lock.yaml pnpm-workspace.yaml yarn.lock package-lock.json bun.lockb deno.lock .pnpmfile.cjs
+    mkdir -p /tmp/test-workspace
+    cp -r $GITHUB_WORKSPACE/repo/__fixtures__/node-minimal/* /tmp/test-workspace/
+    cp -r $GITHUB_WORKSPACE/repo/dist /tmp/test-workspace/
+    cp $GITHUB_WORKSPACE/repo/action.yml /tmp/test-workspace/
 
+    # Add version file
     echo "20.11.0" > .nvmrc
-    npm init -y
-
-    cp -r /tmp/action-backup/* .
 
 - name: Setup (should use .nvmrc)
   id: setup
@@ -849,34 +886,38 @@ test-bun-workspace-custom:
 
 #### Test Workflow Best Practices
 
-1. **Always use the backup/restore pattern** - Don't modify files in place
-2. **Always remove lockfiles explicitly** - Prevents conflicts with repository lockfiles
-3. **Use heredocs for multi-line files** - Easier to read and maintain
-4. **Verify action outputs** - Check that outputs match expected values
-5. **Add meaningful summaries** - Use `$GITHUB_STEP_SUMMARY` for results
-6. **Test cross-platform** - Use `runs-on: [ubuntu-latest, macos-latest, windows-latest]` for critical tests
-7. **Keep tests focused** - One scenario per job for clarity
-8. **Use clear job names** - Describe what's being tested
+1. **Use isolated /tmp directories** - Set `working-directory: /tmp/test-workspace`
+2. **Use existing fixtures when possible** - Check `__fixtures__/` before creating new ones
+3. **Checkout to subdirectory** - Use `path: repo` in checkout action
+4. **Keep fixtures simple** - Minimal configuration needed for the test
+5. **Verify action outputs** - Check that outputs match expected values
+6. **Add meaningful summaries** - Use `$GITHUB_STEP_SUMMARY` for results
+7. **Test cross-platform** - Use `runs-on: [ubuntu-latest, macos-latest, windows-latest]` for critical tests
+8. **Keep tests focused** - One scenario per job for clarity
+9. **Use clear job names** - Describe what's being tested
+10. **Version control fixtures** - Commit fixtures so tests are reproducible
 
 #### Debugging Test Failures
 
 If integration tests fail:
 
 1. **Check the GitHub Actions logs** for error messages
-2. **Look for lockfile conflicts** - Most common issue
-3. **Verify the backup/restore** - Ensure `dist/` and `action.yml` are restored
-4. **Check platform-specific issues** - Windows paths, binary permissions
-5. **Verify version availability** - Ensure requested versions exist upstream
-6. **Test locally with act** - Use [nektos/act](https://github.com/nektos/act) to run workflows locally
+2. **Verify fixture exists** - Ensure `__fixtures__/[fixture-name]/` exists
+3. **Check fixture contents** - Verify fixture has required files
+4. **Test fixture locally** - Copy fixture to /tmp and test manually
+5. **Check platform-specific issues** - Windows paths, binary permissions
+6. **Verify version availability** - Ensure requested versions exist upstream
+7. **Test locally with act** - Use [nektos/act](https://github.com/nektos/act) to run workflows locally
 
 Common errors and solutions:
 
 | Error | Cause | Solution |
 |-------|-------|----------|
-| `ERR_PNPM_OUTDATED_LOCKFILE` | Lockfile doesn't match package.json | Add explicit `rm -f pnpm-lock.yaml` |
+| `No such file or directory: __fixtures__/...` | Fixture doesn't exist | Create fixture or check spelling |
 | `ENOENT: no such file or directory` | Incorrect platform binary name | Check platform mapping in install-*.ts |
 | `Unexpected HTTP response: 404` | Version doesn't exist | Verify version exists on GitHub releases |
 | `deno install: required arguments missing` | Using Deno 1.x install incorrectly | Skip install for Deno (caches automatically) |
+| `Permission denied` on /tmp/test-workspace | Directory already exists | Clean up /tmp or use unique directory names |
 
 ## Release Process
 
