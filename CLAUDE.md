@@ -410,9 +410,121 @@ Cache keys include:
 
 ## Testing Strategy
 
+This action uses a **dual testing approach** combining unit tests and fixture-based integration tests:
+
+1. **Unit Tests** - Fast, isolated tests of individual utility functions with Vitest
+2. **Fixture Tests** - Real-world integration tests in GitHub Actions workflows
+
+### Unit Testing with Vitest
+
+The action includes comprehensive unit tests for all utility modules. Unit tests provide fast feedback during development and ensure code coverage thresholds are met.
+
+#### Test Organization
+
+```text
+__tests__/
+├── cache-utils.test.ts       # Dependency caching tests
+├── install-biome.test.ts     # Biome installation tests
+├── install-node.test.ts      # Node.js installation tests
+├── main.test.ts              # Main action orchestration tests
+└── utils/
+    └── github-mocks.ts       # Shared test utilities
+```
+
+#### Running Tests
+
+```bash
+# Run all tests with coverage
+pnpm test
+
+# Run tests in watch mode
+pnpm test --watch
+
+# Run specific test file
+pnpm test __tests__/install-node.test.ts
+
+# View coverage report
+open coverage/index.html
+```
+
+#### Coverage Requirements
+
+```json
+{
+  "branches": 85,
+  "functions": 90,
+  "lines": 90,
+  "statements": 90
+}
+```
+
+**Current Coverage:**
+
+* **88% branch coverage** ✅ (exceeds 85% threshold)
+* **~95%+ function/line/statement coverage** ✅ (exceeds 90% threshold)
+
+#### Mocking Strategy
+
+All external dependencies are mocked using Vitest:
+
+```typescript
+import * as core from "@actions/core";
+import * as tc from "@actions/tool-cache";
+import { HttpClient } from "@actions/http-client";
+import { readdirSync } from "node:fs";
+
+// Mock all external modules
+vi.mock("@actions/core");
+vi.mock("@actions/tool-cache");
+vi.mock("@actions/http-client");
+vi.mock("node:fs");
+
+beforeEach(() => {
+  vi.clearAllMocks();
+
+  // Setup default mocks
+  vi.mocked(core.info).mockImplementation(() => {});
+  vi.mocked(tc.find).mockReturnValue("");
+
+  // Type-safe mocks using 'as unknown as Type'
+  vi.mocked(readdirSync).mockReturnValue(
+    ["node-v20.11.0-linux-x64"] as unknown as ReturnType<typeof readdirSync>
+  );
+});
+```
+
+**Never use `any` types** - Always use `as unknown as Type` for type-safe mocking.
+
+#### Testing Version Resolution
+
+The Node.js installer queries nodejs.org for version specs. Tests mock the HTTP client:
+
+```typescript
+const mockGet = vi.fn().mockResolvedValue({
+  readBody: vi.fn().mockResolvedValue(
+    JSON.stringify([
+      { version: "v20.19.5", lts: "Iron" },
+      { version: "v18.20.0", lts: "Hydrogen" },
+    ])
+  ),
+});
+
+vi.mocked(HttpClient).mockImplementation(
+  () => ({ get: mockGet }) as unknown as InstanceType<typeof HttpClient>
+);
+```
+
+#### Test Coverage Best Practices
+
+1. **Test all code paths** - if/else branches, switch cases, error handling
+2. **Test version resolution** - lts/*, version ranges (20.x), exact versions
+3. **Test platform differences** - Linux (tar) vs Windows (zip) extraction
+4. **Test error scenarios** - Network failures, extraction errors, missing files
+5. **Test edge cases** - Empty inputs, malformed data, missing environment variables
+
 ### Fixture-Based Testing
 
-Instead of unit tests, the action uses real-world fixture tests:
+In addition to unit tests, the action uses real-world fixture tests in GitHub Actions workflows:
 
 ```yaml
 - name: Create test project
