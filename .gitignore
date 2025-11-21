@@ -13,6 +13,7 @@ coverage/
 
 # NOTE: dist/ is NOT ignored - compiled GitHub Actions must be committed
 # The dist/ folder contains the compiled action code that GitHub Actions will execute
+# However, .github/actions/runtime/ is generated during build for local testing
 pnpm-publish-summary.json
 pnpm-release.json
 .changeset/status.json

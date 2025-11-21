@@ -136,7 +136,8 @@
 			"!**/*.api.json",
 			"!lib/turbo/schema.json",
 			"!coverage",
-			"!**/__fixtures__"
+			"!**/__fixtures__",
+			"!**/.github/actions/runtime"
 		]
 	}
 }

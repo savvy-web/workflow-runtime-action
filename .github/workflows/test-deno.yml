@@ -24,16 +24,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Setup isolated test environment
+      - name: Setup test environment
         run: |
-          mkdir -p /tmp/test-workspace
-          cp -r $GITHUB_WORKSPACE/repo/__fixtures__/deno-minimal/* /tmp/test-workspace/
-          cp -r $GITHUB_WORKSPACE/repo/dist /tmp/test-workspace/
-          cp $GITHUB_WORKSPACE/repo/action.yml /tmp/test-workspace/
+          # Remove repository config files
+          rm -f package.json pnpm-workspace.yaml biome.jsonc turbo.json pnpm-lock.yaml deno.json deno.lock
+          # Copy fixture files to current directory
+          cp -r __fixtures__/deno-minimal/* .
 
       - name: Setup Deno (auto-detect)
         id: setup
-        uses: ./
+        uses: ./.github/actions/runtime
         with:
           deno-version: "1.46.3"
 
@@ -73,16 +73,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Setup isolated test environment
+      - name: Setup test environment
         run: |
-          mkdir -p /tmp/test-workspace
-          cp -r $GITHUB_WORKSPACE/repo/__fixtures__/deno-lockfile/* /tmp/test-workspace/
-          cp -r $GITHUB_WORKSPACE/repo/dist /tmp/test-workspace/
-          cp $GITHUB_WORKSPACE/repo/action.yml /tmp/test-workspace/
+          # Remove repository config files
+          rm -f package.json pnpm-workspace.yaml biome.jsonc turbo.json pnpm-lock.yaml deno.json deno.lock
+          # Copy fixture files to current directory
+          cp -r __fixtures__/deno-lockfile/* .
 
       - name: Setup Deno (from package.json)
         id: setup
-        uses: ./
+        uses: ./.github/actions/runtime
 
       - name: Verify package.json detection
         run: |
@@ -113,16 +113,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Setup isolated test environment
+      - name: Setup test environment
         run: |
-          mkdir -p /tmp/test-workspace
-          cp -r $GITHUB_WORKSPACE/repo/__fixtures__/deno-minimal/* /tmp/test-workspace/
-          cp -r $GITHUB_WORKSPACE/repo/dist /tmp/test-workspace/
-          cp $GITHUB_WORKSPACE/repo/action.yml /tmp/test-workspace/
+          # Remove repository config files
+          rm -f package.json pnpm-workspace.yaml biome.jsonc turbo.json pnpm-lock.yaml deno.json deno.lock
+          # Copy fixture files to current directory
+          cp -r __fixtures__/deno-minimal/* .
 
       - name: Setup Deno (explicit version)
         id: setup
-        uses: ./
+        uses: ./.github/actions/runtime
         with:
           package-manager: deno
           deno-version: "1.46.3"
@@ -153,16 +153,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Setup isolated test environment
+      - name: Setup test environment
         run: |
-          mkdir -p /tmp/test-workspace
-          cp -r $GITHUB_WORKSPACE/repo/__fixtures__/deno-minimal/* /tmp/test-workspace/
-          cp -r $GITHUB_WORKSPACE/repo/dist /tmp/test-workspace/
-          cp $GITHUB_WORKSPACE/repo/action.yml /tmp/test-workspace/
+          # Remove repository config files
+          rm -f package.json pnpm-workspace.yaml biome.jsonc turbo.json pnpm-lock.yaml deno.json deno.lock
+          # Copy fixture files to current directory
+          cp -r __fixtures__/deno-minimal/* .
 
       - name: Setup Deno with dependencies
         id: setup
-        uses: ./
+        uses: ./.github/actions/runtime
         with:
           package-manager: deno
           deno-version: "1.46.3"
@@ -190,16 +190,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Setup isolated test environment
+      - name: Setup test environment
         run: |
-          mkdir -p /tmp/test-workspace
-          cp -r $GITHUB_WORKSPACE/repo/__fixtures__/deno-minimal/* /tmp/test-workspace/
-          cp -r $GITHUB_WORKSPACE/repo/dist /tmp/test-workspace/
-          cp $GITHUB_WORKSPACE/repo/action.yml /tmp/test-workspace/
+          # Remove repository config files
+          rm -f package.json pnpm-workspace.yaml biome.jsonc turbo.json pnpm-lock.yaml deno.json deno.lock
+          # Copy fixture files to current directory
+          cp -r __fixtures__/deno-minimal/* .
 
       - name: Setup Deno with lockfile
         id: setup
-        uses: ./
+        uses: ./.github/actions/runtime
         with:
           package-manager: deno
           deno-version: "1.46.3"

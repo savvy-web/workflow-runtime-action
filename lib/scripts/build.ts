@@ -1,4 +1,4 @@
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, rm, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { resolve } from "node:path";
 
@@ -68,9 +68,16 @@ async function buildEntry({ entry, output }: BuildEntry): Promise<void> {
 async function clean(): Promise<void> {
 	try {
 		await rm("dist", { recursive: true, force: true });
-		console.log("✓ Cleaned dist directory\n");
+		console.log("✓ Cleaned dist directory");
 	} catch {
 		// Ignore errors if dist doesn't exist
+	}
+
+	try {
+		await rm(".github/actions/runtime", { recursive: true, force: true });
+		console.log("✓ Cleaned .github/actions/runtime directory\n");
+	} catch {
+		// Ignore errors if directory doesn't exist
 	}
 }
 
@@ -87,6 +94,23 @@ async function build(): Promise<void> {
 		// Create package.json in dist/ to mark files as ES modules
 		await writeFile("dist/package.json", JSON.stringify({ type: "module" }, null, "\t"));
 		console.log("✓ Created dist/package.json");
+
+		// Copy built action to .github/actions/runtime for local testing
+		console.log("\nCopying action to .github/actions/runtime...");
+		const runtimeDir = ".github/actions/runtime";
+		await mkdir(runtimeDir, { recursive: true });
+		await mkdir(`${runtimeDir}/dist`, { recursive: true });
+
+		// Copy action.yml
+		await copyFile("action.yml", `${runtimeDir}/action.yml`);
+		console.log("✓ Copied action.yml");
+
+		// Copy dist files
+		await copyFile("dist/pre.js", `${runtimeDir}/dist/pre.js`);
+		await copyFile("dist/main.js", `${runtimeDir}/dist/main.js`);
+		await copyFile("dist/post.js", `${runtimeDir}/dist/post.js`);
+		await copyFile("dist/package.json", `${runtimeDir}/dist/package.json`);
+		console.log("✓ Copied dist files");
 
 		console.log("\n✓ All builds completed successfully.");
 	} catch (error) {

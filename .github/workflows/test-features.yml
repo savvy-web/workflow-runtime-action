@@ -20,25 +20,20 @@ jobs:
   test-biome-auto-detect:
     name: Biome - Auto-detect from config
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: /tmp/test-workspace
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-        with:
-          path: repo
 
-      - name: Setup isolated test environment
+      - name: Setup test environment
         run: |
-          mkdir -p /tmp/test-workspace
-          cp -r $GITHUB_WORKSPACE/repo/__fixtures__/biome-auto/* /tmp/test-workspace/
-          cp -r $GITHUB_WORKSPACE/repo/dist /tmp/test-workspace/
-          cp $GITHUB_WORKSPACE/repo/action.yml /tmp/test-workspace/
+          # Remove repository config files
+          rm -f package.json pnpm-workspace.yaml turbo.json pnpm-lock.yaml .nvmrc
+          # Copy fixture files to current directory
+          cp -r __fixtures__/biome-auto/* .
 
       - name: Setup with Biome auto-detect
         id: setup
-        uses: ./
+        uses: ./.github/actions/runtime
 
       - name: Verify Biome installation
         run: |
@@ -76,26 +71,21 @@ jobs:
   test-biome-explicit:
     name: Biome - Explicit version
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: /tmp/test-workspace
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-        with:
-          path: repo
 
-      - name: Setup isolated test environment
+      - name: Setup test environment
         run: |
-          mkdir -p /tmp/test-workspace
-          cp -r $GITHUB_WORKSPACE/repo/__fixtures__/node-minimal/* /tmp/test-workspace/
-          cp -r $GITHUB_WORKSPACE/repo/dist /tmp/test-workspace/
-          cp $GITHUB_WORKSPACE/repo/action.yml /tmp/test-workspace/
+          # Remove repository config files
+          rm -f package.json pnpm-workspace.yaml turbo.json pnpm-lock.yaml .nvmrc
+          # Copy fixture files to current directory
+          cp -r __fixtures__/node-minimal/* .
           echo 'const y = 2;' > test.js
 
       - name: Setup with explicit Biome version
         id: setup
-        uses: ./
+        uses: ./.github/actions/runtime
         with:
           biome-version: "2.3.6"
 
@@ -122,25 +112,20 @@ jobs:
   test-turbo-detection:
     name: Turbo - Monorepo detection
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: /tmp/test-workspace
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-        with:
-          path: repo
 
-      - name: Setup isolated test environment
+      - name: Setup test environment
         run: |
-          mkdir -p /tmp/test-workspace
-          cp -r $GITHUB_WORKSPACE/repo/__fixtures__/turbo-monorepo/* /tmp/test-workspace/
-          cp -r $GITHUB_WORKSPACE/repo/dist /tmp/test-workspace/
-          cp $GITHUB_WORKSPACE/repo/action.yml /tmp/test-workspace/
+          # Remove repository config files
+          rm -f package.json pnpm-workspace.yaml biome.jsonc pnpm-lock.yaml .nvmrc
+          # Copy fixture files to current directory
+          cp -r __fixtures__/turbo-monorepo/* .
 
       - name: Setup with Turbo detection
         id: setup
-        uses: ./
+        uses: ./.github/actions/runtime
 
       - name: Verify Turbo detection
         run: |
@@ -166,25 +151,20 @@ jobs:
   test-cache-effectiveness:
     name: Cache - First run vs cached run
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: /tmp/test-workspace
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-        with:
-          path: repo
 
-      - name: Setup isolated test environment
+      - name: Setup test environment
         run: |
-          mkdir -p /tmp/test-workspace
-          cp -r $GITHUB_WORKSPACE/repo/__fixtures__/cache-test/* /tmp/test-workspace/
-          cp -r $GITHUB_WORKSPACE/repo/dist /tmp/test-workspace/
-          cp $GITHUB_WORKSPACE/repo/action.yml /tmp/test-workspace/
+          # Remove repository config files
+          rm -f package.json pnpm-workspace.yaml biome.jsonc turbo.json pnpm-lock.yaml .nvmrc
+          # Copy fixture files to current directory
+          cp -r __fixtures__/cache-test/* .
 
       - name: First run (cache miss)
         id: setup1
-        uses: ./
+        uses: ./.github/actions/runtime
 
       - name: Verify first run
         run: |
@@ -212,7 +192,7 @@ jobs:
 
       - name: Second run (cache hit expected)
         id: setup2
-        uses: ./
+        uses: ./.github/actions/runtime
 
       - name: Verify second run
         run: |
@@ -238,25 +218,20 @@ jobs:
   test-skip-deps:
     name: Skip dependency installation
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: /tmp/test-workspace
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-        with:
-          path: repo
 
-      - name: Setup isolated test environment
+      - name: Setup test environment
         run: |
-          mkdir -p /tmp/test-workspace
-          cp -r $GITHUB_WORKSPACE/repo/__fixtures__/cache-test/* /tmp/test-workspace/
-          cp -r $GITHUB_WORKSPACE/repo/dist /tmp/test-workspace/
-          cp $GITHUB_WORKSPACE/repo/action.yml /tmp/test-workspace/
+          # Remove repository config files
+          rm -f package.json pnpm-workspace.yaml biome.jsonc turbo.json pnpm-lock.yaml .nvmrc
+          # Copy fixture files to current directory
+          cp -r __fixtures__/cache-test/* .
 
       - name: Setup with install-deps disabled
         id: setup
-        uses: ./
+        uses: ./.github/actions/runtime
         with:
           install-deps: false
 

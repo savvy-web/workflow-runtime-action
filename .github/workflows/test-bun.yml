@@ -20,25 +20,20 @@ jobs:
   test-bun-auto-detect:
     name: Bun - Auto-detect from package.json
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: /tmp/test-workspace
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-        with:
-          path: repo
 
-      - name: Setup isolated test environment
+      - name: Setup test environment
         run: |
-          mkdir -p /tmp/test-workspace
-          cp -r $GITHUB_WORKSPACE/repo/__fixtures__/bun-minimal/* /tmp/test-workspace/
-          cp -r $GITHUB_WORKSPACE/repo/dist /tmp/test-workspace/
-          cp $GITHUB_WORKSPACE/repo/action.yml /tmp/test-workspace/
+          # Remove repository config files
+          rm -f package.json pnpm-workspace.yaml biome.jsonc turbo.json pnpm-lock.yaml
+          # Copy fixture files to current directory
+          cp -r __fixtures__/bun-minimal/* .
 
       - name: Setup Bun (auto-detect)
         id: setup
-        uses: ./
+        uses: ./.github/actions/runtime
 
       - name: Verify Bun installation
         run: |
@@ -72,25 +67,20 @@ jobs:
   test-bun-explicit:
     name: Bun - Explicit version
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: /tmp/test-workspace
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-        with:
-          path: repo
 
-      - name: Setup isolated test environment
+      - name: Setup test environment
         run: |
-          mkdir -p /tmp/test-workspace
-          cp -r $GITHUB_WORKSPACE/repo/__fixtures__/bun-minimal/* /tmp/test-workspace/
-          cp -r $GITHUB_WORKSPACE/repo/dist /tmp/test-workspace/
-          cp $GITHUB_WORKSPACE/repo/action.yml /tmp/test-workspace/
+          # Remove repository config files
+          rm -f package.json pnpm-workspace.yaml biome.jsonc turbo.json pnpm-lock.yaml
+          # Copy fixture files to current directory
+          cp -r __fixtures__/bun-minimal/* .
 
       - name: Setup Bun (explicit version)
         id: setup
-        uses: ./
+        uses: ./.github/actions/runtime
         with:
           package-manager: bun
           bun-version: "1.1.42"
@@ -117,25 +107,20 @@ jobs:
   test-bun-package-install:
     name: Bun - Package installation
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: /tmp/test-workspace
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-        with:
-          path: repo
 
-      - name: Setup isolated test environment
+      - name: Setup test environment
         run: |
-          mkdir -p /tmp/test-workspace
-          cp -r $GITHUB_WORKSPACE/repo/__fixtures__/bun-deps/* /tmp/test-workspace/
-          cp -r $GITHUB_WORKSPACE/repo/dist /tmp/test-workspace/
-          cp $GITHUB_WORKSPACE/repo/action.yml /tmp/test-workspace/
+          # Remove repository config files
+          rm -f package.json pnpm-workspace.yaml biome.jsonc turbo.json pnpm-lock.yaml
+          # Copy fixture files to current directory
+          cp -r __fixtures__/bun-deps/* .
 
       - name: Setup Bun and install dependencies
         id: setup
-        uses: ./
+        uses: ./.github/actions/runtime
         with:
           install-deps: true
 
@@ -158,25 +143,20 @@ jobs:
   test-bun-lockfile:
     name: Bun - Lock file handling
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: /tmp/test-workspace
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-        with:
-          path: repo
 
-      - name: Setup isolated test environment
+      - name: Setup test environment
         run: |
-          mkdir -p /tmp/test-workspace
-          cp -r $GITHUB_WORKSPACE/repo/__fixtures__/bun-lockfile/* /tmp/test-workspace/
-          cp -r $GITHUB_WORKSPACE/repo/dist /tmp/test-workspace/
-          cp $GITHUB_WORKSPACE/repo/action.yml /tmp/test-workspace/
+          # Remove repository config files
+          rm -f package.json pnpm-workspace.yaml biome.jsonc turbo.json pnpm-lock.yaml
+          # Copy fixture files to current directory
+          cp -r __fixtures__/bun-lockfile/* .
 
       - name: Setup Bun with lockfile
         id: setup
-        uses: ./
+        uses: ./.github/actions/runtime
 
       - name: Verify lockfile detection
         run: |

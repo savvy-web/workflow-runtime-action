@@ -24,16 +24,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Setup isolated test environment
+      - name: Setup test environment
         run: |
-          mkdir -p /tmp/test-workspace
-          cp -r $GITHUB_WORKSPACE/repo/__fixtures__/node-pnpm/* /tmp/test-workspace/
-          cp -r $GITHUB_WORKSPACE/repo/dist /tmp/test-workspace/
-          cp $GITHUB_WORKSPACE/repo/action.yml /tmp/test-workspace/
+          # Remove repository config files
+          rm -f package.json pnpm-workspace.yaml biome.jsonc turbo.json pnpm-lock.yaml .nvmrc .node-version
+          # Copy fixture files to current directory
+          cp -r __fixtures__/node-pnpm/* .
 
       - name: Setup Node.js with NPM
         id: setup
-        uses: ./
+        uses: ./.github/actions/runtime
         with:
           package-manager: npm
           node-version: "20.x"
@@ -57,16 +57,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Setup isolated test environment
+      - name: Setup test environment
         run: |
-          mkdir -p /tmp/test-workspace
-          cp -r $GITHUB_WORKSPACE/repo/__fixtures__/node-pnpm/* /tmp/test-workspace/
-          cp -r $GITHUB_WORKSPACE/repo/dist /tmp/test-workspace/
-          cp $GITHUB_WORKSPACE/repo/action.yml /tmp/test-workspace/
+          # Remove repository config files
+          rm -f package.json pnpm-workspace.yaml biome.jsonc turbo.json pnpm-lock.yaml .nvmrc .node-version
+          # Copy fixture files to current directory
+          cp -r __fixtures__/node-pnpm/* .
 
       - name: Setup Node.js with PNPM (auto-detect)
         id: setup
-        uses: ./
+        uses: ./.github/actions/runtime
 
       - name: Verify installation
         run: |
@@ -91,16 +91,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Setup isolated test environment
+      - name: Setup test environment
         run: |
-          mkdir -p /tmp/test-workspace
-          cp -r $GITHUB_WORKSPACE/repo/__fixtures__/node-pnpm/* /tmp/test-workspace/
-          cp -r $GITHUB_WORKSPACE/repo/dist /tmp/test-workspace/
-          cp $GITHUB_WORKSPACE/repo/action.yml /tmp/test-workspace/
+          # Remove repository config files
+          rm -f package.json pnpm-workspace.yaml biome.jsonc turbo.json pnpm-lock.yaml .nvmrc .node-version
+          # Copy fixture files to current directory
+          cp -r __fixtures__/node-pnpm/* .
 
       - name: Setup Node.js with Yarn (auto-detect)
         id: setup
-        uses: ./
+        uses: ./.github/actions/runtime
 
       - name: Verify installation
         run: |
@@ -125,16 +125,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Setup isolated test environment
+      - name: Setup test environment
         run: |
-          mkdir -p /tmp/test-workspace
-          cp -r $GITHUB_WORKSPACE/repo/__fixtures__/node-pnpm/* /tmp/test-workspace/
-          cp -r $GITHUB_WORKSPACE/repo/dist /tmp/test-workspace/
-          cp $GITHUB_WORKSPACE/repo/action.yml /tmp/test-workspace/
+          # Remove repository config files
+          rm -f package.json pnpm-workspace.yaml biome.jsonc turbo.json pnpm-lock.yaml .nvmrc .node-version
+          # Copy fixture files to current directory
+          cp -r __fixtures__/node-pnpm/* .
 
       - name: Setup Node.js from .nvmrc
         id: setup
-        uses: ./
+        uses: ./.github/actions/runtime
 
       - name: Verify version file detection
         run: |
@@ -157,16 +157,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Setup isolated test environment
+      - name: Setup test environment
         run: |
-          mkdir -p /tmp/test-workspace
-          cp -r $GITHUB_WORKSPACE/repo/__fixtures__/node-pnpm/* /tmp/test-workspace/
-          cp -r $GITHUB_WORKSPACE/repo/dist /tmp/test-workspace/
-          cp $GITHUB_WORKSPACE/repo/action.yml /tmp/test-workspace/
+          # Remove repository config files
+          rm -f package.json pnpm-workspace.yaml biome.jsonc turbo.json pnpm-lock.yaml .nvmrc .node-version
+          # Copy fixture files to current directory
+          cp -r __fixtures__/node-pnpm/* .
 
       - name: Setup Node.js LTS
         id: setup
-        uses: ./
+        uses: ./.github/actions/runtime
         with:
           node-version: "lts/*"
 
