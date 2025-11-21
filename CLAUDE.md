@@ -136,6 +136,7 @@ All inputs are **optional** with intelligent defaults:
 * **`package-manager`** - Detected/specified package manager
 * **`turbo-enabled`** - Whether Turbo was detected (`true` | `false`)
 * **`turbo-config-file`** - Turbo config path (`turbo.json` or empty)
+* **`biome-enabled`** - Whether Biome was installed and enabled (`true` | `false`)
 * **`biome-version`** - Installed Biome version or empty
 * **`biome-config-file`** - Biome config path or empty
 * **`cache-hit`** - Cache status (`true` | `partial` | `false` | `n/a`)

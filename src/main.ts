@@ -389,16 +389,17 @@ async function main(): Promise<void> {
 		core.setOutput("package-manager", config.packageManager);
 		core.setOutput("turbo-enabled", config.turboEnabled.toString());
 		core.setOutput("turbo-config-file", config.turboConfigFile);
+		core.setOutput("biome-enabled", (!!config.biomeVersion).toString());
 		core.setOutput("biome-version", config.biomeVersion);
 		core.setOutput("biome-config-file", config.biomeConfigFile);
 
 		// Summary
 		core.startGroup("✅ Runtime Setup Complete");
-		core.notice(`Node.js: ${config.nodeVersion || `from ${config.nodeVersionFile}`}`);
-		core.notice(`Package Manager: ${config.packageManager}`);
-		core.notice(`Turbo: ${config.turboEnabled ? "enabled" : "disabled"}`);
-		core.notice(`Biome: ${config.biomeVersion ? `v${config.biomeVersion}` : "not installed"}`);
-		core.notice(`Dependencies: ${config.installDeps ? "installed" : "skipped"}`);
+		core.info(`Node.js: ${config.nodeVersion || `from ${config.nodeVersionFile}`}`);
+		core.info(`Package Manager: ${config.packageManager}`);
+		core.info(`Turbo: ${config.turboEnabled ? "enabled" : "disabled"}`);
+		core.info(`Biome: ${config.biomeVersion ? `v${config.biomeVersion}` : "not installed"}`);
+		core.info(`Dependencies: ${config.installDeps ? "installed" : "skipped"}`);
 		core.endGroup();
 	} catch (error) {
 		core.setFailed(`Failed to setup runtime: ${error instanceof Error ? error.message : String(error)}`);

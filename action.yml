@@ -44,6 +44,8 @@ outputs:
     description: "Whether Turbo configuration was detected (true | false)"
   turbo-config-file:
     description: "Path to Turbo config file (e.g., 'turbo.json' or empty if not found)"
+  biome-enabled:
+    description: "Whether Biome was installed and enabled (true | false)"
   biome-version:
     description: "The Biome version that was installed (e.g., '2.3.6', 'latest', or empty if not installed)"
   biome-config-file:
