@@ -135,7 +135,8 @@
 			"!.claude/settings.local.json",
 			"!**/*.api.json",
 			"!lib/turbo/schema.json",
-			"!coverage"
+			"!coverage",
+			"!**/__fixtures__"
 		]
 	}
 }

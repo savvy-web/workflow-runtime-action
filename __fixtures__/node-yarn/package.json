@@ -1,0 +1,6 @@
+{
+	"name": "node-yarn-test",
+	"version": "1.0.0",
+	"description": "Node.js with Yarn test project",
+	"packageManager": "yarn@4.0.0"
+}

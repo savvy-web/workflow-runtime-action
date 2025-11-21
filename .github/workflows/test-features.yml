@@ -20,27 +20,21 @@ jobs:
   test-biome-auto-detect:
     name: Biome - Auto-detect from config
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: /tmp/test-workspace
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          path: repo
 
-      - name: Create project with Biome config
+      - name: Setup isolated test environment
         run: |
-          mkdir -p /tmp/action-backup
-          cp -r dist action.yml /tmp/action-backup/
-          rm -rf ./*
-          rm -f pnpm-lock.yaml pnpm-workspace.yaml yarn.lock package-lock.json bun.lockb deno.lock .pnpmfile.cjs
-          npm init -y
-          cat > biome.jsonc <<'EOF'
-          {
-            "$schema": "https://biomejs.dev/schemas/2.3.6/schema.json",
-            "linter": {
-              "enabled": true
-            }
-          }
-          EOF
-          echo 'const x = 1;' > test.js
-          cp -r /tmp/action-backup/* .
+          mkdir -p /tmp/test-workspace
+          cp -r $GITHUB_WORKSPACE/repo/__fixtures__/biome-auto/* /tmp/test-workspace/
+          cp -r $GITHUB_WORKSPACE/repo/dist /tmp/test-workspace/
+          cp $GITHUB_WORKSPACE/repo/action.yml /tmp/test-workspace/
 
       - name: Setup with Biome auto-detect
         id: setup
@@ -82,19 +76,22 @@ jobs:
   test-biome-explicit:
     name: Biome - Explicit version
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: /tmp/test-workspace
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          path: repo
 
-      - name: Create minimal project
+      - name: Setup isolated test environment
         run: |
-          mkdir -p /tmp/action-backup
-          cp -r dist action.yml /tmp/action-backup/
-          rm -rf ./*
-          rm -f pnpm-lock.yaml pnpm-workspace.yaml yarn.lock package-lock.json bun.lockb deno.lock .pnpmfile.cjs
-          npm init -y
+          mkdir -p /tmp/test-workspace
+          cp -r $GITHUB_WORKSPACE/repo/__fixtures__/node-minimal/* /tmp/test-workspace/
+          cp -r $GITHUB_WORKSPACE/repo/dist /tmp/test-workspace/
+          cp $GITHUB_WORKSPACE/repo/action.yml /tmp/test-workspace/
           echo 'const y = 2;' > test.js
-          cp -r /tmp/action-backup/* .
 
       - name: Setup with explicit Biome version
         id: setup
@@ -125,45 +122,21 @@ jobs:
   test-turbo-detection:
     name: Turbo - Monorepo detection
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: /tmp/test-workspace
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          path: repo
 
-      - name: Create Turbo monorepo
+      - name: Setup isolated test environment
         run: |
-          mkdir -p /tmp/action-backup
-          cp -r dist action.yml /tmp/action-backup/
-          rm -rf ./*
-          rm -f pnpm-lock.yaml pnpm-workspace.yaml yarn.lock package-lock.json bun.lockb deno.lock .pnpmfile.cjs
-          cat > package.json <<'EOF'
-          {
-            "name": "turbo-monorepo",
-            "version": "1.0.0",
-            "packageManager": "pnpm@10.20.0",
-            "devDependencies": {
-              "turbo": "^2.0.0"
-            }
-          }
-          EOF
-          cat > turbo.json <<'EOF'
-          {
-            "$schema": "https://turbo.build/schema.json",
-            "tasks": {
-              "build": {
-                "dependsOn": ["^build"],
-                "outputs": ["dist/**"]
-              }
-            }
-          }
-          EOF
-          mkdir -p packages/app
-          cat > packages/app/package.json <<'EOF'
-          {
-            "name": "@repo/app",
-            "version": "1.0.0"
-          }
-          EOF
-          cp -r /tmp/action-backup/* .
+          mkdir -p /tmp/test-workspace
+          cp -r $GITHUB_WORKSPACE/repo/__fixtures__/turbo-monorepo/* /tmp/test-workspace/
+          cp -r $GITHUB_WORKSPACE/repo/dist /tmp/test-workspace/
+          cp $GITHUB_WORKSPACE/repo/action.yml /tmp/test-workspace/
 
       - name: Setup with Turbo detection
         id: setup
@@ -193,27 +166,21 @@ jobs:
   test-cache-effectiveness:
     name: Cache - First run vs cached run
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: /tmp/test-workspace
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          path: repo
 
-      - name: Create project with dependencies
+      - name: Setup isolated test environment
         run: |
-          mkdir -p /tmp/action-backup
-          cp -r dist action.yml /tmp/action-backup/
-          rm -rf ./*
-          rm -f pnpm-lock.yaml pnpm-workspace.yaml yarn.lock package-lock.json bun.lockb deno.lock .pnpmfile.cjs
-          cat > package.json <<'EOF'
-          {
-            "name": "cache-test",
-            "version": "1.0.0",
-            "packageManager": "pnpm@10.20.0",
-            "dependencies": {
-              "lodash": "^4.17.21"
-            }
-          }
-          EOF
-          cp -r /tmp/action-backup/* .
+          mkdir -p /tmp/test-workspace
+          cp -r $GITHUB_WORKSPACE/repo/__fixtures__/cache-test/* /tmp/test-workspace/
+          cp -r $GITHUB_WORKSPACE/repo/dist /tmp/test-workspace/
+          cp $GITHUB_WORKSPACE/repo/action.yml /tmp/test-workspace/
 
       - name: First run (cache miss)
         id: setup1
@@ -271,27 +238,21 @@ jobs:
   test-skip-deps:
     name: Skip dependency installation
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: /tmp/test-workspace
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          path: repo
 
-      - name: Create project with dependencies
+      - name: Setup isolated test environment
         run: |
-          mkdir -p /tmp/action-backup
-          cp -r dist action.yml /tmp/action-backup/
-          rm -rf ./*
-          rm -f pnpm-lock.yaml pnpm-workspace.yaml yarn.lock package-lock.json bun.lockb deno.lock .pnpmfile.cjs
-          cat > package.json <<'EOF'
-          {
-            "name": "skip-deps-test",
-            "version": "1.0.0",
-            "packageManager": "npm@10.0.0",
-            "dependencies": {
-              "lodash": "^4.17.21"
-            }
-          }
-          EOF
-          cp -r /tmp/action-backup/* .
+          mkdir -p /tmp/test-workspace
+          cp -r $GITHUB_WORKSPACE/repo/__fixtures__/cache-test/* /tmp/test-workspace/
+          cp -r $GITHUB_WORKSPACE/repo/dist /tmp/test-workspace/
+          cp $GITHUB_WORKSPACE/repo/action.yml /tmp/test-workspace/
 
       - name: Setup with install-deps disabled
         id: setup

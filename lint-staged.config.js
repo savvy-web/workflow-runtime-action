@@ -20,19 +20,23 @@ function isCommandAvailable(command) {
 }
 
 export default {
-	// Sort and format package.json files (excluding dist/package.json)
+	// Sort and format package.json files (excluding dist/package.json and __fixtures__)
 	"**/package.json":
 		/** @param {string[]} filenames */
 		(filenames) => {
-			const filtered = filenames.filter((file) => !file.includes("dist/package.json"));
+			const filtered = filenames.filter(
+				(file) => !file.includes("dist/package.json") && !file.includes("__fixtures__"),
+			);
 			if (filtered.length === 0) return [];
 			return ["sort-package-json", `biome check --write --max-diagnostics=none ${filtered.join(" ")}`];
 		},
-	// Format all other supported files with Biome (excluding package-lock.json)
+	// Format all other supported files with Biome (excluding package-lock.json and __fixtures__)
 	"*.{js,ts,cjs,mjs,d.cts,d.mts,jsx,tsx,json,jsonc}":
 		/** @param {string[]} filenames */
 		(filenames) => {
-			const filtered = filenames.filter((file) => !file.includes("package-lock.json"));
+			const filtered = filenames.filter(
+				(file) => !file.includes("package-lock.json") && !file.includes("__fixtures__"),
+			);
 			return filtered.length > 0 ? `biome check --write --no-errors-on-unmatched ${filtered.join(" ")}` : [];
 		},
 	// Lint and fix markdown files

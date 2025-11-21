@@ -1,0 +1,6 @@
+{
+	"name": "node-pnpm-test",
+	"version": "1.0.0",
+	"description": "Node.js with pnpm test project",
+	"packageManager": "pnpm@10.20.0"
+}
