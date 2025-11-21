@@ -1,3 +1,4 @@
+import { mkdir, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { resolve } from "node:path";
 
@@ -54,21 +55,19 @@ async function buildEntry({ entry, output }: BuildEntry): Promise<void> {
 	});
 
 	// Write the output manually since ncc returns the code
-	const fs = await import("node:fs/promises");
-	await fs.mkdir(outputDir, { recursive: true });
-	await fs.writeFile(output, code);
+	await mkdir(outputDir, { recursive: true });
+	await writeFile(output, code);
 
 	if (map) {
-		await fs.writeFile(`${output}.map`, map);
+		await writeFile(`${output}.map`, map);
 	}
 
 	console.log(`✓ Built ${entry}`);
 }
 
 async function clean(): Promise<void> {
-	const fs = await import("node:fs/promises");
 	try {
-		await fs.rm("dist", { recursive: true, force: true });
+		await rm("dist", { recursive: true, force: true });
 		console.log("✓ Cleaned dist directory\n");
 	} catch {
 		// Ignore errors if dist doesn't exist

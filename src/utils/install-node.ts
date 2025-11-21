@@ -1,7 +1,10 @@
+import { readdirSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { arch, platform } from "node:os";
+import { join } from "node:path";
 import * as core from "@actions/core";
 import * as exec from "@actions/exec";
+import { HttpClient } from "@actions/http-client";
 import * as tc from "@actions/tool-cache";
 
 /**
@@ -36,8 +39,7 @@ async function readVersionFile(file: string): Promise<string> {
  * @returns Resolved version number (e.g., "20.19.5")
  */
 async function queryNodeVersion(spec: string): Promise<string> {
-	const http = await import("@actions/http-client");
-	const client = new http.HttpClient("workflow-runtime-action");
+	const client = new HttpClient("workflow-runtime-action");
 
 	try {
 		const response = await client.get("https://nodejs.org/dist/index.json");
@@ -86,8 +88,13 @@ async function resolveNodeVersion(version: string, versionFile: string): Promise
 
 	if (version) {
 		core.info(`Using Node.js version from input: ${version}`);
-		// Resolve version specs
-		if (version.includes("*") || version.includes(".x") || version.toLowerCase().startsWith("lts")) {
+		// Resolve version specs (lts/*, 20.x, 20, etc.)
+		if (
+			version.includes("*") ||
+			version.includes(".x") ||
+			version.toLowerCase().startsWith("lts") ||
+			!version.includes(".")
+		) {
 			return await queryNodeVersion(version);
 		}
 		return version;
@@ -150,8 +157,6 @@ async function downloadNode(version: string): Promise<string> {
 
 		// Find the actual Node.js directory inside the extracted path
 		// The tarball extracts to a directory like "node-vX.Y.Z-platform-arch"
-		const { readdirSync } = await import("node:fs");
-		const { join } = await import("node:path");
 		const extractedContents = readdirSync(extractedPath);
 		const nodeDir = extractedContents.find((item) => item.startsWith("node-v"));
 

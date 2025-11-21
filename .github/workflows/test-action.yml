@@ -9,7 +9,6 @@ on:
         default: ""
         type: choice
         options:
-          - ""
           - npm
           - pnpm
           - yarn

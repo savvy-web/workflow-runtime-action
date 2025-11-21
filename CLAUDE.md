@@ -4,35 +4,223 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Overview
 
-This repository provides a **comprehensive Node.js runtime setup GitHub Action** that handles environment configuration, package manager detection, dependency caching, and Turbo build cache setup.
+This repository provides a **comprehensive Node.js runtime setup GitHub Action** that completely replaces `actions/setup-node` with a single, intelligent action that handles everything automatically.
 
-**Primary purpose:** Simplify Node.js CI/CD workflows with a single, well-tested action that works out of the box with smart defaults.
+**Primary purpose:** Simplify Node.js CI/CD workflows by auto-detecting and configuring the complete runtime environment with smart defaults and zero configuration.
+
+**Key Features:**
+
+* **Complete Node.js Setup** - Downloads and installs Node.js directly (no actions/setup-node dependency)
+* **Smart Version Resolution** - Resolves `lts/*`, `20.x`, version files (.nvmrc, .node-version)
+* **Package Manager Detection** - Auto-detects from package.json `packageManager` field
+* **Intelligent Caching** - Dependency caching with lock file detection
+* **Optional Biome** - Auto-detects and installs Biome from config files
+* **Turbo Detection** - Detects Turborepo configuration
+* **Lockfile Intelligence** - Gracefully handles projects with or without lock files
 
 **Technical stack:**
 
-* **Package manager:** pnpm 10.20.0 (enforced via `packageManager` field)
-* **Build system:** Turborepo with strict environment mode
+* **Build tool:** @vercel/ncc for bundling TypeScript to standalone JavaScript
+* **Action type:** Compiled Node.js action (uses `node24` runtime)
+* **Package manager:** pnpm 10.20.0 (for development)
 * **Node.js version:** 24.11.0 (specified in `.nvmrc`)
 * **Linting:** Biome 2.3.6 with strict rules
-* **Testing:** Vitest 4.0.8 with globals enabled
+* **Testing:** Fixture-based workflow tests (no unit tests currently)
 * **Type checking:** TypeScript with native preview build (`@typescript/native-preview`)
-* **Action type:** Traditional GitHub Composite Action (uses `action.yml` in root)
 
-## Action Structure
+## Action Architecture
 
-This is a **traditional GitHub Action** with the main `action.yml` at the repository root. Users reference it like:
+This is a **compiled GitHub Action** that bundles TypeScript to JavaScript using `@vercel/ncc`.
+
+### Entry Points
+
+The action has three lifecycle hooks:
+
+* **`src/pre.ts`** → `dist/pre.js` - Logs action inputs (pre-execution)
+* **`src/main.ts`** → `dist/main.js` - Main setup logic
+* **`src/post.ts`** → `dist/post.js` - Cache saving (post-execution)
+
+### Core Modules
+
+Located in `src/utils/`:
+
+* **`install-node.ts`** - Node.js version resolution and installation
+  * Queries nodejs.org/dist/index.json for version specs
+  * Downloads and extracts Node.js tarballs
+  * Handles version files (.nvmrc, .node-version)
+  * Supports lts/*, 20.x, exact versions
+
+* **`install-biome.ts`** - Biome CLI installation
+  * Downloads binaries from GitHub releases
+  * Detects version from biome.jsonc/$schema
+  * Cross-platform binary selection
+
+* **`cache-utils.ts`** - Dependency caching
+  * Platform-specific cache paths
+  * Lock file hashing for cache keys
+  * Restore and save operations
+  * Supports npm, pnpm, yarn
+
+### Action Workflow
+
+```typescript
+// 1. Detect configuration (package.json, version files, configs)
+const config = await detectConfiguration();
+
+// 2. Install Node.js (download, extract, cache, add to PATH)
+await installNode({ version, versionFile });
+
+// 3. Setup package manager (corepack for pnpm/yarn)
+await setupPackageManager(packageManager);
+
+// 4. Restore dependency cache
+await restoreCache(packageManager);
+
+// 5. Install dependencies (with lockfile detection)
+await installDependencies(packageManager);
+
+// 6. Install Biome (optional, from config)
+await installBiome(version);
+
+// Post-action: Save cache for next run
+await saveCache();
+```
+
+## Usage Example
+
+```yaml
+steps:
+  - uses: actions/checkout@v4
+
+  - uses: savvy-web/workflow-runtime-action@v1
+    # That's it! Auto-detects everything from your repo
+
+  - run: npm test
+```
+
+### With Explicit Configuration
 
 ```yaml
 - uses: savvy-web/workflow-runtime-action@v1
+  with:
+    package-manager: pnpm      # Override detection
+    node-version: "20.x"       # Override .nvmrc
+    biome-version: "2.3.6"     # Override auto-detection
+    install-deps: true         # Default: true
 ```
 
-The action internally delegates to modular sub-actions in `.github/actions/`:
+## Inputs
 
-* **`node/`** - Main Node.js setup orchestration
-* **`biome/`** - Biome linter version detection and installation
-* **`detect-runtime/`** - JavaScript runtime detection (node/bun/deno)
-* **`detect-turbo/`** - Turbo configuration detection
-* **`shared/`** - Shared TypeScript types
+All inputs are **optional** with intelligent defaults:
+
+* **`package-manager`** - Package manager to use (`npm` | `pnpm` | `yarn`)
+  * Default: Auto-detect from package.json `packageManager` field, fallback to npm
+
+* **`node-version`** - Node.js version spec (`20.x`, `lts/*`, `24.11.0`)
+  * Default: Auto-detect from .nvmrc or .node-version, fallback to `lts/*`
+
+* **`biome-version`** - Biome version to install (`2.3.6`, `latest`)
+  * Default: Auto-detect from biome.jsonc `$schema`, skip if no config
+
+* **`install-deps`** - Whether to install dependencies (`true` | `false`)
+  * Default: `true`
+
+* **`turbo-token`** - Turbo remote cache token (optional)
+* **`turbo-team`** - Turbo team slug (optional)
+
+## Outputs
+
+* **`node-version`** - Installed Node.js version (e.g., `20.19.5`)
+* **`node-version-file`** - Version file used (`.nvmrc`, `.node-version`, or empty)
+* **`node-version-source`** - Version source (`nvmrc` | `node-version` | `input`)
+* **`package-manager`** - Detected/specified package manager
+* **`turbo-enabled`** - Whether Turbo was detected (`true` | `false`)
+* **`turbo-config-file`** - Turbo config path (`turbo.json` or empty)
+* **`biome-version`** - Installed Biome version or empty
+* **`biome-config-file`** - Biome config path or empty
+* **`cache-hit`** - Cache status (`true` | `partial` | `false` | `n/a`)
+
+## Development Workflow
+
+### Building the Action
+
+The action must be built before it can run:
+
+```bash
+# Build all entry points (pre/main/post)
+pnpm build
+
+# This runs: tsx lib/scripts/build.ts
+# Which uses @vercel/ncc to bundle TypeScript → JavaScript
+```
+
+**Important:** The `dist/` directory is committed to git (required for GitHub Actions).
+
+### Local Development
+
+```bash
+# Install dependencies
+pnpm install
+
+# Run type checking
+pnpm typecheck
+
+# Run linting
+pnpm lint
+
+# Fix linting issues
+pnpm lint:fix
+
+# Build the action
+pnpm build
+```
+
+### Testing
+
+The action uses **fixture-based testing** rather than unit tests:
+
+```bash
+# Test via GitHub Actions workflows
+git push  # Triggers .github/workflows/test-fixtures.yml
+```
+
+The fixture workflow:
+
+1. Creates temporary test projects with different configurations
+2. Runs the action on each test project
+3. Verifies the setup worked correctly
+
+See [.github/workflows/test-fixtures.yml](.github/workflows/test-fixtures.yml) for test scenarios:
+
+* NPM minimal project
+* PNPM workspace
+* Yarn modern project
+* Biome auto-detection
+* Turbo monorepo detection
+
+### Making Changes
+
+1. **Modify TypeScript source** in `src/` or `src/utils/`
+2. **Run `pnpm build`** to compile to `dist/`
+3. **Commit both source and dist** (dist must be committed!)
+4. **Push and test** via fixture workflow
+
+Example workflow:
+
+```bash
+# Edit src/main.ts
+vim src/main.ts
+
+# Build
+pnpm build
+
+# Commit
+git add src/main.ts dist/main.js
+git commit -m "feat: add new feature"
+
+# Push and watch tests
+git push
+```
 
 ## Common Commands
 
@@ -42,11 +230,8 @@ The action internally delegates to modular sub-actions in `.github/actions/`:
 # Run Biome checks (no auto-fix)
 pnpm lint
 
-# Run Biome with auto-fix (safe fixes only)
+# Run Biome with auto-fix
 pnpm lint:fix
-
-# Run Biome with unsafe fixes (use with caution)
-pnpm lint:fix:unsafe
 
 # Lint markdown files
 pnpm lint:md
@@ -62,51 +247,17 @@ pnpm lint:md:fix
 pnpm typecheck
 
 # This runs: turbo run typecheck:all --log-prefix=none
-# Which executes: tsgo --noEmit
-```
-
-**Note:** `tsgo` is a wrapper for the TypeScript native preview build. It's invoked via Turbo for caching.
-
-### Testing
-
-```bash
-# Run tests once
-pnpm test
-
-# Run tests with CI reporter
-pnpm ci:test
-
-# Run in watch mode
-pnpm test --watch
 ```
 
 ### Git Workflow
 
 ```bash
+# Create a changeset for release
+pnpm changeset
+
 # Prepare changeset for release
 pnpm ci:version
-# This runs: changeset version && biome format --write .
 ```
-
-### Pre-commit Hooks
-
-The repository uses Husky with lint-staged for pre-commit validation. When you commit:
-
-1. **Staged files are automatically processed:**
-   * `package.json` files are sorted with `sort-package-json` and formatted with Biome
-   * TypeScript/JavaScript files are checked and fixed with Biome
-   * Markdown files are linted and fixed with `markdownlint-cli2`
-   * Shell scripts have executable bits removed (`chmod -x`)
-   * YAML files are formatted with Prettier and validated with `yaml-lint`
-   * TypeScript changes trigger a full typecheck with `tsgo --noEmit`
-
-2. **Hooks are skipped in:**
-   * CI environments (`GITHUB_ACTIONS=1`)
-   * During rebase/squash operations (except final commit)
-
-3. **Git client compatibility:**
-   * Pre-commit hook re-execs with zsh for GUI clients (GitKraken)
-   * Sources `.zshenv` and NVM to ensure pnpm is available
 
 ## Code Quality Standards
 
@@ -116,14 +267,14 @@ The project enforces strict Biome rules (see `biome.jsonc`):
 
 * **Indentation:** Tabs, width 2
 * **Line width:** 120 characters
-* **Import organization:** Lexicographic order with `source.organizeImports`
-* **Import extensions:** Forced `.js` extensions (`useImportExtensions`)
-* **Import types:** Separated type imports (`useImportType` with `separatedType` style)
-* **Node.js imports:** Must use `node:` protocol (`useNodejsImportProtocol`)
-* **Type definitions:** Prefer `type` over `interface` (`useConsistentTypeDefinitions`)
-* **Explicit types:** Required for exports (`useExplicitType` - except in tests/scripts)
-* **No import cycles:** Enforced (`noImportCycles`)
-* **No unused variables:** Error level with `ignoreRestSiblings: true`
+* **Import organization:** Lexicographic order
+* **Import extensions:** Forced `.js` extensions
+* **Import types:** Separated type imports
+* **Node.js imports:** Must use `node:` protocol
+* **Type definitions:** Prefer `type` over `interface`
+* **Explicit types:** Required for exports
+* **No import cycles:** Enforced
+* **No unused variables:** Error level
 
 ### TypeScript Configuration
 
@@ -132,304 +283,243 @@ Base `tsconfig.json` settings:
 * **Module system:** ESNext with bundler resolution
 * **Target:** ES2022
 * **Strict mode:** Enabled
-* **Library:** ES2022
-* **JSON imports:** Enabled (`resolveJsonModule`)
-* **Global types:** Vitest globals available
+* **JSON imports:** Enabled
 
-### Markdown Linting
+### Pre-commit Hooks
 
-* Uses `markdownlint-cli2` with `.markdownlint.json` config
-* Excludes `node_modules` and `dist` directories
+The repository uses Husky with lint-staged:
 
-### Commit Message Standards
+1. **Staged files are automatically processed:**
+   * TypeScript/JavaScript files checked with Biome
+   * Markdown files linted
+   * YAML files formatted and validated
+   * TypeScript changes trigger full typecheck
 
-* **Format:** Conventional Commits (enforced via commitlint)
-* **Config:** `@commitlint/config-conventional` with extended body length (300 chars)
-* **Validation:** Both PR titles and individual commit messages are validated in CI
-
-## File Naming Conventions
-
-Based on Biome configuration and common patterns:
-
-* **Lowercase filenames:** Preferred (inferred from strict linting)
-* **Extensions:** Always use explicit `.js` extensions in imports
-* **Config files:** `.jsonc` for JSON with comments (e.g., `biome.jsonc`)
-* **TypeScript:** `.ts` for source, `.test.ts` for tests
-
-## Turborepo Configuration
-
-From `turbo.json`:
-
-* **Daemon:** Enabled for faster builds
-* **Environment mode:** Strict (only declared env vars are available)
-* **Global passthrough env vars:** `GITHUB_ACTIONS`, `GITHUB_OUTPUT`
-* **Tasks:**
-  * `//#typecheck:all` - Root-level typecheck task (cached, errors-only logs)
-  * `typecheck` - Package-level task (depends on root typecheck, not cached)
+2. **Hooks are skipped in CI**
 
 ## Project Structure
 
 ```text
 .
-├── .github/                 # GitHub configuration
-│   ├── actions/            # Modular sub-actions
-│   │   ├── biome/         # Biome version detection
-│   │   ├── detect-runtime/ # Runtime detection
-│   │   ├── detect-turbo/  # Turbo detection
-│   │   ├── node/          # Main Node.js setup
-│   │   └── shared/        # Shared TypeScript types
-│   └── workflows/          # CI/CD workflows
-│       ├── claude.yml     # Claude Code integration
-│       ├── release.yml    # Release automation
-│       └── validate.yml   # PR validation
-├── __tests__/              # Vitest test files
-│   ├── detect-biome-version.test.ts
-│   ├── detect-runtime.test.ts
-│   ├── detect-turbo.test.ts
-│   ├── setup-node.test.ts
-│   └── utils/             # Test utilities
-├── action.yml              # Main action definition (root)
-├── biome.jsonc             # Biome linter/formatter config
-├── package.json            # Dependencies and scripts
-├── tsconfig.json           # TypeScript configuration
-├── turbo.json              # Turborepo configuration
-└── vitest.config.ts        # Vitest test configuration
+├── src/                     # TypeScript source code
+│   ├── pre.ts              # Pre-action hook
+│   ├── main.ts             # Main action logic
+│   ├── post.ts             # Post-action hook
+│   └── utils/              # Utility modules
+│       ├── install-node.ts    # Node.js installation
+│       ├── install-biome.ts   # Biome installation
+│       └── cache-utils.ts     # Dependency caching
+├── dist/                    # Compiled JavaScript (committed!)
+│   ├── pre.js
+│   ├── main.js
+│   └── post.js
+├── .github/
+│   └── workflows/
+│       ├── test-fixtures.yml  # Fixture-based tests
+│       ├── test-action.yml    # Original test workflow
+│       ├── demo.yml           # Quick demo workflow
+│       └── validate.yml       # PR validation
+├── action.yml               # Action definition
+├── package.json             # Dependencies and scripts
+├── tsconfig.json            # TypeScript config
+└── biome.jsonc              # Biome config
 ```
 
-## TypeScript Action Development
+## Key Implementation Details
 
-This action uses TypeScript for detection logic, leveraging `actions/github-script@v8` for execution. This approach provides:
+### Node.js Version Resolution
 
-* Type safety via TypeScript
-* No compilation step needed (TypeScript runs directly)
-* Access to GitHub context and APIs
-* Better testability with Vitest
+The action queries `https://nodejs.org/dist/index.json` to resolve version specs:
 
-### Action Structure Pattern
+* `lts/*` → Latest LTS version (e.g., `20.19.5`)
+* `20.x` → Latest 20.x version
+* `20` → Latest 20.x version
+* `24.11.0` → Exact version
 
-Each sub-action follows this pattern:
+### Node.js Installation
 
-```text
-.github/actions/action-name/
-├── action.yml              # Action definition with inputs/outputs
-├── script-name.ts         # TypeScript logic
-├── CLAUDE.md              # Claude-specific guidance
-└── README.md              # User documentation
-```
+1. Downloads tarball from `https://nodejs.org/dist/v{version}/node-v{version}-{platform}-{arch}.tar.gz`
+2. Extracts and finds the nested `node-v{version}-{platform}-{arch}/` directory
+3. Caches using `@actions/tool-cache`
+4. Adds `bin/` to PATH
 
-### TypeScript Script Pattern
+### Package Manager Setup
 
-Scripts use a default export function:
+* **npm** - Already included with Node.js
+* **pnpm** - Installed via corepack (`corepack prepare pnpm@latest`)
+* **yarn** - Installed via corepack (`corepack prepare yarn@stable`)
+
+### Lockfile Intelligence
+
+The action checks for lock files before using frozen/immutable flags:
 
 ```typescript
-import type { Core } from "../shared/types.js";
+case "npm":
+  command = existsSync("package-lock.json") ? ["ci"] : ["install"];
+  break;
 
-export default async function myAction({ core }: { core: Core }) {
-  // Action logic here
-  core.setOutput("result", "value");
-}
+case "pnpm":
+  command = existsSync("pnpm-lock.yaml")
+    ? ["install", "--frozen-lockfile"]
+    : ["install"];
+  break;
+
+case "yarn":
+  command = existsSync("yarn.lock")
+    ? ["install", "--immutable"]
+    : ["install", "--no-immutable"];  // Yarn 4+ needs explicit flag
+  break;
 ```
 
-### Action YAML Pattern
+**Important:** Yarn 4+ automatically enables immutable mode in CI environments, so we must explicitly use `--no-immutable` when no lock file exists.
 
-Actions call TypeScript via `actions/github-script@v8`:
+### Biome Installation
+
+1. Detects version from `biome.jsonc` `$schema` field:
+
+   ```json
+   {
+     "$schema": "https://biomejs.dev/schemas/2.3.6/schema.json"
+   }
+   ```
+
+2. Downloads binary from GitHub releases:
+
+   ```text
+   https://github.com/biomejs/biome/releases/download/%40biomejs%2Fbiome%40{version}/{binary}
+   ```
+
+3. Binary names:
+   * Linux x64: `biome-linux-x64`
+   * macOS ARM64: `biome-darwin-arm64`
+   * Windows x64: `biome-win32-x64.exe`
+
+### Dependency Caching
+
+Uses `@actions/cache` with platform-specific paths:
+
+* **npm:** `~/.npm`, `**/node_modules`
+* **pnpm:** `~/.local/share/pnpm/store`, `**/node_modules`
+* **yarn:** `~/.yarn/cache`, `**/.yarn/cache`, `**/node_modules`
+
+Cache keys include:
+
+* Package manager name
+* Platform and architecture
+* SHA256 hash of lock files
+
+## Testing Strategy
+
+### Fixture-Based Testing
+
+Instead of unit tests, the action uses real-world fixture tests:
 
 ```yaml
-runs:
-  using: "composite"
-  steps:
-    - name: Run detection logic
-      id: detect
-      uses: actions/github-script@v8
-      with:
-        script: |
-          const { default: myAction } = await import('./src/script-name.ts');
-          await myAction({ core });
+- name: Create test project
+  run: |
+    # Backup action files
+    mkdir -p /tmp/action-backup
+    cp -r dist action.yml /tmp/action-backup/
+
+    # Create test project
+    rm -rf ./*
+    cat > package.json <<'EOF'
+    {
+      "name": "test-project",
+      "packageManager": "pnpm@10.20.0"
+    }
+    EOF
+
+    # Restore action files
+    cp -r /tmp/action-backup/* .
+
+- name: Run action
+  uses: ./
 ```
 
-### Testing Pattern
+This approach:
 
-Tests use Vitest with mocked GitHub context:
-
-```typescript
-import { describe, expect, it, vi } from "vitest";
-import myAction from "../.github/actions/action-name/script-name.js";
-import { createMockCore } from "./utils/github-mocks.js";
-
-describe("myAction", () => {
-  it("should detect configuration", async () => {
-    const core = createMockCore();
-    await myAction({ core });
-    expect(core.setOutput).toHaveBeenCalledWith("result", "value");
-  });
-});
-```
-
-## Running Single Tests
-
-```bash
-# Run specific test file
-pnpm test __tests__/setup-node.test.ts
-
-# Run tests with watch mode
-pnpm test --watch
-
-# Run tests with coverage
-pnpm test --coverage
-```
-
-## Modifying Actions
-
-When modifying the action:
-
-1. **Read relevant files first** - Understand existing code before making changes
-2. **Update TypeScript scripts** in `.github/actions/*/` directories
-3. **Update action.yml** if inputs/outputs change
-4. **Add/update tests** in `__tests__/` directory
-5. **Run tests** to ensure nothing breaks: `pnpm test`
-6. **Update documentation** (README.md, action READMEs, CLAUDE.md)
-7. **Test in a real workflow** before releasing
-
-### Example: Adding a New Input
-
-1. Add input to `action.yml`:
-
-```yaml
-inputs:
-  new-option:
-    description: "Description of new option"
-    required: false
-    default: "default-value"
-```
-
-1. Update TypeScript script to read the input:
-
-```typescript
-const newOption = process.env.INPUT_NEW_OPTION || "default-value";
-```
-
-1. Add tests for new functionality
-2. Update README with new input documentation
-
-## Environment Variables
-
-The repository uses strict environment mode in Turbo. When adding new environment variables:
-
-1. Declare them in `turbo.json` under `globalPassThroughEnv` or task-specific `env`
-2. Document them in README if user-facing
-
-## Custom Claude Commands
-
-Available slash commands in `.claude/commands/`:
-
-* `/lint` - Fix linting errors
-* `/typecheck` - Fix TypeScript errors
-* `/tsdoc` - Add/update TSDoc documentation
-
-## Important Notes
-
-1. **Never commit secrets:** The repository excludes `.env` and credentials files from git
-2. **Shell scripts are not executable:** `chmod -x` is enforced via lint-staged to prevent permission issues
-3. **Biome is authoritative:** All formatting decisions defer to Biome configuration
-4. **Changesets for versioning:** Use changesets for version management
-5. **Action path references:** Sub-actions use relative paths (e.g., `./../detect-turbo`) since this is a single repository
-6. **Traditional action structure:** The root `action.yml` makes this action easy to consume from other repositories
-7. **Test all changes:** Always run `pnpm test` before committing
-8. **Dependency installation is optional:** The action supports `install-deps: false` for custom installation workflows
+* Tests real-world scenarios
+* Verifies cross-platform compatibility
+* Catches integration issues early
+* Tests actual GitHub Actions environment
 
 ## Release Process
 
-This action uses Changesets for release management:
+Uses Changesets for versioning:
 
-1. **Create a changeset** when making changes:
+1. **Create changeset:**
 
-```bash
-pnpm changeset
-```
+   ```bash
+   pnpm changeset
+   ```
 
-1. **Changesets workflow** automatically:
-   * Creates/updates release PR
-   * Updates version in `package.json`
+2. **Changesets workflow automatically:**
+   * Creates release PR
+   * Updates `package.json` version
    * Updates `CHANGELOG.md`
-   * Creates GitHub releases with tags
+   * Creates GitHub release with tags
 
-2. **Users reference by tag:**
+3. **Users reference by tag:**
 
-```yaml
-- uses: savvy-web/workflow-runtime-action@v1
-- uses: savvy-web/workflow-runtime-action@v1.2.3
-- uses: savvy-web/workflow-runtime-action@main
-```
-
-## Testing the Action
-
-### Local Testing
-
-```bash
-# Run all tests
-pnpm test
-
-# Run specific test
-pnpm test __tests__/setup-node.test.ts
-
-# Run with coverage
-pnpm test --coverage
-```
-
-### Testing in CI
-
-The action tests itself via `.github/workflows/validate.yml`:
-
-* Runs on every PR
-* Validates code quality, types, and tests
-* Uses the action itself to set up the environment
-
-### Testing in Another Repository
-
-Reference your branch when testing:
-
-```yaml
-- uses: savvy-web/workflow-runtime-action@your-branch-name
-```
+   ```yaml
+   - uses: savvy-web/workflow-runtime-action@v1
+   - uses: savvy-web/workflow-runtime-action@v1.2.3
+   - uses: savvy-web/workflow-runtime-action@main
+   ```
 
 ## Common Issues and Solutions
 
-### Action path errors
+### dist/ not updated
 
-**Issue:** `Error: Unable to resolve action`
+**Issue:** Changes don't take effect in CI
 
-**Solution:** Ensure relative paths in sub-actions are correct (e.g., `./../detect-turbo`)
+**Solution:** Always run `pnpm build` and commit `dist/` files
 
-### TypeScript import errors
+```bash
+pnpm build
+git add dist/
+git commit --amend --no-edit
+```
 
-**Issue:** `Cannot find module`
+### Lock file errors in tests
 
-**Solution:** Ensure imports use `.js` extensions even for `.ts` files (ESM requirement)
+**Issue:** Tests fail with "lockfile would have been created"
 
-### Test failures
+**Solution:** The action now handles this automatically with `--no-immutable` for Yarn
 
-**Issue:** Tests fail after modifying action logic
+### Version resolution fails
+
+**Issue:** "Could not find version matching X"
 
 **Solution:**
 
-1. Check mocked outputs match actual implementation
-2. Verify `createMockCore()` provides expected methods
-3. Run `pnpm typecheck` to catch type errors
+1. Check if version exists at [https://nodejs.org/dist/](https://nodejs.org/dist/)
+2. Verify version spec format (lts/*, 20.x, 24.11.0)
 
-### Biome formatting
+### PATH issues
 
-**Issue:** Pre-commit hook fails with formatting errors
+**Issue:** Node.js installed but not in PATH
 
-**Solution:** Run `pnpm lint:fix` before committing
+**Solution:** The action extracts the nested directory and adds it to PATH correctly
+
+## Important Notes
+
+1. **Always commit dist/** - The compiled JavaScript must be committed for GitHub Actions to work
+2. **Build before pushing** - Run `pnpm build` after any source changes
+3. **Test with fixtures** - Push to test real-world scenarios
+4. **Changesets for versioning** - Use changesets for version management
+5. **Biome is authoritative** - All formatting decisions defer to Biome
+6. **Yarn 4+ CI behavior** - Yarn automatically enables immutable mode in CI
+7. **Lock files are optional** - The action gracefully handles projects without lock files
 
 ## Contributing
 
-This action is part of Savvy Web Systems' open-source toolkit and will eventually be open-sourced.
-
 When contributing:
 
-1. Follow existing code patterns
-2. Add comprehensive tests
-3. Update documentation
-4. Create a changeset for version tracking
-5. Ensure all CI checks pass
+1. Modify TypeScript source in `src/`
+2. Run `pnpm build` to compile
+3. Commit both source and dist
+4. Create changeset with `pnpm changeset`
+5. Push and verify fixture tests pass
+6. Update documentation if needed
