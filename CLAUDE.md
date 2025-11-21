@@ -621,6 +621,263 @@ This approach:
 * Catches integration issues early
 * Tests actual GitHub Actions environment
 
+### Updating Integration Tests
+
+The integration tests use a backup/restore pattern to create isolated test environments. When adding or modifying integration tests, follow these guidelines:
+
+#### Test Workflow Structure
+
+Integration tests are organized in `.github/workflows/`:
+
+* **`test-node.yml`** - Node.js runtime tests (npm, pnpm, yarn)
+* **`test-bun.yml`** - Bun runtime tests (installation, caching, workspaces)
+* **`test-deno.yml`** - Deno runtime tests (installation, caching, multi-runtime)
+* **`test-features.yml`** - Feature tests (Biome, Turbo, caching, skip-deps)
+* **`demo-bun.yml`** - Bun demo workflows (minimal, workspace, multi-PM)
+* **`demo-deno.yml`** - Deno demo workflows (minimal, multi-runtime)
+
+#### Standard Test Pattern
+
+Each test scenario follows this pattern:
+
+```yaml
+- name: Create test project
+  run: |
+    # 1. Backup action files (only dist and action.yml)
+    mkdir -p /tmp/action-backup
+    cp -r dist action.yml /tmp/action-backup/
+
+    # 2. Remove all files in working directory
+    rm -rf ./*
+
+    # 3. CRITICAL: Explicitly remove lockfiles to prevent conflicts
+    rm -f pnpm-lock.yaml pnpm-workspace.yaml yarn.lock package-lock.json bun.lockb deno.lock .pnpmfile.cjs
+
+    # 4. Create minimal test project
+    npm init -y
+    cat > package.json <<'EOF'
+    {
+      "name": "test-project",
+      "packageManager": "pnpm@10.20.0"
+    }
+    EOF
+
+    # 5. Restore action files
+    cp -r /tmp/action-backup/* .
+
+- name: Run action
+  id: setup
+  uses: ./
+```
+
+#### Why Explicit Lockfile Removal is Critical
+
+**Problem:** The repository contains real lockfiles (`pnpm-lock.yaml`, `pnpm-workspace.yaml`) from development. When tests create minimal projects, these lockfiles don't match the simplified `package.json`, causing errors:
+
+```text
+ERR_PNPM_OUTDATED_LOCKFILE: Cannot install with "frozen-lockfile"
+because pnpm-lock.yaml is not up to date with package.json
+```
+
+**Solution:** Always include the explicit lockfile removal step after `rm -rf ./*`:
+
+```bash
+rm -f pnpm-lock.yaml pnpm-workspace.yaml yarn.lock package-lock.json bun.lockb deno.lock .pnpmfile.cjs
+```
+
+This ensures:
+
+* No leftover lockfiles from the repository
+* Clean test environment for each scenario
+* Package managers can create appropriate lockfiles for test projects
+* No conflicts between real dependencies and test dependencies
+
+#### Adding New Test Scenarios
+
+When adding a new test scenario:
+
+1. **Choose the appropriate workflow file** based on what you're testing
+2. **Copy an existing test job** as a template
+3. **Update the test project creation** to match your scenario
+4. **Always include lockfile removal** after `rm -rf ./*`
+5. **Verify the action outputs** match expected values
+6. **Add verification steps** to ensure the scenario works
+
+Example - Adding a new Bun workspace test:
+
+```yaml
+test-bun-workspace-custom:
+  name: Bun - Custom workspace config
+  runs-on: ubuntu-latest
+  steps:
+    - name: Checkout
+      uses: actions/checkout@v6
+
+    - name: Create Bun workspace
+      run: |
+        mkdir -p /tmp/action-backup
+        cp -r dist action.yml /tmp/action-backup/
+        rm -rf ./*
+        rm -f pnpm-lock.yaml pnpm-workspace.yaml yarn.lock package-lock.json bun.lockb deno.lock .pnpmfile.cjs
+
+        # Create workspace root
+        cat > package.json <<'EOF'
+        {
+          "name": "bun-workspace-custom",
+          "workspaces": ["packages/*"],
+          "packageManager": "bun@1.1.42"
+        }
+        EOF
+
+        # Create workspace package
+        mkdir -p packages/custom-pkg
+        cat > packages/custom-pkg/package.json <<'EOF'
+        {
+          "name": "@workspace/custom-pkg",
+          "dependencies": {
+            "lodash": "^4.17.21"
+          }
+        }
+        EOF
+
+        cp -r /tmp/action-backup/* .
+
+    - name: Setup Bun
+      id: setup
+      uses: ./
+      with:
+        runtime: bun
+        bun-version: "1.1.42"
+
+    - name: Verify workspace setup
+      run: |
+        echo "## Custom Bun Workspace Test" >> $GITHUB_STEP_SUMMARY
+        echo "- Runtime: \`${{ steps.setup.outputs.runtime }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "- Bun Version: \`${{ steps.setup.outputs.bun-version }}\`" >> $GITHUB_STEP_SUMMARY
+
+        # Verify Bun is installed
+        bun --version
+
+        # Verify dependencies in workspace package
+        test -d packages/custom-pkg/node_modules/lodash
+
+        echo "✅ Custom workspace test passed" >> $GITHUB_STEP_SUMMARY
+```
+
+#### Common Test Patterns
+
+**Testing cache effectiveness:**
+
+```yaml
+- name: First run (cache miss)
+  id: setup1
+  uses: ./
+
+- name: Clear node_modules
+  run: rm -rf node_modules
+
+- name: Second run (cache hit expected)
+  id: setup2
+  uses: ./
+
+- name: Verify cache hit
+  run: |
+    if [ "${{ steps.setup2.outputs.cache-hit }}" == "false" ]; then
+      echo "❌ Expected cache hit"
+      exit 1
+    fi
+```
+
+**Testing multi-runtime scenarios:**
+
+```yaml
+- name: Create multi-runtime project
+  run: |
+    mkdir -p /tmp/action-backup
+    cp -r dist action.yml /tmp/action-backup/
+    rm -rf ./*
+    rm -f pnpm-lock.yaml pnpm-workspace.yaml yarn.lock package-lock.json bun.lockb deno.lock .pnpmfile.cjs
+
+    # Create Node.js package
+    cat > package.json <<'EOF'
+    {
+      "packageManager": "pnpm@10.20.0"
+    }
+    EOF
+
+    # Create Deno config
+    cat > deno.json <<'EOF'
+    {
+      "tasks": {
+        "dev": "deno run main.ts"
+      }
+    }
+    EOF
+
+    cp -r /tmp/action-backup/* .
+
+- name: Setup (should detect multi-runtime)
+  uses: ./
+```
+
+**Testing version detection:**
+
+```yaml
+- name: Create project with version file
+  run: |
+    mkdir -p /tmp/action-backup
+    cp -r dist action.yml /tmp/action-backup/
+    rm -rf ./*
+    rm -f pnpm-lock.yaml pnpm-workspace.yaml yarn.lock package-lock.json bun.lockb deno.lock .pnpmfile.cjs
+
+    echo "20.11.0" > .nvmrc
+    npm init -y
+
+    cp -r /tmp/action-backup/* .
+
+- name: Setup (should use .nvmrc)
+  id: setup
+  uses: ./
+
+- name: Verify Node.js version
+  run: |
+    if [ "${{ steps.setup.outputs.node-version }}" != "20.11.0" ]; then
+      echo "❌ Expected Node.js 20.11.0"
+      exit 1
+    fi
+```
+
+#### Test Workflow Best Practices
+
+1. **Always use the backup/restore pattern** - Don't modify files in place
+2. **Always remove lockfiles explicitly** - Prevents conflicts with repository lockfiles
+3. **Use heredocs for multi-line files** - Easier to read and maintain
+4. **Verify action outputs** - Check that outputs match expected values
+5. **Add meaningful summaries** - Use `$GITHUB_STEP_SUMMARY` for results
+6. **Test cross-platform** - Use `runs-on: [ubuntu-latest, macos-latest, windows-latest]` for critical tests
+7. **Keep tests focused** - One scenario per job for clarity
+8. **Use clear job names** - Describe what's being tested
+
+#### Debugging Test Failures
+
+If integration tests fail:
+
+1. **Check the GitHub Actions logs** for error messages
+2. **Look for lockfile conflicts** - Most common issue
+3. **Verify the backup/restore** - Ensure `dist/` and `action.yml` are restored
+4. **Check platform-specific issues** - Windows paths, binary permissions
+5. **Verify version availability** - Ensure requested versions exist upstream
+6. **Test locally with act** - Use [nektos/act](https://github.com/nektos/act) to run workflows locally
+
+Common errors and solutions:
+
+| Error | Cause | Solution |
+|-------|-------|----------|
+| `ERR_PNPM_OUTDATED_LOCKFILE` | Lockfile doesn't match package.json | Add explicit `rm -f pnpm-lock.yaml` |
+| `ENOENT: no such file or directory` | Incorrect platform binary name | Check platform mapping in install-*.ts |
+| `Unexpected HTTP response: 404` | Version doesn't exist | Verify version exists on GitHub releases |
+| `deno install: required arguments missing` | Using Deno 1.x install incorrectly | Skip install for Deno (caches automatically) |
+
 ## Release Process
 
 Uses Changesets for versioning:
