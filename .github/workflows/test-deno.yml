@@ -1,0 +1,334 @@
+name: Test - Deno Runtime
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "dist/**"
+      - "action.yml"
+      - ".github/workflows/test-deno.yml"
+  pull_request:
+    paths:
+      - "src/**"
+      - "dist/**"
+      - "action.yml"
+      - ".github/workflows/test-deno.yml"
+
+jobs:
+  test-deno-auto-detect:
+    name: Deno - Auto-detect from deno.json
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Create Deno project with deno.json
+        run: |
+          mkdir -p /tmp/action-backup
+          cp -r dist action.yml /tmp/action-backup/
+          rm -rf ./*
+          cat > deno.json <<'EOF'
+          {
+            "tasks": {
+              "start": "deno run main.ts"
+            }
+          }
+          EOF
+          cat > main.ts <<'EOF'
+          console.log("Hello from Deno!");
+          console.log(`Deno version: ${Deno.version.deno}`);
+          EOF
+          cp -r /tmp/action-backup/* .
+
+      - name: Setup Deno (auto-detect)
+        id: setup
+        uses: ./
+        with:
+          deno-version: "1.46.3"
+
+      - name: Verify Deno installation
+        run: |
+          echo "## 🦕 Deno Auto-detect Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Runtime: \`${{ steps.setup.outputs.runtime }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Deno Version: \`${{ steps.setup.outputs.deno-version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Package Manager: \`${{ steps.setup.outputs.package-manager }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Verify Deno is installed
+          deno --version
+
+          # Verify runtime output
+          if [ "${{ steps.setup.outputs.runtime }}" != "deno" ]; then
+            echo "❌ Expected deno runtime" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+          # Verify package manager is deno
+          if [ "${{ steps.setup.outputs.package-manager }}" != "deno" ]; then
+            echo "❌ Expected deno package manager" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+          # Run TypeScript file
+          deno run main.ts
+
+          echo "✅ Deno auto-detection successful" >> $GITHUB_STEP_SUMMARY
+
+  test-deno-from-package-json:
+    name: Deno - Detect from package.json
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Create project with package.json
+        run: |
+          mkdir -p /tmp/action-backup
+          cp -r dist action.yml /tmp/action-backup/
+          rm -rf ./*
+          cat > package.json <<'EOF'
+          {
+            "name": "deno-packagejson-test",
+            "version": "1.0.0",
+            "packageManager": "deno@1.46.3",
+            "scripts": {
+              "start": "deno run app.ts"
+            }
+          }
+          EOF
+          cat > app.ts <<'EOF'
+          const message: string = "TypeScript works natively in Deno!";
+          console.log(message);
+          EOF
+          cp -r /tmp/action-backup/* .
+
+      - name: Setup Deno (from package.json)
+        id: setup
+        uses: ./
+
+      - name: Verify package.json detection
+        run: |
+          echo "## 📦 Deno package.json Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Runtime: \`${{ steps.setup.outputs.runtime }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Deno Version: \`${{ steps.setup.outputs.deno-version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Verify detection
+          if [ "${{ steps.setup.outputs.runtime }}" != "deno" ]; then
+            echo "❌ Expected deno runtime from package.json" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+          if [ "${{ steps.setup.outputs.deno-version }}" != "1.46.3" ]; then
+            echo "❌ Expected version 1.46.3" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+          deno run app.ts
+          echo "✅ package.json detection successful" >> $GITHUB_STEP_SUMMARY
+
+  test-deno-explicit:
+    name: Deno - Explicit version
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Create minimal project
+        run: |
+          mkdir -p /tmp/action-backup
+          cp -r dist action.yml /tmp/action-backup/
+          rm -rf ./*
+          cat > deno.json <<'EOF'
+          {
+            "tasks": {
+              "test": "deno run test.ts"
+            }
+          }
+          EOF
+          echo 'console.log("Explicit version test");' > test.ts
+          cp -r /tmp/action-backup/* .
+
+      - name: Setup Deno (explicit version)
+        id: setup
+        uses: ./
+        with:
+          package-manager: deno
+          deno-version: "1.46.3"
+
+      - name: Verify explicit version
+        run: |
+          echo "## 🎯 Deno Explicit Version Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Deno Version: \`${{ steps.setup.outputs.deno-version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Verify version
+          INSTALLED_VERSION=$(deno --version | head -n1 | awk '{print $2}')
+          echo "Installed: $INSTALLED_VERSION"
+
+          if [ "${{ steps.setup.outputs.deno-version }}" != "1.46.3" ]; then
+            echo "❌ Expected version 1.46.3" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+          deno run test.ts
+          echo "✅ Explicit version installation successful" >> $GITHUB_STEP_SUMMARY
+
+  test-deno-with-dependencies:
+    name: Deno - With dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Create project with dependencies
+        run: |
+          mkdir -p /tmp/action-backup
+          cp -r dist action.yml /tmp/action-backup/
+          rm -rf ./*
+          cat > deno.json <<'EOF'
+          {
+            "imports": {
+              "std/": "https://deno.land/std@0.214.0/"
+            }
+          }
+          EOF
+          cat > deno.lock <<'EOF'
+          {
+            "version": "3",
+            "packages": {
+              "specifiers": {}
+            },
+            "remote": {}
+          }
+          EOF
+          cat > server.ts <<'EOF'
+          import { serve } from "std/http/server.ts";
+
+          const handler = (_req: Request): Response => {
+            return new Response("Hello from Deno server!");
+          };
+
+          console.log("HTTP server configured (would run on :8000)");
+          console.log("Deno with dependencies works!");
+          EOF
+          cp -r /tmp/action-backup/* .
+
+      - name: Setup Deno with dependencies
+        id: setup
+        uses: ./
+        with:
+          package-manager: deno
+          deno-version: "1.46.3"
+
+      - name: Verify dependencies
+        run: |
+          echo "## 📦 Deno Dependencies Test" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Check deno.lock exists
+          if [ ! -f "deno.lock" ]; then
+            echo "❌ deno.lock not found" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+          # Run file that uses imports
+          deno info server.ts
+
+          echo "✅ Dependencies handled successfully" >> $GITHUB_STEP_SUMMARY
+
+  test-deno-lockfile:
+    name: Deno - Lock file handling
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Create project with deno.lock
+        run: |
+          mkdir -p /tmp/action-backup
+          cp -r dist action.yml /tmp/action-backup/
+          rm -rf ./*
+          cat > deno.json <<'EOF'
+          {
+            "tasks": {
+              "start": "deno run main.ts"
+            }
+          }
+          EOF
+          cat > deno.lock <<'EOF'
+          {
+            "version": "3",
+            "packages": {
+              "specifiers": {}
+            },
+            "remote": {}
+          }
+          EOF
+          echo 'console.log("Lockfile test");' > main.ts
+          cp -r /tmp/action-backup/* .
+
+      - name: Setup Deno with lockfile
+        id: setup
+        uses: ./
+        with:
+          package-manager: deno
+          deno-version: "1.46.3"
+
+      - name: Verify lockfile detection
+        run: |
+          echo "## 🔒 Deno Lockfile Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Verify deno.lock exists
+          if [ ! -f "deno.lock" ]; then
+            echo "❌ deno.lock not found" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+          deno run main.ts
+          echo "✅ Lockfile handled correctly" >> $GITHUB_STEP_SUMMARY
+
+  summary:
+    name: Deno Tests Summary
+    runs-on: ubuntu-latest
+    needs:
+      [
+        test-deno-auto-detect,
+        test-deno-from-package-json,
+        test-deno-explicit,
+        test-deno-with-dependencies,
+        test-deno-lockfile,
+      ]
+    if: always()
+    steps:
+      - name: Generate summary
+        run: |
+          echo "## 🧪 Deno Runtime Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Test | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Auto-detect (deno.json) | ${{ needs.test-deno-auto-detect.result == 'success' && '✅ Pass' || '❌ Fail' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Detect from package.json | ${{ needs.test-deno-from-package-json.result == 'success' && '✅ Pass' || '❌ Fail' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Explicit Version | ${{ needs.test-deno-explicit.result == 'success' && '✅ Pass' || '❌ Fail' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| With Dependencies | ${{ needs.test-deno-with-dependencies.result == 'success' && '✅ Pass' || '❌ Fail' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Lockfile Handling | ${{ needs.test-deno-lockfile.result == 'success' && '✅ Pass' || '❌ Fail' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Check if all tests passed
+          if [ "${{ needs.test-deno-auto-detect.result }}" == "success" ] && \
+             [ "${{ needs.test-deno-from-package-json.result }}" == "success" ] && \
+             [ "${{ needs.test-deno-explicit.result }}" == "success" ] && \
+             [ "${{ needs.test-deno-with-dependencies.result }}" == "success" ] && \
+             [ "${{ needs.test-deno-lockfile.result }}" == "success" ]; then
+            echo "### ✅ All Deno tests passed!" >> $GITHUB_STEP_SUMMARY
+            exit 0
+          else
+            echo "### ❌ Some tests failed" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi

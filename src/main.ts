@@ -6,7 +6,14 @@ import { parse } from "jsonc-parser";
 import type { PackageManager } from "./utils/cache-utils.js";
 import { restoreCache } from "./utils/cache-utils.js";
 import { installBiome } from "./utils/install-biome.js";
+import { installBun } from "./utils/install-bun.js";
+import { installDeno } from "./utils/install-deno.js";
 import { installNode, setupPackageManager } from "./utils/install-node.js";
+
+/**
+ * Supported runtime environments
+ */
+type Runtime = "node" | "bun" | "deno";
 
 /**
  * Parsed package.json structure (subset of fields we need)
@@ -25,9 +32,25 @@ interface BiomeConfig {
 }
 
 /**
+ * Runtime version configuration
+ */
+interface RuntimeVersions {
+	/** Node.js version if detected */
+	node?: string;
+	/** Bun version if detected */
+	bun?: string;
+	/** Deno version if detected */
+	deno?: string;
+}
+
+/**
  * Complete runtime setup configuration result
  */
 interface SetupResult {
+	/** Detected runtimes to install */
+	runtimes: Runtime[];
+	/** Version for each runtime */
+	runtimeVersions: RuntimeVersions;
 	/** Node.js version string or empty if using version file */
 	nodeVersion: string;
 	/** Path to version file (.nvmrc | .node-version) or empty if using input */
@@ -55,7 +78,7 @@ interface SetupResult {
  * @throws Error if package manager is not supported
  */
 function validatePackageManager(packageManager: string): asserts packageManager is PackageManager {
-	const validManagers: PackageManager[] = ["npm", "pnpm", "yarn"];
+	const validManagers: PackageManager[] = ["npm", "pnpm", "yarn", "bun", "deno"];
 	if (!validManagers.includes(packageManager as PackageManager)) {
 		throw new Error(`Invalid package_manager '${packageManager}'. Must be one of: ${validManagers.join(" | ")}`);
 	}
@@ -81,9 +104,9 @@ async function detectPackageManager(explicitInput: string): Promise<PackageManag
 		const packageJson = JSON.parse(content) as PackageJson;
 
 		if (packageJson.packageManager) {
-			// packageManager format: "pnpm@8.0.0" or "yarn@3.0.0"
+			// packageManager format: "pnpm@8.0.0", "yarn@3.0.0", "bun@1.0.0", etc.
 			const pmName = packageJson.packageManager.split("@")[0];
-			if (["npm", "pnpm", "yarn"].includes(pmName)) {
+			if (["npm", "pnpm", "yarn", "bun", "deno"].includes(pmName)) {
 				core.info(`Detected package manager from package.json: ${pmName}`);
 				return pmName as PackageManager;
 			}
@@ -95,6 +118,74 @@ async function detectPackageManager(explicitInput: string): Promise<PackageManag
 	// Default to npm
 	core.info("No package manager specified or detected, defaulting to npm");
 	return "npm";
+}
+
+/**
+ * Detects runtimes and their versions from package.json and config files
+ *
+ * @returns Detected runtimes and their versions
+ */
+async function detectRuntimes(): Promise<{
+	runtimes: Runtime[];
+	versions: RuntimeVersions;
+}> {
+	const runtimes: Runtime[] = [];
+	const versions: RuntimeVersions = {};
+
+	// Check for Deno config files
+	const hasDenoConfig = existsSync("deno.json") || existsSync("deno.jsonc");
+
+	// Check package.json for packageManager field
+	try {
+		const content = await readFile("package.json", "utf-8");
+		const packageJson = JSON.parse(content) as PackageJson;
+
+		if (packageJson.packageManager) {
+			const parts = packageJson.packageManager.split("@");
+			const runtime = parts[0];
+			const version = parts[1];
+
+			// Map package manager to runtime
+			if (runtime === "bun" && version) {
+				runtimes.push("bun");
+				versions.bun = version;
+				core.info(`Detected Bun runtime from package.json: ${version}`);
+			} else if (runtime === "deno" && version) {
+				runtimes.push("deno");
+				versions.deno = version;
+				core.info(`Detected Deno runtime from package.json: ${version}`);
+			} else if (["npm", "pnpm", "yarn"].includes(runtime)) {
+				// Node.js runtime (handled separately with version file detection)
+				if (!runtimes.includes("node")) {
+					runtimes.push("node");
+				}
+			}
+		}
+	} catch (error) {
+		core.debug(
+			`Could not read package.json for runtime detection: ${error instanceof Error ? error.message : String(error)}`,
+		);
+	}
+
+	// If Deno config exists but not detected from package.json, add it
+	if (hasDenoConfig && !runtimes.includes("deno")) {
+		runtimes.push("deno");
+		core.info("Detected Deno runtime from deno.json/deno.jsonc config file");
+		// Version will need to be provided via input or default to latest
+	}
+
+	// Always include Node.js if nothing else was detected (backwards compatibility)
+	if (runtimes.length === 0) {
+		runtimes.push("node");
+		core.info("No specific runtime detected, defaulting to Node.js");
+	}
+
+	// Ensure Node.js is included if we have npm/pnpm/yarn
+	if (!runtimes.includes("node") && !runtimes.includes("bun") && !runtimes.includes("deno")) {
+		runtimes.push("node");
+	}
+
+	return { runtimes, versions };
 }
 
 /**
@@ -273,25 +364,44 @@ async function detectConfiguration(): Promise<SetupResult> {
 	const packageManagerInput = core.getInput("package-manager") || "";
 	const nodeVersionInput = core.getInput("node-version") || "lts/*";
 	const biomeVersionInput = core.getInput("biome-version") || "";
+	const bunVersionInput = core.getInput("bun-version") || "";
+	const denoVersionInput = core.getInput("deno-version") || "";
 	const installDeps = core.getInput("install-deps") !== "false";
 
 	core.startGroup("🔍 Detecting runtime configuration");
 
-	// 1. Detect Node.js version
+	// 1. Detect runtimes (Bun, Deno, Node.js)
+	const runtimeDetection = await detectRuntimes();
+
+	// 2. Detect Node.js version
 	const nodeVersion = detectNodeVersion(nodeVersionInput);
 
-	// 2. Detect package manager
+	// 3. Override runtime versions with explicit inputs if provided
+	const runtimeVersions: RuntimeVersions = { ...runtimeDetection.versions };
+	if (runtimeDetection.runtimes.includes("node") && nodeVersion.nodeVersion) {
+		runtimeVersions.node = nodeVersion.nodeVersion;
+	}
+	if (bunVersionInput && runtimeDetection.runtimes.includes("bun")) {
+		runtimeVersions.bun = bunVersionInput;
+	}
+	if (denoVersionInput && runtimeDetection.runtimes.includes("deno")) {
+		runtimeVersions.deno = denoVersionInput;
+	}
+
+	// 4. Detect package manager
 	const packageManager = await detectPackageManager(packageManagerInput);
 
-	// 3. Detect Turbo
+	// 5. Detect Turbo
 	const turbo = detectTurbo();
 
-	// 4. Detect Biome (conditional)
+	// 6. Detect Biome (conditional)
 	const biome = await detectBiome(biomeVersionInput);
 
 	core.endGroup();
 
 	return {
+		runtimes: runtimeDetection.runtimes,
+		runtimeVersions,
 		nodeVersion: nodeVersion.nodeVersion,
 		nodeVersionFile: nodeVersion.nodeVersionFile,
 		nodeVersionSource: nodeVersion.source,
@@ -333,6 +443,15 @@ async function installDependencies(packageManager: PackageManager): Promise<void
 					command = ["install", "--no-immutable"];
 				}
 				break;
+			case "bun":
+				// Use frozen lockfile if bun.lockb exists
+				command = existsSync("bun.lockb") ? ["install", "--frozen-lockfile"] : ["install"];
+				break;
+			case "deno":
+				// Deno uses 'deno install' to cache dependencies
+				// Check if deno.lock exists for frozen mode
+				command = existsSync("deno.lock") ? ["install", "--frozen"] : ["install"];
+				break;
 		}
 
 		await exec.exec(packageManager, command);
@@ -346,6 +465,38 @@ async function installDependencies(packageManager: PackageManager): Promise<void
 }
 
 /**
+ * Gets all active package managers based on installed runtimes
+ *
+ * @param runtimes - Array of installed runtimes
+ * @param primaryPackageManager - Primary package manager (for Node.js)
+ * @returns Array of all active package managers
+ */
+function getActivePackageManagers(runtimes: Runtime[], primaryPackageManager: PackageManager): PackageManager[] {
+	const packageManagers: PackageManager[] = [];
+
+	for (const runtime of runtimes) {
+		if (runtime === "node") {
+			// Node.js uses the primary package manager (npm/pnpm/yarn)
+			if (!packageManagers.includes(primaryPackageManager)) {
+				packageManagers.push(primaryPackageManager);
+			}
+		} else if (runtime === "bun") {
+			// Bun uses its own package manager
+			if (!packageManagers.includes("bun")) {
+				packageManagers.push("bun");
+			}
+		} else if (runtime === "deno") {
+			// Deno uses its own package manager
+			if (!packageManagers.includes("deno")) {
+				packageManagers.push("deno");
+			}
+		}
+	}
+
+	return packageManagers;
+}
+
+/**
  * Main action entrypoint
  */
 async function main(): Promise<void> {
@@ -353,28 +504,57 @@ async function main(): Promise<void> {
 		// 1. Detect configuration
 		const config = await detectConfiguration();
 
+		// Get all active package managers based on runtimes
+		const activePackageManagers = getActivePackageManagers(config.runtimes, config.packageManager);
+		core.info(`Active package managers: ${activePackageManagers.join(", ")}`);
+
 		// Save package manager to state for post action
 		core.saveState("PACKAGE_MANAGER", config.packageManager);
 
-		// 2. Install Node.js
-		await installNode({
-			version: config.nodeVersion,
-			versionFile: config.nodeVersionFile,
-		});
+		// 2. Install all detected runtimes
+		const installedVersions: RuntimeVersions = {};
+
+		for (const runtime of config.runtimes) {
+			if (runtime === "node") {
+				const version = await installNode({
+					version: config.nodeVersion,
+					versionFile: config.nodeVersionFile,
+				});
+				installedVersions.node = version;
+			} else if (runtime === "bun") {
+				const version = config.runtimeVersions.bun;
+				if (version) {
+					const installedVersion = await installBun({ version });
+					installedVersions.bun = installedVersion;
+				} else {
+					core.warning("Bun runtime detected but no version specified, skipping installation");
+				}
+			} else if (runtime === "deno") {
+				const version = config.runtimeVersions.deno;
+				if (version) {
+					const installedVersion = await installDeno({ version });
+					installedVersions.deno = installedVersion;
+				} else {
+					core.warning("Deno runtime detected but no version specified, skipping installation");
+				}
+			}
+		}
 
 		// 3. Setup package manager (pnpm/yarn need corepack)
 		if (config.packageManager === "pnpm" || config.packageManager === "yarn") {
 			await setupPackageManager(config.packageManager);
 		}
 
-		// 4. Restore cache before installing dependencies
+		// 4. Restore cache before installing dependencies (using all active package managers)
 		if (config.installDeps) {
-			await restoreCache(config.packageManager);
+			await restoreCache(activePackageManagers);
 		}
 
-		// 5. Install dependencies
+		// 5. Install dependencies for each package manager
 		if (config.installDeps) {
-			await installDependencies(config.packageManager);
+			for (const pm of activePackageManagers) {
+				await installDependencies(pm);
+			}
 		}
 
 		// 6. Install Biome (optional)
@@ -383,9 +563,12 @@ async function main(): Promise<void> {
 		}
 
 		// Set all outputs
-		core.setOutput("node-version", config.nodeVersion || "from-file");
+		core.setOutput("runtime", config.runtimes.join(","));
+		core.setOutput("node-version", installedVersions.node || config.nodeVersion || "from-file");
 		core.setOutput("node-version-file", config.nodeVersionFile);
 		core.setOutput("node-version-source", config.nodeVersionSource);
+		core.setOutput("bun-version", installedVersions.bun || "");
+		core.setOutput("deno-version", installedVersions.deno || "");
 		core.setOutput("package-manager", config.packageManager);
 		core.setOutput("turbo-enabled", config.turboEnabled.toString());
 		core.setOutput("turbo-config-file", config.turboConfigFile);
@@ -395,7 +578,10 @@ async function main(): Promise<void> {
 
 		// Summary
 		core.startGroup("✅ Runtime Setup Complete");
-		core.info(`Node.js: ${config.nodeVersion || `from ${config.nodeVersionFile}`}`);
+		core.info(`Runtime(s): ${config.runtimes.join(", ")}`);
+		if (installedVersions.node) core.info(`Node.js: ${installedVersions.node}`);
+		if (installedVersions.bun) core.info(`Bun: ${installedVersions.bun}`);
+		if (installedVersions.deno) core.info(`Deno: ${installedVersions.deno}`);
 		core.info(`Package Manager: ${config.packageManager}`);
 		core.info(`Turbo: ${config.turboEnabled ? "enabled" : "disabled"}`);
 		core.info(`Biome: ${config.biomeVersion ? `v${config.biomeVersion}` : "not installed"}`);

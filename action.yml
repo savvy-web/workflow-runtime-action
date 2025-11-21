@@ -1,5 +1,5 @@
-name: "Setup Node.js Runtime Environment"
-description: "Comprehensive Node.js runtime setup with automatic package manager detection, dependency caching, Turbo build cache, and optional Biome linter configuration"
+name: "Setup JavaScript Runtime Environment"
+description: "Comprehensive JavaScript runtime setup (Node.js, Bun, Deno) with automatic package manager detection, dependency caching, Turbo build cache, and optional Biome linter configuration"
 
 branding:
   icon: "package"
@@ -7,13 +7,21 @@ branding:
 
 inputs:
   package-manager:
-    description: "Package manager to use (npm | pnpm | yarn). If omitted, will be detected from package.json packageManager field or defaults to npm"
+    description: "Package manager to use (npm | pnpm | yarn | bun | deno). If omitted, will be detected from package.json packageManager field or defaults to npm"
     required: false
     default: ""
   node-version:
     description: "Version Spec of the version to use in SemVer notation. It also admits such aliases as lts/*, latest, nightly and canary builds. Examples: 12.x, 10.15.1, >=10.15.0, lts/Hydrogen, 16-nightly, latest, node"
     required: false
     default: "lts/*"
+  bun-version:
+    description: "Bun version to install (optional). If not provided, version is auto-detected from package.json packageManager field. Example: 1.0.25"
+    required: false
+    default: ""
+  deno-version:
+    description: "Deno version to install (optional). If not provided, version is auto-detected from package.json packageManager field or deno.json/deno.jsonc. Example: 1.40.0"
+    required: false
+    default: ""
   biome-version:
     description: "Biome version to install (optional). If not provided, version is auto-detected from biome.jsonc or biome.json config file. Leave empty to skip Biome installation."
     required: false
@@ -32,14 +40,20 @@ inputs:
     default: "true"
 
 outputs:
+  runtime:
+    description: "Comma-separated list of installed runtimes (e.g., 'node', 'bun', 'node,deno')"
   node-version:
     description: "The Node.js version that was installed (e.g., '20.11.0' or 'from-file' if using version file)"
   node-version-file:
     description: "The version file used for Node.js version management (e.g., '.nvmrc', '.node-version', or empty if using input)"
   node-version-source:
     description: "The source of the Node.js version (nvmrc | node-version | input)"
+  bun-version:
+    description: "The Bun version that was installed (e.g., '1.0.25' or empty if not installed)"
+  deno-version:
+    description: "The Deno version that was installed (e.g., '1.40.0' or empty if not installed)"
   package-manager:
-    description: "The detected or specified package manager (npm | pnpm | yarn)"
+    description: "The detected or specified package manager (npm | pnpm | yarn | bun | deno)"
   turbo-enabled:
     description: "Whether Turbo configuration was detected (true | false)"
   turbo-config-file:

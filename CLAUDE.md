@@ -4,16 +4,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Overview
 
-This repository provides a **comprehensive Node.js runtime setup GitHub Action** that completely replaces `actions/setup-node` with a single, intelligent action that handles everything automatically.
+This repository provides a **comprehensive JavaScript runtime setup GitHub Action** that supports Node.js, Bun, and Deno with a single, intelligent action that handles everything automatically.
 
-**Primary purpose:** Simplify Node.js CI/CD workflows by auto-detecting and configuring the complete runtime environment with smart defaults and zero configuration.
+**Primary purpose:** Simplify JavaScript/TypeScript CI/CD workflows by auto-detecting and configuring the complete runtime environment with smart defaults and zero configuration.
 
 **Key Features:**
 
-* **Complete Node.js Setup** - Downloads and installs Node.js directly (no actions/setup-node dependency)
+* **Multi-Runtime Support** - Node.js, Bun, and Deno runtimes with auto-detection
+* **Complete Runtime Setup** - Downloads and installs runtimes directly from official sources
 * **Smart Version Resolution** - Resolves `lts/*`, `20.x`, version files (.nvmrc, .node-version)
-* **Package Manager Detection** - Auto-detects from package.json `packageManager` field
-* **Intelligent Caching** - Dependency caching with lock file detection
+* **Package Manager Detection** - Auto-detects from package.json `packageManager` field (npm, pnpm, yarn, bun, deno)
+* **Intelligent Caching** - Dependency caching with lock file detection for all package managers
 * **Optional Biome** - Auto-detects and installs Biome from config files
 * **Turbo Detection** - Detects Turborepo configuration
 * **Lockfile Intelligence** - Gracefully handles projects with or without lock files
@@ -25,7 +26,7 @@ This repository provides a **comprehensive Node.js runtime setup GitHub Action**
 * **Package manager:** pnpm 10.20.0 (for development)
 * **Node.js version:** 24.11.0 (specified in `.nvmrc`)
 * **Linting:** Biome 2.3.6 with strict rules
-* **Testing:** Fixture-based workflow tests (no unit tests currently)
+* **Testing:** Vitest with comprehensive unit tests + fixture-based workflow tests
 * **Type checking:** TypeScript with native preview build (`@typescript/native-preview`)
 
 ## Action Architecture
@@ -50,6 +51,18 @@ Located in `src/utils/`:
   * Handles version files (.nvmrc, .node-version)
   * Supports lts/*, 20.x, exact versions
 
+* **`install-bun.ts`** - Bun runtime installation
+  * Downloads from GitHub releases (oven-sh/bun)
+  * Extracts platform-specific zip archives
+  * Cross-platform support (Linux, macOS, Windows)
+  * Version detection from package.json `packageManager` field
+
+* **`install-deno.ts`** - Deno runtime installation
+  * Downloads from GitHub releases (denoland/deno)
+  * Uses Rust target triples for platform detection
+  * Cross-platform support (Linux, macOS, Windows)
+  * Version detection from deno.json/deno.jsonc or package.json
+
 * **`install-biome.ts`** - Biome CLI installation
   * Downloads binaries from GitHub releases
   * Detects version from biome.jsonc/$schema
@@ -59,7 +72,7 @@ Located in `src/utils/`:
   * Platform-specific cache paths
   * Lock file hashing for cache keys
   * Restore and save operations
-  * Supports npm, pnpm, yarn
+  * Supports npm, pnpm, yarn, bun, deno
 
 ### Action Workflow
 
@@ -67,8 +80,12 @@ Located in `src/utils/`:
 // 1. Detect configuration (package.json, version files, configs)
 const config = await detectConfiguration();
 
-// 2. Install Node.js (download, extract, cache, add to PATH)
-await installNode({ version, versionFile });
+// 2. Install all detected runtimes (Node.js, Bun, Deno)
+for (const runtime of config.runtimes) {
+  if (runtime === "node") await installNode({ version, versionFile });
+  if (runtime === "bun") await installBun({ version });
+  if (runtime === "deno") await installDeno({ version });
+}
 
 // 3. Setup package manager (corepack for pnpm/yarn)
 await setupPackageManager(packageManager);
@@ -90,7 +107,7 @@ await saveCache();
 
 ```yaml
 steps:
-  - uses: actions/checkout@v4
+  - uses: actions/checkout@v6
 
   - uses: savvy-web/workflow-runtime-action@v1
     # That's it! Auto-detects everything from your repo
@@ -98,7 +115,7 @@ steps:
   - run: npm test
 ```
 
-### With Explicit Configuration
+### With Explicit Configuration (Node.js)
 
 ```yaml
 - uses: savvy-web/workflow-runtime-action@v1
@@ -109,15 +126,59 @@ steps:
     install-deps: true         # Default: true
 ```
 
+### Bun Runtime Example
+
+```yaml
+steps:
+  - uses: actions/checkout@v6
+
+  - uses: savvy-web/workflow-runtime-action@v1
+    # Auto-detects Bun from package.json: "packageManager": "bun@1.1.42"
+
+  - run: bun test
+
+  # Or with explicit version:
+  - uses: savvy-web/workflow-runtime-action@v1
+    with:
+      package-manager: bun
+      bun-version: "1.1.42"
+```
+
+### Deno Runtime Example
+
+```yaml
+steps:
+  - uses: actions/checkout@v6
+
+  - uses: savvy-web/workflow-runtime-action@v1
+    # Auto-detects Deno from deno.json or package.json
+    with:
+      deno-version: "1.46.3"
+
+  - run: deno test
+
+  # Or specify package manager explicitly:
+  - uses: savvy-web/workflow-runtime-action@v1
+    with:
+      package-manager: deno
+      deno-version: "1.46.3"
+```
+
 ## Inputs
 
 All inputs are **optional** with intelligent defaults:
 
-* **`package-manager`** - Package manager to use (`npm` | `pnpm` | `yarn`)
+* **`package-manager`** - Package manager to use (`npm` | `pnpm` | `yarn` | `bun` | `deno`)
   * Default: Auto-detect from package.json `packageManager` field, fallback to npm
 
 * **`node-version`** - Node.js version spec (`20.x`, `lts/*`, `24.11.0`)
   * Default: Auto-detect from .nvmrc or .node-version, fallback to `lts/*`
+
+* **`bun-version`** - Bun version to install (`1.1.42`)
+  * Default: Auto-detect from package.json `packageManager` field
+
+* **`deno-version`** - Deno version to install (`1.46.3`)
+  * Default: Auto-detect from package.json `packageManager` field or deno.json/deno.jsonc
 
 * **`biome-version`** - Biome version to install (`2.3.6`, `latest`)
   * Default: Auto-detect from biome.jsonc `$schema`, skip if no config
@@ -130,9 +191,12 @@ All inputs are **optional** with intelligent defaults:
 
 ## Outputs
 
+* **`runtime`** - Comma-separated list of installed runtimes (e.g., `"node"`, `"bun"`, `"node,deno"`)
 * **`node-version`** - Installed Node.js version (e.g., `20.19.5`)
 * **`node-version-file`** - Version file used (`.nvmrc`, `.node-version`, or empty)
 * **`node-version-source`** - Version source (`nvmrc` | `node-version` | `input`)
+* **`bun-version`** - Installed Bun version (e.g., `1.1.42` or empty if not installed)
+* **`deno-version`** - Installed Deno version (e.g., `1.46.3` or empty if not installed)
 * **`package-manager`** - Detected/specified package manager
 * **`turbo-enabled`** - Whether Turbo was detected (`true` | `false`)
 * **`turbo-config-file`** - Turbo config path (`turbo.json` or empty)

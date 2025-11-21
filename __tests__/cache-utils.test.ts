@@ -240,6 +240,127 @@ describe("restoreCache", () => {
 		});
 	});
 
+	describe("bun caching", () => {
+		beforeEach(() => {
+			// Mock bun pm cache command
+			vi.mocked(exec.exec).mockImplementation(async (command, args, options) => {
+				if (command === "bun" && args?.join(" ") === "pm cache") {
+					if (options?.listeners?.stdout) {
+						options.listeners.stdout(Buffer.from("/home/user/.bun/install/cache\n"));
+					}
+					return 0;
+				}
+				return 0;
+			});
+
+			// Mock globber for bun.lockb
+			const globber = {
+				glob: vi.fn().mockResolvedValue(["bun.lockb"]),
+				getSearchPaths: vi.fn().mockReturnValue([]),
+				globGenerator: vi.fn(),
+			};
+			vi.mocked(glob.create).mockResolvedValue(globber as unknown as Globber);
+		});
+
+		it("should restore bun cache with detected path", async () => {
+			await restoreCache("bun");
+
+			expect(exec.exec).toHaveBeenCalledWith("bun", ["pm", "cache"], expect.any(Object));
+			expect(cache.restoreCache).toHaveBeenCalledWith(
+				["/home/user/.bun/install/cache", "**/node_modules"],
+				"bun-linux-x64-abc123def456",
+				["bun-linux-x64-"],
+			);
+		});
+
+		it("should use default paths when detection fails", async () => {
+			vi.mocked(platform).mockReturnValue("win32");
+			vi.mocked(exec.exec).mockResolvedValue(1); // Simulate failure
+
+			await restoreCache("bun");
+
+			expect(cache.restoreCache).toHaveBeenCalledWith(
+				["~/AppData/Local/bun/install/cache", "**/node_modules"],
+				"bun-win32-x64-abc123def456",
+				["bun-win32-x64-"],
+			);
+		});
+
+		it("should find bun.lockb files", async () => {
+			await restoreCache("bun");
+
+			expect(glob.create).toHaveBeenCalledWith("**/bun.lockb", expect.any(Object));
+		});
+	});
+
+	describe("deno caching", () => {
+		beforeEach(() => {
+			// Mock deno info --json command
+			vi.mocked(exec.exec).mockImplementation(async (command, args, options) => {
+				if (command === "deno" && args?.join(" ") === "info --json") {
+					if (options?.listeners?.stdout) {
+						options.listeners.stdout(Buffer.from(JSON.stringify({ denoDir: "/home/user/.cache/deno" })));
+					}
+					return 0;
+				}
+				return 0;
+			});
+
+			// Mock globber for deno.lock
+			const globber = {
+				glob: vi.fn().mockResolvedValue(["deno.lock"]),
+				getSearchPaths: vi.fn().mockReturnValue([]),
+				globGenerator: vi.fn(),
+			};
+			vi.mocked(glob.create).mockResolvedValue(globber as unknown as Globber);
+		});
+
+		it("should restore deno cache with detected path", async () => {
+			await restoreCache("deno");
+
+			expect(exec.exec).toHaveBeenCalledWith("deno", ["info", "--json"], expect.any(Object));
+			expect(cache.restoreCache).toHaveBeenCalledWith(["/home/user/.cache/deno"], "deno-linux-x64-abc123def456", [
+				"deno-linux-x64-",
+			]);
+		});
+
+		it("should use default paths when detection fails", async () => {
+			vi.mocked(platform).mockReturnValue("win32");
+			vi.mocked(exec.exec).mockResolvedValue(1); // Simulate failure
+
+			await restoreCache("deno");
+
+			expect(cache.restoreCache).toHaveBeenCalledWith(["~/AppData/Local/deno"], "deno-win32-x64-abc123def456", [
+				"deno-win32-x64-",
+			]);
+		});
+
+		it("should find deno.lock files", async () => {
+			await restoreCache("deno");
+
+			expect(glob.create).toHaveBeenCalledWith("**/deno.lock", expect.any(Object));
+		});
+
+		it("should handle JSON parsing errors gracefully", async () => {
+			vi.mocked(exec.exec).mockImplementation(async (command, args, options) => {
+				if (command === "deno" && args?.join(" ") === "info --json") {
+					if (options?.listeners?.stdout) {
+						options.listeners.stdout(Buffer.from("invalid json"));
+					}
+					return 0;
+				}
+				return 0;
+			});
+
+			await restoreCache("deno");
+
+			// Should fallback to default paths
+			expect(cache.restoreCache).toHaveBeenCalledWith(["~/.cache/deno"], "deno-linux-x64-abc123def456", [
+				"deno-linux-x64-",
+			]);
+		});
+	});
+
 	describe("cache path detection", () => {
 		it("should handle detection errors gracefully", async () => {
 			// Mock exec.exec to throw an error
@@ -481,6 +602,226 @@ describe("saveCache", () => {
 			await saveCache();
 
 			expect(core.endGroup).toHaveBeenCalled();
+		});
+	});
+});
+
+describe("multi-package manager support", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+
+		// Setup default mocks
+		vi.mocked(platform).mockReturnValue("linux");
+		vi.mocked(arch).mockReturnValue("x64");
+
+		vi.mocked(core.info).mockImplementation(() => {});
+		vi.mocked(core.debug).mockImplementation(() => {});
+		vi.mocked(core.warning).mockImplementation(() => {});
+		vi.mocked(core.startGroup).mockImplementation(() => {});
+		vi.mocked(core.endGroup).mockImplementation(() => {});
+		vi.mocked(core.setOutput).mockImplementation(() => {});
+		vi.mocked(core.saveState).mockImplementation(() => {});
+		vi.mocked(core.getState).mockReturnValue("");
+
+		vi.mocked(cache.restoreCache).mockResolvedValue(undefined);
+		vi.mocked(cache.saveCache).mockResolvedValue(1);
+
+		// Mock exec.exec for cache path detection
+		vi.mocked(exec.exec).mockImplementation(async (command, args, options) => {
+			const argsStr = args?.join(" ") || "";
+
+			if (command === "pnpm" && argsStr === "store path") {
+				if (options?.listeners?.stdout) {
+					options.listeners.stdout(Buffer.from("/home/user/.local/share/pnpm/store\n"));
+				}
+				return 0;
+			}
+
+			if (command === "deno" && argsStr === "info --json") {
+				if (options?.listeners?.stdout) {
+					options.listeners.stdout(Buffer.from(JSON.stringify({ denoDir: "/home/user/.cache/deno" })));
+				}
+				return 0;
+			}
+
+			if (command === "bun" && argsStr === "pm cache") {
+				if (options?.listeners?.stdout) {
+					options.listeners.stdout(Buffer.from("/home/user/.bun/install/cache\n"));
+				}
+				return 0;
+			}
+
+			return 0;
+		});
+
+		// Mock file reading and hashing
+		vi.mocked(readFile).mockResolvedValue("lockfile content");
+
+		const mockHash = {
+			update: vi.fn().mockReturnThis(),
+			digest: vi.fn().mockReturnValue("multihash123"),
+		};
+		vi.mocked(createHash).mockReturnValue(mockHash as never);
+	});
+
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	describe("restoreCache with multiple package managers", () => {
+		it("should accept array of package managers", async () => {
+			// Mock globber to return lock files for both package managers
+			const globber = {
+				glob: vi.fn().mockResolvedValue(["pnpm-lock.yaml", "deno.lock"]),
+				getSearchPaths: vi.fn().mockReturnValue([]),
+				globGenerator: vi.fn(),
+			};
+			vi.mocked(glob.create).mockResolvedValue(globber as unknown as Globber);
+
+			await restoreCache(["pnpm", "deno"]);
+
+			// Should include both package managers in cache key (sorted)
+			expect(cache.restoreCache).toHaveBeenCalledWith(
+				expect.any(Array),
+				expect.stringContaining("deno+pnpm-linux-x64-"), // Sorted: deno+pnpm
+				expect.arrayContaining([expect.stringContaining("deno+pnpm-linux-x64-")]),
+			);
+		});
+
+		it("should deduplicate cache paths from multiple package managers", async () => {
+			const globber = {
+				glob: vi.fn().mockResolvedValue(["pnpm-lock.yaml", "deno.lock"]),
+				getSearchPaths: vi.fn().mockReturnValue([]),
+				globGenerator: vi.fn(),
+			};
+			vi.mocked(glob.create).mockResolvedValue(globber as unknown as Globber);
+
+			await restoreCache(["pnpm", "deno"]);
+
+			const cacheCall = vi.mocked(cache.restoreCache).mock.calls[0];
+			const cachePaths = cacheCall[0];
+
+			// Check that paths are deduplicated (no duplicates)
+			const uniquePaths = new Set(cachePaths);
+			expect(cachePaths.length).toBe(uniquePaths.size);
+
+			// Should include pnpm store path
+			expect(cachePaths).toContain("/home/user/.local/share/pnpm/store");
+
+			// Should include deno cache path
+			expect(cachePaths).toContain("/home/user/.cache/deno");
+
+			// Should include node_modules for pnpm (but only once)
+			const nodeModulesCount = cachePaths.filter((p: string) => p === "**/node_modules").length;
+			expect(nodeModulesCount).toBe(1);
+		});
+
+		it("should combine lock file patterns from all package managers", async () => {
+			const globber = {
+				glob: vi.fn().mockResolvedValue(["pnpm-lock.yaml", "bun.lockb"]),
+				getSearchPaths: vi.fn().mockReturnValue([]),
+				globGenerator: vi.fn(),
+			};
+			vi.mocked(glob.create).mockResolvedValue(globber as unknown as Globber);
+
+			await restoreCache(["pnpm", "bun"]);
+
+			// Should create globber with both lock file patterns
+			const createCallArg = vi.mocked(glob.create).mock.calls[0][0];
+			expect(createCallArg).toContain("**/pnpm-lock.yaml");
+			expect(createCallArg).toContain("**/bun.lockb");
+		});
+
+		it("should sort package managers for consistent cache key", async () => {
+			const globber = {
+				glob: vi.fn().mockResolvedValue(["yarn.lock", "bun.lockb"]),
+				getSearchPaths: vi.fn().mockReturnValue([]),
+				globGenerator: vi.fn(),
+			};
+			vi.mocked(glob.create).mockResolvedValue(globber as unknown as Globber);
+
+			// Pass in unsorted order
+			await restoreCache(["yarn", "bun"]);
+
+			// Should be sorted alphabetically: bun+yarn
+			expect(cache.restoreCache).toHaveBeenCalledWith(
+				expect.any(Array),
+				expect.stringContaining("bun+yarn-linux-x64-"),
+				expect.arrayContaining([expect.stringContaining("bun+yarn-linux-x64-")]),
+			);
+		});
+
+		it("should save all package managers to state", async () => {
+			const globber = {
+				glob: vi.fn().mockResolvedValue(["pnpm-lock.yaml", "deno.lock"]),
+				getSearchPaths: vi.fn().mockReturnValue([]),
+				globGenerator: vi.fn(),
+			};
+			vi.mocked(glob.create).mockResolvedValue(globber as unknown as Globber);
+
+			vi.mocked(cache.restoreCache).mockResolvedValue("deno+pnpm-linux-x64-multihash123");
+
+			await restoreCache(["pnpm", "deno"]);
+
+			// Should save package managers array to state
+			expect(core.saveState).toHaveBeenCalledWith("PACKAGE_MANAGERS", JSON.stringify(["pnpm", "deno"]));
+		});
+	});
+
+	describe("saveCache with multiple package managers", () => {
+		it("should save cache with multiple package managers from state", async () => {
+			vi.mocked(core.getState).mockImplementation((name: string) => {
+				if (name === "CACHE_PRIMARY_KEY") return "deno+pnpm-linux-x64-multihash123";
+				if (name === "CACHE_PATHS")
+					return JSON.stringify(["/home/user/.local/share/pnpm/store", "/home/user/.cache/deno", "**/node_modules"]);
+				if (name === "PACKAGE_MANAGERS") return JSON.stringify(["pnpm", "deno"]);
+				if (name === "CACHE_KEY") return "";
+				return "";
+			});
+
+			await saveCache();
+
+			expect(cache.saveCache).toHaveBeenCalledWith(
+				["/home/user/.local/share/pnpm/store", "/home/user/.cache/deno", "**/node_modules"],
+				"deno+pnpm-linux-x64-multihash123",
+			);
+			expect(core.info).toHaveBeenCalledWith(expect.stringContaining("pnpm, deno"));
+		});
+
+		it("should handle missing PACKAGE_MANAGERS state gracefully", async () => {
+			vi.mocked(core.getState).mockImplementation((name: string) => {
+				if (name === "CACHE_PRIMARY_KEY") return "npm-linux-x64-abc123";
+				if (name === "CACHE_PATHS") return JSON.stringify(["~/.npm"]);
+				if (name === "CACHE_KEY") return "";
+				// PACKAGE_MANAGERS not set (backwards compatibility)
+				return "";
+			});
+
+			await saveCache();
+
+			// Should still save cache successfully
+			expect(cache.saveCache).toHaveBeenCalledWith(["~/.npm"], "npm-linux-x64-abc123");
+			expect(core.info).toHaveBeenCalledWith(expect.stringContaining("unknown"));
+		});
+	});
+
+	describe("backwards compatibility", () => {
+		it("should accept single package manager string", async () => {
+			const globber = {
+				glob: vi.fn().mockResolvedValue(["pnpm-lock.yaml"]),
+				getSearchPaths: vi.fn().mockReturnValue([]),
+				globGenerator: vi.fn(),
+			};
+			vi.mocked(glob.create).mockResolvedValue(globber as unknown as Globber);
+
+			// Single string (not array)
+			await restoreCache("pnpm");
+
+			expect(cache.restoreCache).toHaveBeenCalledWith(
+				expect.any(Array),
+				expect.stringContaining("pnpm-linux-x64-"),
+				expect.arrayContaining([expect.stringContaining("pnpm-linux-x64-")]),
+			);
 		});
 	});
 });

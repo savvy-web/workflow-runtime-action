@@ -1,0 +1,143 @@
+name: Demo - Bun Runtime
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/demo-bun.yml"
+      - "src/**"
+      - "dist/**"
+
+jobs:
+  demo-bun-auto-detect:
+    name: Bun Auto-Detect
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Create test Bun project
+        run: |
+          # Backup action files
+          mkdir -p /tmp/action-backup
+          cp -r dist action.yml /tmp/action-backup/
+
+          # Create minimal Bun project
+          rm -rf ./*
+          cat > package.json <<'EOF'
+          {
+            "name": "test-bun-project",
+            "version": "1.0.0",
+            "packageManager": "bun@1.1.42",
+            "scripts": {
+              "start": "bun run index.ts"
+            }
+          }
+          EOF
+
+          cat > index.ts <<'EOF'
+          console.log("Hello from Bun!");
+          console.log(`Bun version: ${Bun.version}`);
+          EOF
+
+          # Restore action files
+          cp -r /tmp/action-backup/* .
+
+      - name: Setup runtime (auto-detect Bun)
+        id: setup
+        uses: ./
+
+      - name: Show configuration
+        run: |
+          echo "## 🚀 Bun Auto-Detected Configuration" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Runtime(s): ${{ steps.setup.outputs.runtime }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Bun Version: ${{ steps.setup.outputs.bun-version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Package Manager: ${{ steps.setup.outputs.package-manager }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Cache Hit: ${{ steps.setup.outputs.cache-hit }}" >> $GITHUB_STEP_SUMMARY
+
+      - name: Verify Bun installation
+        run: |
+          bun --version
+          bun run index.ts
+
+      - name: Test Bun package manager
+        run: |
+          echo "Testing Bun package manager..."
+          bun install
+          echo "Dependencies installed successfully!"
+
+  demo-bun-explicit:
+    name: Bun Explicit Version
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Create test Bun project
+        run: |
+          # Backup action files
+          mkdir -p /tmp/action-backup
+          cp -r dist action.yml /tmp/action-backup/
+
+          # Create minimal project
+          rm -rf ./*
+          cat > package.json <<'EOF'
+          {
+            "name": "test-bun-explicit",
+            "version": "1.0.0"
+          }
+          EOF
+
+          cat > app.ts <<'EOF'
+          const message: string = "TypeScript works with Bun!";
+          console.log(message);
+          EOF
+
+          # Restore action files
+          cp -r /tmp/action-backup/* .
+
+      - name: Setup runtime (explicit Bun version)
+        id: setup
+        uses: ./
+        with:
+          package-manager: bun
+          bun-version: "1.1.42"
+
+      - name: Show configuration
+        run: |
+          echo "## 🎯 Bun Explicit Configuration" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Runtime(s): ${{ steps.setup.outputs.runtime }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Bun Version: ${{ steps.setup.outputs.bun-version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Package Manager: ${{ steps.setup.outputs.package-manager }}" >> $GITHUB_STEP_SUMMARY
+
+      - name: Run TypeScript with Bun
+        run: bun run app.ts
+
+  demo-bun-multi-platform:
+    name: Bun Multi-Platform
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Create test Bun project
+        run: |
+          # Create minimal project
+          echo '{"name": "test-bun", "packageManager": "bun@1.1.42"}' > package.json
+          echo 'console.log("Bun works on ${{ matrix.os }}!");' > test.js
+
+      - name: Setup Bun runtime
+        id: setup
+        uses: ./
+
+      - name: Verify Bun works
+        run: |
+          bun --version
+          bun run test.js

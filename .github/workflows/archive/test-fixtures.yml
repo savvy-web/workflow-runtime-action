@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout action
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Create test project files
         run: |
@@ -56,7 +56,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout action
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Create pnpm workspace
         run: |
@@ -99,7 +99,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout action
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Create yarn project
         run: |
@@ -138,7 +138,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout action
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Create project with Biome
         run: |
@@ -185,7 +185,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout action
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Create Turbo monorepo
         run: |

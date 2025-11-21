@@ -9,7 +9,7 @@ import * as glob from "@actions/glob";
 /**
  * Supported package managers for caching
  */
-export type PackageManager = "npm" | "pnpm" | "yarn";
+export type PackageManager = "npm" | "pnpm" | "yarn" | "bun" | "deno";
 
 /**
  * Cache configuration for a package manager
@@ -75,6 +75,32 @@ async function detectCachePath(packageManager: PackageManager): Promise<string |
 				}
 				break;
 			}
+
+			case "bun": {
+				// bun pm cache
+				const exitCode = await exec.exec("bun", ["pm", "cache"], options);
+				if (exitCode === 0 && output.trim()) {
+					return output.trim();
+				}
+				break;
+			}
+
+			case "deno": {
+				// Deno uses DENO_DIR environment variable
+				// deno info --json provides cache location
+				const exitCode = await exec.exec("deno", ["info", "--json"], options);
+				if (exitCode === 0 && output.trim()) {
+					try {
+						const info = JSON.parse(output) as { denoDir?: string };
+						if (info.denoDir) {
+							return info.denoDir;
+						}
+					} catch {
+						// Fall through to default
+					}
+				}
+				break;
+			}
 		}
 	} catch (error) {
 		core.debug(
@@ -106,6 +132,12 @@ function getDefaultCachePaths(packageManager: PackageManager): string[] {
 				plat === "win32" ? "~/AppData/Local/Yarn/Cache" : "~/.yarn/cache",
 				plat === "win32" ? "~/AppData/Local/Yarn/Berry/cache" : "~/.cache/yarn",
 			];
+
+		case "bun":
+			return [plat === "win32" ? "~/AppData/Local/bun/install/cache" : "~/.bun/install/cache"];
+
+		case "deno":
+			return [plat === "win32" ? "~/AppData/Local/deno" : "~/.cache/deno"];
 	}
 }
 
@@ -126,24 +158,49 @@ async function getCacheConfig(packageManager: PackageManager): Promise<CacheConf
 	const globalCachePaths = detectedPath ? [detectedPath] : getDefaultCachePaths(packageManager);
 
 	// Additional paths to cache based on package manager
-	const additionalPaths: string[] = ["**/node_modules"];
+	const additionalPaths: string[] = [];
+
+	// Node-based package managers cache node_modules
+	if (packageManager === "npm" || packageManager === "pnpm" || packageManager === "yarn") {
+		additionalPaths.push("**/node_modules");
+	}
 
 	switch (packageManager) {
 		case "yarn":
 			// Yarn also needs to cache project-level .yarn directories
 			additionalPaths.push("**/.yarn/cache", "**/.yarn/unplugged", "**/.yarn/install-state.gz");
 			break;
+		case "bun":
+			// Bun caches node_modules and has its own cache
+			additionalPaths.push("**/node_modules");
+			break;
+		case "deno":
+			// Deno doesn't use node_modules, it caches dependencies globally
+			// No additional paths needed
+			break;
 	}
 
 	const cachePaths = [...globalCachePaths, ...additionalPaths];
 
 	// Lock file patterns
-	const lockFilePatterns =
-		packageManager === "npm"
-			? ["**/package-lock.json"]
-			: packageManager === "pnpm"
-				? ["**/pnpm-lock.yaml", "**/pnpm-workspace.yaml", "**/.pnpmfile.cjs"]
-				: ["**/yarn.lock"];
+	let lockFilePatterns: string[];
+	switch (packageManager) {
+		case "npm":
+			lockFilePatterns = ["**/package-lock.json"];
+			break;
+		case "pnpm":
+			lockFilePatterns = ["**/pnpm-lock.yaml", "**/pnpm-workspace.yaml", "**/.pnpmfile.cjs"];
+			break;
+		case "yarn":
+			lockFilePatterns = ["**/yarn.lock"];
+			break;
+		case "bun":
+			lockFilePatterns = ["**/bun.lockb"];
+			break;
+		case "deno":
+			lockFilePatterns = ["**/deno.lock"];
+			break;
+	}
 
 	if (detectedPath) {
 		core.info(`Detected ${packageManager} cache path: ${detectedPath}`);
@@ -194,14 +251,62 @@ async function hashFiles(files: string[]): Promise<string> {
 }
 
 /**
+ * Gets combined cache configuration for multiple package managers
+ *
+ * @param packageManagers - Array of package managers to get combined config for
+ * @returns Combined cache configuration with deduplicated paths
+ */
+async function getCombinedCacheConfig(packageManagers: PackageManager[]): Promise<CacheConfig> {
+	const plat = platform();
+	const architecture = arch();
+
+	// Use Sets for deduplication
+	const cachePathsSet = new Set<string>();
+	const lockFilePatternsSet = new Set<string>();
+	const keyPrefixes: string[] = [];
+
+	// Collect configs from all package managers
+	for (const pm of packageManagers) {
+		const config = await getCacheConfig(pm);
+
+		// Add all cache paths (Set automatically deduplicates)
+		for (const path of config.cachePaths) {
+			cachePathsSet.add(path);
+		}
+
+		// Add all lock file patterns
+		for (const pattern of config.lockFilePatterns) {
+			lockFilePatternsSet.add(pattern);
+		}
+
+		// Collect key prefixes
+		keyPrefixes.push(pm);
+	}
+
+	// Convert Sets back to arrays
+	const cachePaths = Array.from(cachePathsSet);
+	const lockFilePatterns = Array.from(lockFilePatternsSet);
+
+	// Sort package managers for consistent key prefix
+	const sortedPrefixes = keyPrefixes.sort();
+	const keyPrefix = `${sortedPrefixes.join("+")}-${plat}-${architecture}`;
+
+	return {
+		cachePaths,
+		lockFilePatterns,
+		keyPrefix,
+	};
+}
+
+/**
  * Generates cache key from lock files
  *
- * @param packageManager - Package manager being cached
+ * @param packageManagers - Package managers being cached
  * @param lockFiles - Lock file paths
  * @returns Cache key string
  */
-async function generateCacheKey(packageManager: PackageManager, lockFiles: string[]): Promise<string> {
-	const config = await getCacheConfig(packageManager);
+async function generateCacheKey(packageManagers: PackageManager[], lockFiles: string[]): Promise<string> {
+	const config = await getCombinedCacheConfig(packageManagers);
 	const fileHash = await hashFiles(lockFiles);
 
 	return `${config.keyPrefix}-${fileHash}`;
@@ -210,31 +315,35 @@ async function generateCacheKey(packageManager: PackageManager, lockFiles: strin
 /**
  * Generates restore keys for cache fallback
  *
- * @param packageManager - Package manager being cached
+ * @param packageManagers - Package managers being cached
  * @returns Array of restore key prefixes
  */
-async function generateRestoreKeys(packageManager: PackageManager): Promise<string[]> {
-	const config = await getCacheConfig(packageManager);
+async function generateRestoreKeys(packageManagers: PackageManager[]): Promise<string[]> {
+	const config = await getCombinedCacheConfig(packageManagers);
 	return [`${config.keyPrefix}-`];
 }
 
 /**
  * Restores package manager cache
  *
- * @param packageManager - Package manager to restore cache for
+ * @param packageManagers - Package manager(s) to restore cache for
  * @returns Cache key if restored, undefined if no cache found
  */
-export async function restoreCache(packageManager: PackageManager): Promise<string | undefined> {
-	core.startGroup(`📦 Restoring ${packageManager} cache`);
+export async function restoreCache(packageManagers: PackageManager | PackageManager[]): Promise<string | undefined> {
+	// Normalize to array
+	const pmArray = Array.isArray(packageManagers) ? packageManagers : [packageManagers];
+
+	const pmList = pmArray.join(", ");
+	core.startGroup(`📦 Restoring cache for: ${pmList}`);
 
 	try {
-		const config = await getCacheConfig(packageManager);
+		const config = await getCombinedCacheConfig(pmArray);
 
 		// Find lock files
 		const lockFiles = await findLockFiles(config.lockFilePatterns);
 
 		if (lockFiles.length === 0) {
-			core.warning(`No lock files found for ${packageManager}, skipping cache`);
+			core.warning(`No lock files found for ${pmList}, skipping cache`);
 			core.endGroup();
 			return undefined;
 		}
@@ -242,8 +351,8 @@ export async function restoreCache(packageManager: PackageManager): Promise<stri
 		core.info(`Found lock files: ${lockFiles.join(", ")}`);
 
 		// Generate cache keys
-		const primaryKey = await generateCacheKey(packageManager, lockFiles);
-		const restoreKeys = await generateRestoreKeys(packageManager);
+		const primaryKey = await generateCacheKey(pmArray, lockFiles);
+		const restoreKeys = await generateRestoreKeys(pmArray);
 
 		core.info(`Primary key: ${primaryKey}`);
 		core.info(`Restore keys: ${restoreKeys.join(", ")}`);
@@ -259,6 +368,7 @@ export async function restoreCache(packageManager: PackageManager): Promise<stri
 			core.saveState("CACHE_KEY", cacheKey);
 			core.saveState("CACHE_PRIMARY_KEY", primaryKey);
 			core.saveState("CACHE_PATHS", JSON.stringify(config.cachePaths));
+			core.saveState("PACKAGE_MANAGERS", JSON.stringify(pmArray));
 		} else {
 			core.info("Cache not found");
 			core.setOutput("cache-hit", "false");
@@ -266,6 +376,7 @@ export async function restoreCache(packageManager: PackageManager): Promise<stri
 			// Still save state for post action to save new cache
 			core.saveState("CACHE_PRIMARY_KEY", primaryKey);
 			core.saveState("CACHE_PATHS", JSON.stringify(config.cachePaths));
+			core.saveState("PACKAGE_MANAGERS", JSON.stringify(pmArray));
 		}
 
 		core.endGroup();
@@ -288,6 +399,7 @@ export async function saveCache(): Promise<void> {
 		const cacheKey = core.getState("CACHE_KEY");
 		const primaryKey = core.getState("CACHE_PRIMARY_KEY");
 		const cachePathsJson = core.getState("CACHE_PATHS");
+		const packageManagersJson = core.getState("PACKAGE_MANAGERS");
 
 		if (!primaryKey) {
 			core.info("No primary key found, skipping cache save");
@@ -303,9 +415,12 @@ export async function saveCache(): Promise<void> {
 		}
 
 		const cachePaths = JSON.parse(cachePathsJson) as string[];
+		const packageManagers = packageManagersJson ? (JSON.parse(packageManagersJson) as PackageManager[]) : [];
 
-		core.info(`Saving cache with key: ${primaryKey}`);
-		core.info(`Cache paths: ${cachePaths.join(", ")}`);
+		const pmList = packageManagers.length > 0 ? packageManagers.join(", ") : "unknown";
+		core.info(`Saving cache for: ${pmList}`);
+		core.info(`Cache key: ${primaryKey}`);
+		core.info(`Cache paths (${cachePaths.length} total): ${cachePaths.join(", ")}`);
 
 		// Save the cache
 		const cacheId = await cache.saveCache(cachePaths, primaryKey);

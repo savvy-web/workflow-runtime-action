@@ -1,0 +1,208 @@
+name: Demo - Deno Runtime
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/demo-deno.yml"
+      - "src/**"
+      - "dist/**"
+
+jobs:
+  demo-deno-auto-detect:
+    name: Deno Auto-Detect (from config)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Create test Deno project
+        run: |
+          # Backup action files
+          mkdir -p /tmp/action-backup
+          cp -r dist action.yml /tmp/action-backup/
+
+          # Create minimal Deno project
+          rm -rf ./*
+          cat > deno.json <<'EOF'
+          {
+            "tasks": {
+              "start": "deno run main.ts"
+            }
+          }
+          EOF
+
+          cat > main.ts <<'EOF'
+          console.log("Hello from Deno!");
+          console.log(`Deno version: ${Deno.version.deno}`);
+          EOF
+
+          # Restore action files
+          cp -r /tmp/action-backup/* .
+
+      - name: Setup runtime (auto-detect Deno from deno.json)
+        id: setup
+        uses: ./
+        with:
+          deno-version: "1.46.3"
+
+      - name: Show configuration
+        run: |
+          echo "## 🦕 Deno Auto-Detected Configuration" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Runtime(s): ${{ steps.setup.outputs.runtime }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Deno Version: ${{ steps.setup.outputs.deno-version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Package Manager: ${{ steps.setup.outputs.package-manager }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Cache Hit: ${{ steps.setup.outputs.cache-hit }}" >> $GITHUB_STEP_SUMMARY
+
+      - name: Verify Deno installation
+        run: |
+          deno --version
+          deno run main.ts
+
+      - name: Test Deno task runner
+        run: deno task start
+
+  demo-deno-from-package-json:
+    name: Deno From package.json
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Create test project with package.json
+        run: |
+          # Backup action files
+          mkdir -p /tmp/action-backup
+          cp -r dist action.yml /tmp/action-backup/
+
+          # Create project with Deno in package.json
+          rm -rf ./*
+          cat > package.json <<'EOF'
+          {
+            "name": "test-deno-project",
+            "version": "1.0.0",
+            "packageManager": "deno@1.46.3",
+            "scripts": {
+              "start": "deno run app.ts"
+            }
+          }
+          EOF
+
+          cat > app.ts <<'EOF'
+          const message: string = "TypeScript works natively in Deno!";
+          console.log(message);
+
+          // Deno standard library example
+          const encoder = new TextEncoder();
+          const data = encoder.encode(message);
+          console.log(`Encoded bytes: ${data.length}`);
+          EOF
+
+          # Restore action files
+          cp -r /tmp/action-backup/* .
+
+      - name: Setup runtime (auto-detect from package.json)
+        id: setup
+        uses: ./
+
+      - name: Show configuration
+        run: |
+          echo "## 📦 Deno from package.json" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Runtime(s): ${{ steps.setup.outputs.runtime }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Deno Version: ${{ steps.setup.outputs.deno-version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Package Manager: ${{ steps.setup.outputs.package-manager }}" >> $GITHUB_STEP_SUMMARY
+
+      - name: Run TypeScript with Deno
+        run: deno run app.ts
+
+  demo-deno-with-dependencies:
+    name: Deno With Dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Create Deno project with dependencies
+        run: |
+          # Backup action files
+          mkdir -p /tmp/action-backup
+          cp -r dist action.yml /tmp/action-backup/
+
+          # Create project with dependencies
+          rm -rf ./*
+          cat > deno.json <<'EOF'
+          {
+            "imports": {
+              "std/": "https://deno.land/std@0.214.0/"
+            }
+          }
+          EOF
+
+          cat > deno.lock <<'EOF'
+          {
+            "version": "3",
+            "packages": {
+              "specifiers": {}
+            },
+            "remote": {}
+          }
+          EOF
+
+          cat > server.ts <<'EOF'
+          import { serve } from "std/http/server.ts";
+
+          const handler = (_req: Request): Response => {
+            return new Response("Hello from Deno server!");
+          };
+
+          console.log("HTTP server configured (would run on :8000)");
+          console.log("Deno with dependencies works!");
+          EOF
+
+          # Restore action files
+          cp -r /tmp/action-backup/* .
+
+      - name: Setup Deno runtime
+        id: setup
+        uses: ./
+        with:
+          package-manager: deno
+          deno-version: "1.46.3"
+
+      - name: Verify dependencies are cached
+        run: |
+          echo "Cache status: ${{ steps.setup.outputs.cache-hit }}"
+          deno info server.ts
+
+  demo-deno-multi-platform:
+    name: Deno Multi-Platform
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Create test Deno project
+        shell: bash
+        run: |
+          # Create minimal project
+          echo '{"tasks": {"test": "deno run test.ts"}}' > deno.json
+          echo 'console.log("Deno works on ${{ matrix.os }}!");' > test.ts
+
+      - name: Setup Deno runtime
+        id: setup
+        uses: ./
+        with:
+          package-manager: deno
+          deno-version: "1.46.3"
+
+      - name: Verify Deno works
+        run: |
+          deno --version
+          deno run test.ts
