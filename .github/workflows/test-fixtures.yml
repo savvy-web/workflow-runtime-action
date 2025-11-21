@@ -1,0 +1,310 @@
+name: Test with Fixture Repositories
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "dist/**"
+      - "action.yml"
+  pull_request:
+    paths:
+      - "src/**"
+      - "dist/**"
+      - "action.yml"
+
+jobs:
+  # Test with minimal npm project
+  test-npm-minimal:
+    name: NPM - Minimal Project
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create minimal npm project
+        run: |
+          mkdir test-project
+          cd test-project
+          npm init -y
+          echo "console.log('Hello from npm project');" > index.js
+          npm install --save-dev typescript
+
+      - name: Checkout action
+        uses: actions/checkout@v4
+        with:
+          path: .github/actions/setup-runtime
+
+      - name: Run action
+        id: setup
+        uses: ./.github/actions/setup-runtime
+        with:
+          package-manager: npm
+          node-version: "20.x"
+
+      - name: Verify setup
+        working-directory: test-project
+        run: |
+          node --version
+          npm --version
+          echo "✅ NPM project setup successful"
+
+  # Test with pnpm project
+  test-pnpm:
+    name: PNPM - With Workspace
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create pnpm workspace
+        run: |
+          mkdir test-project
+          cd test-project
+          cat > package.json <<'EOF'
+          {
+            "name": "pnpm-workspace-test",
+            "version": "1.0.0",
+            "packageManager": "pnpm@10.20.0",
+            "scripts": {
+              "test": "echo \"Test passed\""
+            }
+          }
+          EOF
+          cat > pnpm-workspace.yaml <<'EOF'
+          packages:
+            - 'packages/*'
+          EOF
+          mkdir -p packages/example
+          cat > packages/example/package.json <<'EOF'
+          {
+            "name": "@test/example",
+            "version": "1.0.0"
+          }
+          EOF
+
+      - name: Checkout action
+        uses: actions/checkout@v4
+        with:
+          path: test-project/.github/actions/setup-runtime
+
+      - name: Run action
+        id: setup
+        uses: ./test-project/.github/actions/setup-runtime
+        with:
+          package-manager: pnpm
+
+      - name: Verify setup
+        working-directory: test-project
+        run: |
+          node --version
+          pnpm --version
+          pnpm test
+          echo "✅ PNPM workspace setup successful"
+
+  # Test with yarn project
+  test-yarn:
+    name: Yarn - Modern Project
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create yarn project
+        run: |
+          mkdir test-project
+          cd test-project
+          cat > package.json <<'EOF'
+          {
+            "name": "yarn-test",
+            "version": "1.0.0",
+            "packageManager": "yarn@4.5.3",
+            "scripts": {
+              "build": "echo \"Build successful\""
+            }
+          }
+          EOF
+
+      - name: Checkout action
+        uses: actions/checkout@v4
+        with:
+          path: test-project/.github/actions/setup-runtime
+
+      - name: Run action
+        id: setup
+        uses: ./test-project/.github/actions/setup-runtime
+        with:
+          package-manager: yarn
+
+      - name: Verify setup
+        working-directory: test-project
+        run: |
+          node --version
+          yarn --version
+          yarn build
+          echo "✅ Yarn project setup successful"
+
+  # Test with Biome configuration
+  test-biome:
+    name: Biome - Auto-detect Version
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create project with Biome
+        run: |
+          mkdir test-project
+          cd test-project
+          cat > package.json <<'EOF'
+          {
+            "name": "biome-test",
+            "version": "1.0.0",
+            "packageManager": "pnpm@10.20.0"
+          }
+          EOF
+          cat > biome.jsonc <<'EOF'
+          {
+            "$schema": "https://biomejs.dev/schemas/2.3.6/schema.json",
+            "linter": {
+              "enabled": true
+            }
+          }
+          EOF
+          mkdir src
+          echo "console.log('test');" > src/index.js
+
+      - name: Checkout action
+        uses: actions/checkout@v4
+        with:
+          path: test-project/.github/actions/setup-runtime
+
+      - name: Run action (auto-detect Biome)
+        id: setup
+        uses: ./test-project/.github/actions/setup-runtime
+
+      - name: Verify Biome installation
+        working-directory: test-project
+        run: |
+          biome --version
+          biome check src/
+          echo "✅ Biome auto-detected and installed: ${{ steps.setup.outputs.biome-version }}"
+
+  # Test with Turbo configuration
+  test-turbo:
+    name: Turbo - Monorepo
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create Turbo monorepo
+        run: |
+          mkdir test-project
+          cd test-project
+          cat > package.json <<'EOF'
+          {
+            "name": "turbo-monorepo",
+            "version": "1.0.0",
+            "packageManager": "pnpm@10.20.0",
+            "scripts": {
+              "build": "turbo build"
+            },
+            "devDependencies": {
+              "turbo": "^2.0.0"
+            }
+          }
+          EOF
+          cat > turbo.json <<'EOF'
+          {
+            "$schema": "https://turbo.build/schema.json",
+            "tasks": {
+              "build": {
+                "outputs": ["dist/**"]
+              }
+            }
+          }
+          EOF
+          cat > pnpm-workspace.yaml <<'EOF'
+          packages:
+            - 'apps/*'
+          EOF
+
+      - name: Checkout action
+        uses: actions/checkout@v4
+        with:
+          path: test-project/.github/actions/setup-runtime
+
+      - name: Run action
+        id: setup
+        uses: ./test-project/.github/actions/setup-runtime
+
+      - name: Verify Turbo detection
+        working-directory: test-project
+        run: |
+          echo "Turbo enabled: ${{ steps.setup.outputs.turbo-enabled }}"
+          echo "Turbo config: ${{ steps.setup.outputs.turbo-config-file }}"
+          if [ "${{ steps.setup.outputs.turbo-enabled }}" != "true" ]; then
+            echo "❌ Turbo should have been detected"
+            exit 1
+          fi
+          echo "✅ Turbo monorepo detected successfully"
+
+  # Test cache effectiveness
+  test-cache:
+    name: Cache - Second Run
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create test project
+        run: |
+          mkdir test-project
+          cd test-project
+          cat > package.json <<'EOF'
+          {
+            "name": "cache-test",
+            "version": "1.0.0",
+            "packageManager": "pnpm@10.20.0",
+            "dependencies": {
+              "lodash": "^4.17.21"
+            }
+          }
+          EOF
+
+      - name: Checkout action
+        uses: actions/checkout@v4
+        with:
+          path: test-project/.github/actions/setup-runtime
+
+      - name: First run (cache miss expected)
+        id: setup1
+        uses: ./test-project/.github/actions/setup-runtime
+
+      - name: Remove node_modules
+        run: rm -rf test-project/node_modules
+
+      - name: Second run (cache hit expected)
+        id: setup2
+        uses: ./test-project/.github/actions/setup-runtime
+
+      - name: Verify cache effectiveness
+        run: |
+          echo "First run cache: ${{ steps.setup1.outputs.cache-hit }}"
+          echo "Second run cache: ${{ steps.setup2.outputs.cache-hit }}"
+
+          if [ "${{ steps.setup2.outputs.cache-hit }}" != "true" ]; then
+            echo "❌ Cache should have been hit on second run"
+            exit 1
+          fi
+          echo "✅ Cache working correctly"
+
+  # Summary job
+  summary:
+    name: Test Summary
+    runs-on: ubuntu-latest
+    needs:
+      - test-npm-minimal
+      - test-pnpm
+      - test-yarn
+      - test-biome
+      - test-turbo
+      - test-cache
+    if: always()
+    steps:
+      - name: Generate summary
+        run: |
+          echo "## 🧪 Fixture Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Test | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| NPM Minimal | ${{ needs.test-npm-minimal.result == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| PNPM Workspace | ${{ needs.test-pnpm.result == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Yarn Modern | ${{ needs.test-yarn.result == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Biome Auto-detect | ${{ needs.test-biome.result == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Turbo Monorepo | ${{ needs.test-turbo.result == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Cache Effectiveness | ${{ needs.test-cache.result == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY

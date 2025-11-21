@@ -19,7 +19,7 @@ jobs:
         run: |
           echo "## 🎯 Auto-Detected Configuration" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- Node.js: ${{ steps.setup.outputs.runtime-version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Node.js: ${{ steps.setup.outputs.node-version }}" >> $GITHUB_STEP_SUMMARY
           echo "- Package Manager: ${{ steps.setup.outputs.package-manager }}" >> $GITHUB_STEP_SUMMARY
           echo "- Turbo: ${{ steps.setup.outputs.turbo-enabled }}" >> $GITHUB_STEP_SUMMARY
           echo "- Biome: ${{ steps.setup.outputs.biome-version || 'not configured' }}" >> $GITHUB_STEP_SUMMARY
@@ -47,7 +47,7 @@ jobs:
         run: |
           echo "## 🎯 Explicit Configuration" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- Node.js: ${{ steps.setup.outputs.runtime-version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Node.js: ${{ steps.setup.outputs.node-version }}" >> $GITHUB_STEP_SUMMARY
           echo "- Package Manager: ${{ steps.setup.outputs.package-manager }}" >> $GITHUB_STEP_SUMMARY
           echo "- Turbo: ${{ steps.setup.outputs.turbo-enabled }}" >> $GITHUB_STEP_SUMMARY
           echo "- Biome: ${{ steps.setup.outputs.biome-version }}" >> $GITHUB_STEP_SUMMARY
