@@ -56,7 +56,7 @@ jobs:
 ## Inputs
 
 | Input | Description | Required | Default |
-|-------|-------------|----------|---------|
+| ------- | ------------- | ---------- | --------- |
 | `package-manager` | Package manager to use (`npm` \| `pnpm` \| `yarn`). If omitted, will be auto-detected. | No | `""` (auto-detect) |
 | `node-version` | Node.js version in SemVer notation. Supports aliases like `lts/*`, `latest`, `20.x`. | No | `"lts/*"` |
 | `turbo-token` | Turbo remote cache token for Vercel Remote Cache (optional). | No | `""` |
@@ -66,7 +66,7 @@ jobs:
 ## Outputs
 
 | Output | Description |
-|--------|-------------|
+| -------- | ------------- |
 | `runtime-version` | The Node.js runtime version that was installed (e.g., `20.10.0`) |
 | `node-version-manager-file` | The version manager file that was detected (`.nvmrc` \| `.node-version` \| empty if using input) |
 | `package-manager` | The package manager that was detected or configured (`npm` \| `pnpm` \| `yarn`) |

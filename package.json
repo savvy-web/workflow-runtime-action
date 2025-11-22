@@ -16,9 +16,9 @@
 		"lint": "biome check --max-diagnostics=none",
 		"lint:fix": "biome check --write --max-diagnostics=none",
 		"lint:fix:unsafe": "biome check --write --unsafe --max-diagnostics=none",
-		"lint:md": "markdownlint-cli2 '**/*.{md,mdx}' '!**/node_modules' '!**/dist' --config .markdownlint.json",
-		"lint:md:fix": "markdownlint-cli2 '**/*.{md,mdx}' '!**/node_modules' '!**/dist' --config .markdownlint.json --fix",
-		"lint:md:fix:file": "markdownlint-cli2 '**/*.{md,mdx}' '!**/node_modules' '!**/dist' --config .markdownlint.json --fix",
+		"lint:md": "markdownlint-cli2 '**/*.{md,mdx}' --config './lib/configs/.markdownlint-cli2.jsonc'",
+		"lint:md:fix": "markdownlint-cli2  --config './lib/configs/.markdownlint-cli2.jsonc' --fix",
+		"lint:md:fix:file": "markdownlint-cli2 '**/*.{md,mdx}' --config './lib/configs/.markdownlint-cli2.jsonc' --fix",
 		"prepare": "husky",
 		"test": "vitest --run --reporter=verbose",
 		"typecheck": "turbo run typecheck:all --log-prefix=none",
@@ -59,9 +59,18 @@
 		"tsx": "^4.20.6",
 		"turbo": "^2.6.1",
 		"type-fest": "^5.2.0",
-		"vitest": "^4.0.10",
+		"vitest": "^4.0.13",
 		"yaml": "^2.8.1",
 		"yaml-lint": "^1.7.0"
 	},
-	"packageManager": "pnpm@10.20.0"
+	"packageManager": "pnpm@10.20.0",
+	"devEngines": {
+		"runtime": [
+			{
+				"name": "node",
+				"version": "24.11.0",
+				"onFail": "warn"
+			}
+		]
+	}
 }

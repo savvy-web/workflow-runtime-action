@@ -40,7 +40,10 @@ export default {
 			return filtered.length > 0 ? `biome check --write --no-errors-on-unmatched ${filtered.join(" ")}` : [];
 		},
 	// Lint and fix markdown files
-	"**/*.{md,mdx}": ["markdownlint-cli2 --fix --config .markdownlint.json"],
+	"**/*.{md,mdx}": (filenames) =>
+		filenames.length > 0
+			? `markdownlint-cli2 --config './lib/configs/.markdownlint-cli2.jsonc' --fix ${filenames.join(" ")}`
+			: [],
 	// Sort pnpm-workspace.yaml with yq (if available), then format
 	"pnpm-workspace.yaml": () => {
 		/** @type {string[]} */

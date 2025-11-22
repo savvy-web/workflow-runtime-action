@@ -912,7 +912,7 @@ If integration tests fail:
 Common errors and solutions:
 
 | Error | Cause | Solution |
-|-------|-------|----------|
+| ------- | ------- | ---------- |
 | `No such file or directory: __fixtures__/...` | Fixture doesn't exist | Create fixture or check spelling |
 | `ENOENT: no such file or directory` | Incorrect platform binary name | Check platform mapping in install-*.ts |
 | `Unexpected HTTP response: 404` | Version doesn't exist | Verify version exists on GitHub releases |
