@@ -2,19 +2,6 @@ name: Test - Node.js Runtime
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - "src/**"
-      - "dist/**"
-      - "action.yml"
-      - ".github/workflows/test-node.yml"
-  pull_request:
-    paths:
-      - "src/**"
-      - "dist/**"
-      - "action.yml"
-      - ".github/workflows/test-node.yml"
 
 jobs:
   test-npm:

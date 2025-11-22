@@ -2,19 +2,6 @@ name: Test - Features (Biome, Turbo, Cache)
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - "src/**"
-      - "dist/**"
-      - "action.yml"
-      - ".github/workflows/test-features.yml"
-  pull_request:
-    paths:
-      - "src/**"
-      - "dist/**"
-      - "action.yml"
-      - ".github/workflows/test-features.yml"
 
 jobs:
   test-biome-auto-detect:
