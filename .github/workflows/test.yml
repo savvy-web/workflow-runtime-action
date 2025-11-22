@@ -102,6 +102,7 @@ jobs:
 
           - name: "Deno - package.json"
             fixture: deno-lockfile
+            deno-version: "1.46.3"
             expected-runtime: deno
             expected-package-manager: npm
             expected-deno-version: "1.46.3"
@@ -117,7 +118,7 @@ jobs:
             title: "🎯 Deno Explicit Version Test Results"
 
           - name: "Deno - Lockfile"
-            fixture: deno-minimal
+            fixture: deno-lockfile
             package-manager: deno
             deno-version: "1.46.3"
             test-command: "deno run main.ts"
