@@ -22,6 +22,12 @@ inputs:
   expected-node-version-file:
     description: Expected version file
     required: false
+  expected-bun-version:
+    description: Expected Bun version
+    required: false
+  expected-deno-version:
+    description: Expected Deno version
+    required: false
   expected-biome-enabled:
     description: Expected biome-enabled value
     required: false
@@ -95,8 +101,8 @@ runs:
         check_value "node-version" "${{ inputs.expected-node-version }}"
         check_value "node-version-file" "${{ inputs.expected-node-version-file }}"
         check_value "node-version-source" ""
-        check_value "bun-version" ""
-        check_value "deno-version" ""
+        check_value "bun-version" "${{ inputs.expected-bun-version }}"
+        check_value "deno-version" "${{ inputs.expected-deno-version }}"
         check_value "biome-enabled" "${{ inputs.expected-biome-enabled }}"
         check_value "biome-version" "${{ inputs.expected-biome-version }}"
         check_value "biome-config-file" "${{ inputs.expected-biome-config-file }}"

@@ -95,13 +95,15 @@ jobs:
             fixture: deno-minimal
             deno-version: "1.46.3"
             expected-runtime: deno
-            expected-package-manager: deno
+            expected-package-manager: npm
+            expected-deno-version: "1.46.3"
             test-command: "deno --version && deno run main.ts"
             title: "🦕 Deno Auto-detect Test Results"
 
           - name: "Deno - package.json"
             fixture: deno-lockfile
             expected-runtime: deno
+            expected-package-manager: npm
             expected-deno-version: "1.46.3"
             test-command: "deno run app.ts"
             title: "📦 Deno package.json Test Results"
