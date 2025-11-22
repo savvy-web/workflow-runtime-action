@@ -1,2 +1,1 @@
-const x = 1;
-console.log(x);
+export const foo = "bar";

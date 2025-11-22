@@ -36,33 +36,17 @@ jobs:
           deno-version: "1.46.3"
 
       - name: Verify Deno installation
+        uses: ./.github/actions/verify-setup
+        with:
+          title: "🦕 Deno Auto-detect Test Results"
+          outputs: ${{ toJSON(steps.setup.outputs) }}
+          expected-runtime: deno
+          expected-package-manager: deno
+
+      - name: Test Deno
         run: |
-          echo "## 🦕 Deno Auto-detect Test Results" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- Runtime: \`${{ steps.setup.outputs.runtime }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- Deno Version: \`${{ steps.setup.outputs.deno-version }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- Package Manager: \`${{ steps.setup.outputs.package-manager }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-
-          # Verify Deno is installed
           deno --version
-
-          # Verify runtime output
-          if [ "${{ steps.setup.outputs.runtime }}" != "deno" ]; then
-            echo "❌ Expected deno runtime" >> $GITHUB_STEP_SUMMARY
-            exit 1
-          fi
-
-          # Verify package manager is deno
-          if [ "${{ steps.setup.outputs.package-manager }}" != "deno" ]; then
-            echo "❌ Expected deno package manager" >> $GITHUB_STEP_SUMMARY
-            exit 1
-          fi
-
-          # Run TypeScript file
           deno run main.ts
-
-          echo "✅ Deno auto-detection successful" >> $GITHUB_STEP_SUMMARY
 
   test-deno-from-package-json:
     name: Deno - Detect from package.json
@@ -81,26 +65,15 @@ jobs:
         uses: ./
 
       - name: Verify package.json detection
-        run: |
-          echo "## 📦 Deno package.json Test Results" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- Runtime: \`${{ steps.setup.outputs.runtime }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- Deno Version: \`${{ steps.setup.outputs.deno-version }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+        uses: ./.github/actions/verify-setup
+        with:
+          title: "📦 Deno package.json Test Results"
+          outputs: ${{ toJSON(steps.setup.outputs) }}
+          expected-runtime: deno
+          expected-deno-version: "1.46.3"
 
-          # Verify detection
-          if [ "${{ steps.setup.outputs.runtime }}" != "deno" ]; then
-            echo "❌ Expected deno runtime from package.json" >> $GITHUB_STEP_SUMMARY
-            exit 1
-          fi
-
-          if [ "${{ steps.setup.outputs.deno-version }}" != "1.46.3" ]; then
-            echo "❌ Expected version 1.46.3" >> $GITHUB_STEP_SUMMARY
-            exit 1
-          fi
-
-          deno run app.ts
-          echo "✅ package.json detection successful" >> $GITHUB_STEP_SUMMARY
+      - name: Test Deno
+        run: deno run app.ts
 
   test-deno-explicit:
     name: Deno - Explicit version
@@ -122,23 +95,16 @@ jobs:
           deno-version: "1.46.3"
 
       - name: Verify explicit version
+        uses: ./.github/actions/verify-setup
+        with:
+          title: "🎯 Deno Explicit Version Test Results"
+          outputs: ${{ toJSON(steps.setup.outputs) }}
+          expected-deno-version: "1.46.3"
+
+      - name: Test Deno
         run: |
-          echo "## 🎯 Deno Explicit Version Test Results" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- Deno Version: \`${{ steps.setup.outputs.deno-version }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-
-          # Verify version
-          INSTALLED_VERSION=$(deno --version | head -n1 | awk '{print $2}')
-          echo "Installed: $INSTALLED_VERSION"
-
-          if [ "${{ steps.setup.outputs.deno-version }}" != "1.46.3" ]; then
-            echo "❌ Expected version 1.46.3" >> $GITHUB_STEP_SUMMARY
-            exit 1
-          fi
-
+          deno --version
           deno run test.ts
-          echo "✅ Explicit version installation successful" >> $GITHUB_STEP_SUMMARY
 
   test-deno-with-dependencies:
     name: Deno - With dependencies
@@ -159,11 +125,14 @@ jobs:
           package-manager: deno
           deno-version: "1.46.3"
 
+      - name: Verify setup
+        uses: ./.github/actions/verify-setup
+        with:
+          title: "📦 Deno Dependencies Test"
+          outputs: ${{ toJSON(steps.setup.outputs) }}
+
       - name: Verify dependencies
         run: |
-          echo "## 📦 Deno Dependencies Test" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-
           # Check deno.lock exists
           if [ ! -f "deno.lock" ]; then
             echo "❌ deno.lock not found" >> $GITHUB_STEP_SUMMARY
@@ -194,11 +163,14 @@ jobs:
           package-manager: deno
           deno-version: "1.46.3"
 
-      - name: Verify lockfile detection
-        run: |
-          echo "## 🔒 Deno Lockfile Test Results" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+      - name: Verify setup
+        uses: ./.github/actions/verify-setup
+        with:
+          title: "🔒 Deno Lockfile Test Results"
+          outputs: ${{ toJSON(steps.setup.outputs) }}
 
+      - name: Verify lockfile
+        run: |
           # Verify deno.lock exists
           if [ ! -f "deno.lock" ]; then
             echo "❌ deno.lock not found" >> $GITHUB_STEP_SUMMARY

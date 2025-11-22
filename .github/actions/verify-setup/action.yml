@@ -62,19 +62,18 @@ runs:
 
         # Helper function to check and report a value
         check_value() {
-          local name="$1"
-          local key="$2"
-          local expected="$3"
+          local key="$1"
+          local expected="$2"
 
           local actual=$(get_output "$key")
 
-          # Skip if no actual value (but still show for primary outputs)
+          # Skip if no actual value
           if [ -z "$actual" ]; then
             return
           fi
 
-          # Show the value without backticks or prefix
-          echo -n "$name: $actual " >> $GITHUB_STEP_SUMMARY
+          # Show the key and value
+          echo -n "$key: $actual " >> $GITHUB_STEP_SUMMARY
 
           # If expected value is provided, validate it
           if [ -n "$expected" ]; then
@@ -91,19 +90,19 @@ runs:
         }
 
         # Report all values with optional validation
-        check_value "Runtime" "runtime" "${{ inputs.expected-runtime }}"
-        check_value "Package Manager" "package-manager" "${{ inputs.expected-package-manager }}"
-        check_value "Node.js Version" "node-version" "${{ inputs.expected-node-version }}"
-        check_value "Bun Version" "bun-version" ""
-        check_value "Deno Version" "deno-version" ""
-        check_value "Version File" "node-version-file" "${{ inputs.expected-node-version-file }}"
-        check_value "Version Source" "node-version-source" ""
-        check_value "Biome Enabled" "biome-enabled" "${{ inputs.expected-biome-enabled }}"
-        check_value "Biome Version" "biome-version" "${{ inputs.expected-biome-version }}"
-        check_value "Biome Config" "biome-config-file" "${{ inputs.expected-biome-config-file }}"
-        check_value "Turbo Enabled" "turbo-enabled" "${{ inputs.expected-turbo-enabled }}"
-        check_value "Turbo Config" "turbo-config-file" "${{ inputs.expected-turbo-config-file }}"
-        check_value "Cache Hit" "cache-hit" "${{ inputs.expected-cache-hit }}"
+        check_value "runtime" "${{ inputs.expected-runtime }}"
+        check_value "package-manager" "${{ inputs.expected-package-manager }}"
+        check_value "node-version" "${{ inputs.expected-node-version }}"
+        check_value "node-version-file" "${{ inputs.expected-node-version-file }}"
+        check_value "node-version-source" ""
+        check_value "bun-version" ""
+        check_value "deno-version" ""
+        check_value "biome-enabled" "${{ inputs.expected-biome-enabled }}"
+        check_value "biome-version" "${{ inputs.expected-biome-version }}"
+        check_value "biome-config-file" "${{ inputs.expected-biome-config-file }}"
+        check_value "turbo-enabled" "${{ inputs.expected-turbo-enabled }}"
+        check_value "turbo-config-file" "${{ inputs.expected-turbo-config-file }}"
+        check_value "cache-hit" "${{ inputs.expected-cache-hit }}"
 
         echo "" >> $GITHUB_STEP_SUMMARY
 

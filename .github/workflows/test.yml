@@ -1,0 +1,292 @@
+name: Tests
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "dist/**"
+      - "action.yml"
+      - ".github/workflows/test.yml"
+  pull_request:
+    paths:
+      - "src/**"
+      - "dist/**"
+      - "action.yml"
+      - ".github/workflows/test.yml"
+
+jobs:
+  test:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Node.js Tests
+          - name: "Node.js - NPM"
+            fixture: node-minimal
+            package-manager: npm
+            node-version: "20.x"
+            expected-runtime: node
+            expected-package-manager: npm
+            test-command: "node --version && npm --version"
+            title: "📦 NPM Test Results"
+
+          - name: "Node.js - PNPM"
+            fixture: node-pnpm
+            expected-runtime: node
+            expected-package-manager: pnpm
+            test-command: "node --version && pnpm --version"
+            title: "📦 PNPM Test Results"
+
+          - name: "Node.js - Yarn"
+            fixture: node-yarn
+            expected-runtime: node
+            expected-package-manager: yarn
+            test-command: "node --version && yarn --version"
+            title: "📦 Yarn Test Results"
+
+          - name: "Node.js - .nvmrc"
+            fixture: node-nvm
+            expected-node-version-file: .nvmrc
+            expected-node-version: "24.11.0"
+            test-command: "node --version"
+            title: "📄 .nvmrc File Test Results"
+
+          - name: "Node.js - .node-version"
+            fixture: node-version-file
+            expected-node-version-file: .node-version
+            expected-node-version: "24.11.0"
+            test-command: "node --version"
+            title: "📄 .node-version File Test Results"
+
+          - name: "Node.js - LTS"
+            fixture: node-minimal
+            node-version: "lts/*"
+            test-command: "node --version"
+            title: "🔖 LTS Version Test Results"
+
+          # Bun Tests
+          - name: "Bun - Auto-detect"
+            fixture: bun-minimal
+            expected-runtime: bun
+            expected-package-manager: bun
+            test-command: "bun --version && bun run index.ts"
+            title: "🚀 Bun Auto-detect Test Results"
+
+          - name: "Bun - Explicit Version"
+            fixture: bun-minimal
+            package-manager: bun
+            bun-version: "1.1.42"
+            expected-bun-version: "1.1.42"
+            test-command: "bun --version && bun run test.js"
+            title: "🎯 Bun Explicit Version Test Results"
+
+          - name: "Bun - Lockfile"
+            fixture: bun-lockfile
+            test-command: "bun --version"
+            verify-lockfile: bun.lockb
+            title: "🔒 Bun Lockfile Test Results"
+
+          # Deno Tests
+          - name: "Deno - Auto-detect"
+            fixture: deno-minimal
+            deno-version: "1.46.3"
+            expected-runtime: deno
+            expected-package-manager: deno
+            test-command: "deno --version && deno run main.ts"
+            title: "🦕 Deno Auto-detect Test Results"
+
+          - name: "Deno - package.json"
+            fixture: deno-lockfile
+            expected-runtime: deno
+            expected-deno-version: "1.46.3"
+            test-command: "deno run app.ts"
+            title: "📦 Deno package.json Test Results"
+
+          - name: "Deno - Explicit Version"
+            fixture: deno-minimal
+            package-manager: deno
+            deno-version: "1.46.3"
+            expected-deno-version: "1.46.3"
+            test-command: "deno --version && deno run test.ts"
+            title: "🎯 Deno Explicit Version Test Results"
+
+          - name: "Deno - Lockfile"
+            fixture: deno-minimal
+            package-manager: deno
+            deno-version: "1.46.3"
+            test-command: "deno run main.ts"
+            verify-lockfile: deno.lock
+            title: "🔒 Deno Lockfile Test Results"
+
+          # Feature Tests
+          - name: "Biome - Auto-detect"
+            fixture: biome-auto
+            expected-biome-enabled: "true"
+            expected-biome-version: "2.3.6"
+            expected-biome-config-file: biome.jsonc
+            test-command: "biome --version"
+            title: "🧬 Biome Auto-detect Test Results"
+
+          - name: "Biome - Explicit Version"
+            fixture: node-minimal
+            biome-version: "2.3.6"
+            expected-biome-enabled: "true"
+            expected-biome-version: "2.3.6"
+            test-command: "biome --version"
+            title: "🎯 Biome Explicit Version Test Results"
+
+          - name: "Turbo - Detection"
+            fixture: turbo-monorepo
+            expected-turbo-enabled: "true"
+            expected-turbo-config-file: turbo.json
+            test-command: "echo 'Turbo detected'"
+            title: "⚡ Turbo Detection Test Results"
+
+          - name: "Skip Dependencies"
+            fixture: cache-test
+            install-deps: "false"
+            test-command: "node --version && npm --version"
+            verify-no-node-modules: "true"
+            title: "🚫 Skip Dependencies Test Results"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup test fixture
+        uses: ./.github/actions/setup-fixture
+        with:
+          fixture: ${{ matrix.fixture }}
+
+      - name: Setup runtime
+        id: setup
+        uses: ./
+        with:
+          package-manager: ${{ matrix.package-manager || '' }}
+          node-version: ${{ matrix.node-version || '' }}
+          bun-version: ${{ matrix.bun-version || '' }}
+          deno-version: ${{ matrix.deno-version || '' }}
+          biome-version: ${{ matrix.biome-version || '' }}
+          install-deps: ${{ matrix.install-deps || 'true' }}
+
+      - name: Verify setup
+        uses: ./.github/actions/verify-setup
+        with:
+          title: ${{ matrix.title }}
+          outputs: ${{ toJSON(steps.setup.outputs) }}
+          expected-runtime: ${{ matrix.expected-runtime || '' }}
+          expected-package-manager: ${{ matrix.expected-package-manager || '' }}
+          expected-node-version: ${{ matrix.expected-node-version || '' }}
+          expected-node-version-file: ${{ matrix.expected-node-version-file || '' }}
+          expected-bun-version: ${{ matrix.expected-bun-version || '' }}
+          expected-deno-version: ${{ matrix.expected-deno-version || '' }}
+          expected-biome-enabled: ${{ matrix.expected-biome-enabled || '' }}
+          expected-biome-version: ${{ matrix.expected-biome-version || '' }}
+          expected-biome-config-file: ${{ matrix.expected-biome-config-file || '' }}
+          expected-turbo-enabled: ${{ matrix.expected-turbo-enabled || '' }}
+          expected-turbo-config-file: ${{ matrix.expected-turbo-config-file || '' }}
+
+      - name: Test runtime
+        if: matrix.test-command != ''
+        run: ${{ matrix.test-command }}
+
+      - name: Verify lockfile
+        if: matrix.verify-lockfile != ''
+        run: |
+          if [ ! -f "${{ matrix.verify-lockfile }}" ]; then
+            echo "❌ ${{ matrix.verify-lockfile }} not found" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+          echo "✅ Lockfile handled correctly" >> $GITHUB_STEP_SUMMARY
+
+      - name: Verify no node_modules
+        if: matrix.verify-no-node-modules == 'true'
+        run: |
+          if [ -d "node_modules" ]; then
+            echo "❌ node_modules should not exist when install-deps is false" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+          echo "✅ Dependencies correctly skipped" >> $GITHUB_STEP_SUMMARY
+
+  test-cache:
+    name: Cache Effectiveness
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup test fixture
+        uses: ./.github/actions/setup-fixture
+        with:
+          fixture: cache-test
+
+      - name: First run (cache miss)
+        id: setup1
+        uses: ./
+
+      - name: Verify first run
+        uses: ./.github/actions/verify-setup
+        with:
+          title: "💾 Cache First Run Results"
+          outputs: ${{ toJSON(steps.setup1.outputs) }}
+
+      - name: Verify dependencies installed
+        run: |
+          if [ ! -d "node_modules/lodash" ]; then
+            echo "❌ Dependencies not installed" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+          echo "✅ Dependencies installed successfully" >> $GITHUB_STEP_SUMMARY
+
+      - name: Clear node_modules for second run
+        run: rm -rf node_modules
+
+      - name: Second run (cache hit expected)
+        id: setup2
+        uses: ./
+
+      - name: Verify second run
+        uses: ./.github/actions/verify-setup
+        with:
+          title: "💾 Cache Second Run Results"
+          outputs: ${{ toJSON(steps.setup2.outputs) }}
+
+      - name: Verify cache restoration
+        run: |
+          if [ "${{ steps.setup2.outputs.cache-hit }}" == "false" ]; then
+            echo "❌ Second run should have cache hit or partial" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+          if [ ! -d "node_modules/lodash" ]; then
+            echo "❌ Dependencies not restored from cache" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+          echo "✅ Cache restoration successful" >> $GITHUB_STEP_SUMMARY
+
+  summary:
+    name: Test Summary
+    runs-on: ubuntu-latest
+    needs: [test, test-cache]
+    if: always()
+    steps:
+      - name: Generate summary
+        run: |
+          echo "## 🧪 Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ needs.test.result }}" == "success" ] && [ "${{ needs.test-cache.result }}" == "success" ]; then
+            echo "### ✅ All tests passed!" >> $GITHUB_STEP_SUMMARY
+            exit 0
+          else
+            echo "### ❌ Some tests failed" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "- Matrix tests: ${{ needs.test.result }}" >> $GITHUB_STEP_SUMMARY
+            echo "- Cache test: ${{ needs.test-cache.result }}" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi

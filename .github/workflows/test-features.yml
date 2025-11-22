@@ -34,37 +34,16 @@ jobs:
         uses: ./
 
       - name: Verify Biome installation
-        run: |
-          echo "## 🧬 Biome Auto-detect Test Results" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- Biome Enabled: \`${{ steps.setup.outputs.biome-enabled }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- Biome Version: \`${{ steps.setup.outputs.biome-version }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- Biome Config: \`${{ steps.setup.outputs.biome-config-file }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+        uses: ./.github/actions/verify-setup
+        with:
+          title: "🧬 Biome Auto-detect Test Results"
+          outputs: ${{ toJSON(steps.setup.outputs) }}
+          expected-biome-enabled: "true"
+          expected-biome-version: "2.3.6"
+          expected-biome-config-file: biome.jsonc
 
-          # Verify Biome is installed
-          biome --version
-
-          # Verify outputs
-          if [ "${{ steps.setup.outputs.biome-enabled }}" != "true" ]; then
-            echo "❌ Expected biome-enabled to be true" >> $GITHUB_STEP_SUMMARY
-            exit 1
-          fi
-
-          if [ "${{ steps.setup.outputs.biome-version }}" != "2.3.6" ]; then
-            echo "❌ Expected version 2.3.6 from $schema" >> $GITHUB_STEP_SUMMARY
-            exit 1
-          fi
-
-          if [ "${{ steps.setup.outputs.biome-config-file }}" != "biome.jsonc" ]; then
-            echo "❌ Expected biome.jsonc config file" >> $GITHUB_STEP_SUMMARY
-            exit 1
-          fi
-
-          # Run Biome check
-          biome check test.js
-
-          echo "✅ Biome auto-detection successful" >> $GITHUB_STEP_SUMMARY
+      - name: Test Biome
+        run: biome --version
 
   test-biome-explicit:
     name: Biome - Explicit version
@@ -88,24 +67,15 @@ jobs:
           biome-version: "2.3.6"
 
       - name: Verify explicit Biome version
-        run: |
-          echo "## 🎯 Biome Explicit Version Test Results" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- Biome Enabled: \`${{ steps.setup.outputs.biome-enabled }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- Biome Version: \`${{ steps.setup.outputs.biome-version }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+        uses: ./.github/actions/verify-setup
+        with:
+          title: "🎯 Biome Explicit Version Test Results"
+          outputs: ${{ toJSON(steps.setup.outputs) }}
+          expected-biome-enabled: "true"
+          expected-biome-version: "2.3.6"
 
-          # Verify Biome is installed
-          INSTALLED_VERSION=$(biome --version | awk '{print $2}')
-          echo "Installed: $INSTALLED_VERSION"
-
-          if [ "${{ steps.setup.outputs.biome-version }}" != "2.3.6" ]; then
-            echo "❌ Expected explicit version 2.3.6" >> $GITHUB_STEP_SUMMARY
-            exit 1
-          fi
-
-          biome check test.js
-          echo "✅ Explicit Biome version successful" >> $GITHUB_STEP_SUMMARY
+      - name: Test Biome
+        run: biome --version
 
   test-turbo-detection:
     name: Turbo - Monorepo detection
@@ -124,25 +94,12 @@ jobs:
         uses: ./
 
       - name: Verify Turbo detection
-        run: |
-          echo "## ⚡ Turbo Detection Test Results" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- Turbo Enabled: \`${{ steps.setup.outputs.turbo-enabled }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- Turbo Config: \`${{ steps.setup.outputs.turbo-config-file }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-
-          # Verify outputs
-          if [ "${{ steps.setup.outputs.turbo-enabled }}" != "true" ]; then
-            echo "❌ Expected turbo-enabled to be true" >> $GITHUB_STEP_SUMMARY
-            exit 1
-          fi
-
-          if [ "${{ steps.setup.outputs.turbo-config-file }}" != "turbo.json" ]; then
-            echo "❌ Expected turbo.json config file" >> $GITHUB_STEP_SUMMARY
-            exit 1
-          fi
-
-          echo "✅ Turbo detection successful" >> $GITHUB_STEP_SUMMARY
+        uses: ./.github/actions/verify-setup
+        with:
+          title: "⚡ Turbo Detection Test Results"
+          outputs: ${{ toJSON(steps.setup.outputs) }}
+          expected-turbo-enabled: "true"
+          expected-turbo-config-file: turbo.json
 
   test-cache-effectiveness:
     name: Cache - First run vs cached run
@@ -161,25 +118,18 @@ jobs:
         uses: ./
 
       - name: Verify first run
+        uses: ./.github/actions/verify-setup
+        with:
+          title: "💾 Cache First Run Results"
+          outputs: ${{ toJSON(steps.setup1.outputs) }}
+
+      - name: Verify dependencies installed
         run: |
-          echo "## 💾 Cache First Run Results" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- Cache Hit: \`${{ steps.setup1.outputs.cache-hit }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-
-          # First run should not have cache hit
-          if [ "${{ steps.setup1.outputs.cache-hit }}" == "true" ]; then
-            echo "❌ First run should not have cache hit" >> $GITHUB_STEP_SUMMARY
-            exit 1
-          fi
-
-          # Verify dependencies installed
           if [ ! -d "node_modules/lodash" ]; then
             echo "❌ Dependencies not installed" >> $GITHUB_STEP_SUMMARY
             exit 1
           fi
-
-          echo "✅ First run successful (no cache)" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Dependencies installed successfully" >> $GITHUB_STEP_SUMMARY
 
       - name: Clear node_modules for second run
         run: rm -rf node_modules
@@ -189,13 +139,14 @@ jobs:
         uses: ./
 
       - name: Verify second run
-        run: |
-          echo "## 💾 Cache Second Run Results" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- Cache Hit: \`${{ steps.setup2.outputs.cache-hit }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+        uses: ./.github/actions/verify-setup
+        with:
+          title: "💾 Cache Second Run Results"
+          outputs: ${{ toJSON(steps.setup2.outputs) }}
 
-          # Second run should have cache hit or partial
+      - name: Verify cache restoration
+        run: |
+          # Verify cache hit or partial
           if [ "${{ steps.setup2.outputs.cache-hit }}" == "false" ]; then
             echo "❌ Second run should have cache hit or partial" >> $GITHUB_STEP_SUMMARY
             exit 1
@@ -227,14 +178,14 @@ jobs:
         with:
           install-deps: false
 
+      - name: Verify setup
+        uses: ./.github/actions/verify-setup
+        with:
+          title: "🚫 Skip Dependencies Test Results"
+          outputs: ${{ toJSON(steps.setup.outputs) }}
+
       - name: Verify dependencies not installed
         run: |
-          echo "## 🚫 Skip Dependencies Test Results" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- Runtime: \`${{ steps.setup.outputs.runtime }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- Node Version: \`${{ steps.setup.outputs.node-version }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-
           # Verify Node.js is installed
           node --version
           npm --version

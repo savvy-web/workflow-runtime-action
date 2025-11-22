@@ -34,33 +34,17 @@ jobs:
         uses: ./
 
       - name: Verify Bun installation
+        uses: ./.github/actions/verify-setup
+        with:
+          title: "🚀 Bun Auto-detect Test Results"
+          outputs: ${{ toJSON(steps.setup.outputs) }}
+          expected-runtime: bun
+          expected-package-manager: bun
+
+      - name: Test Bun
         run: |
-          echo "## 🚀 Bun Auto-detect Test Results" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- Runtime: \`${{ steps.setup.outputs.runtime }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- Bun Version: \`${{ steps.setup.outputs.bun-version }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- Package Manager: \`${{ steps.setup.outputs.package-manager }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-
-          # Verify Bun is installed
           bun --version
-
-          # Verify package manager is bun
-          if [ "${{ steps.setup.outputs.package-manager }}" != "bun" ]; then
-            echo "❌ Expected bun package manager" >> $GITHUB_STEP_SUMMARY
-            exit 1
-          fi
-
-          # Verify runtime output
-          if [ "${{ steps.setup.outputs.runtime }}" != "bun" ]; then
-            echo "❌ Expected bun runtime" >> $GITHUB_STEP_SUMMARY
-            exit 1
-          fi
-
-          # Run TypeScript file
           bun run index.ts
-
-          echo "✅ Bun auto-detection successful" >> $GITHUB_STEP_SUMMARY
 
   test-bun-explicit:
     name: Bun - Explicit version
@@ -82,23 +66,16 @@ jobs:
           bun-version: "1.1.42"
 
       - name: Verify Bun installation
+        uses: ./.github/actions/verify-setup
+        with:
+          title: "🎯 Bun Explicit Version Test Results"
+          outputs: ${{ toJSON(steps.setup.outputs) }}
+          expected-bun-version: "1.1.42"
+
+      - name: Test Bun
         run: |
-          echo "## 🎯 Bun Explicit Version Test Results" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- Bun Version: \`${{ steps.setup.outputs.bun-version }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-
-          # Verify version
-          INSTALLED_VERSION=$(bun --version)
-          echo "Installed: $INSTALLED_VERSION"
-
-          if [ "${{ steps.setup.outputs.bun-version }}" != "1.1.42" ]; then
-            echo "❌ Expected version 1.1.42" >> $GITHUB_STEP_SUMMARY
-            exit 1
-          fi
-
+          bun --version
           bun run test.js
-          echo "✅ Explicit version installation successful" >> $GITHUB_STEP_SUMMARY
 
   test-bun-package-install:
     name: Bun - Package installation
@@ -118,11 +95,14 @@ jobs:
         with:
           install-deps: true
 
+      - name: Verify setup
+        uses: ./.github/actions/verify-setup
+        with:
+          title: "📦 Bun Package Installation Test"
+          outputs: ${{ toJSON(steps.setup.outputs) }}
+
       - name: Verify dependencies
         run: |
-          echo "## 📦 Bun Package Installation Test" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-
           # Check node_modules exists
           if [ ! -d "node_modules" ]; then
             echo "❌ node_modules not found" >> $GITHUB_STEP_SUMMARY
@@ -150,11 +130,14 @@ jobs:
         id: setup
         uses: ./
 
-      - name: Verify lockfile detection
-        run: |
-          echo "## 🔒 Bun Lockfile Test Results" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+      - name: Verify setup
+        uses: ./.github/actions/verify-setup
+        with:
+          title: "🔒 Bun Lockfile Test Results"
+          outputs: ${{ toJSON(steps.setup.outputs) }}
 
+      - name: Verify lockfile
+        run: |
           # Verify bun.lockb exists
           if [ ! -f "bun.lockb" ]; then
             echo "❌ bun.lockb not found" >> $GITHUB_STEP_SUMMARY
