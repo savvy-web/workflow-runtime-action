@@ -1,0 +1,116 @@
+name: Verify Runtime Setup
+description: Reports runtime setup results and validates expectations
+
+inputs:
+  title:
+    description: Title for the test results section (including emoji)
+    required: true
+  outputs:
+    description: JSON string of all setup outputs from steps.setup.outputs
+    required: true
+
+  # Expected values for validation
+  expected-runtime:
+    description: Expected runtime value
+    required: false
+  expected-package-manager:
+    description: Expected package manager value
+    required: false
+  expected-node-version:
+    description: Expected Node.js version
+    required: false
+  expected-node-version-file:
+    description: Expected version file
+    required: false
+  expected-biome-enabled:
+    description: Expected biome-enabled value
+    required: false
+  expected-biome-version:
+    description: Expected biome version
+    required: false
+  expected-biome-config-file:
+    description: Expected biome config file
+    required: false
+  expected-turbo-enabled:
+    description: Expected turbo-enabled value
+    required: false
+  expected-turbo-config-file:
+    description: Expected turbo config file
+    required: false
+  expected-cache-hit:
+    description: Expected cache hit status
+    required: false
+
+runs:
+  using: composite
+  steps:
+    - name: Verify and report
+      shell: bash
+      run: |
+        echo "## ${{ inputs.title }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        FAILED=0
+
+        # Parse outputs JSON
+        OUTPUTS='${{ inputs.outputs }}'
+
+        # Helper function to get value from JSON
+        get_output() {
+          echo "$OUTPUTS" | jq -r ".[\"$1\"] // empty"
+        }
+
+        # Helper function to check and report a value
+        check_value() {
+          local name="$1"
+          local key="$2"
+          local expected="$3"
+
+          local actual=$(get_output "$key")
+
+          # Skip if no actual value (but still show for primary outputs)
+          if [ -z "$actual" ]; then
+            return
+          fi
+
+          # Show the value without backticks or prefix
+          echo -n "$name: $actual " >> $GITHUB_STEP_SUMMARY
+
+          # If expected value is provided, validate it
+          if [ -n "$expected" ]; then
+            if [ "$actual" = "$expected" ]; then
+              echo "✅" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "❌ (expected: $expected)" >> $GITHUB_STEP_SUMMARY
+              FAILED=1
+            fi
+          else
+            # Neutral check - no expectation
+            echo "✔️" >> $GITHUB_STEP_SUMMARY
+          fi
+        }
+
+        # Report all values with optional validation
+        check_value "Runtime" "runtime" "${{ inputs.expected-runtime }}"
+        check_value "Package Manager" "package-manager" "${{ inputs.expected-package-manager }}"
+        check_value "Node.js Version" "node-version" "${{ inputs.expected-node-version }}"
+        check_value "Bun Version" "bun-version" ""
+        check_value "Deno Version" "deno-version" ""
+        check_value "Version File" "node-version-file" "${{ inputs.expected-node-version-file }}"
+        check_value "Version Source" "node-version-source" ""
+        check_value "Biome Enabled" "biome-enabled" "${{ inputs.expected-biome-enabled }}"
+        check_value "Biome Version" "biome-version" "${{ inputs.expected-biome-version }}"
+        check_value "Biome Config" "biome-config-file" "${{ inputs.expected-biome-config-file }}"
+        check_value "Turbo Enabled" "turbo-enabled" "${{ inputs.expected-turbo-enabled }}"
+        check_value "Turbo Config" "turbo-config-file" "${{ inputs.expected-turbo-config-file }}"
+        check_value "Cache Hit" "cache-hit" "${{ inputs.expected-cache-hit }}"
+
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        # Report final status
+        if [ $FAILED -eq 0 ]; then
+          echo "✅ All validations passed" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "❌ Some validations failed" >> $GITHUB_STEP_SUMMARY
+          exit 1
+        fi

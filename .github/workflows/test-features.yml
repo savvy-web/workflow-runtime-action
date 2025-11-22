@@ -24,12 +24,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Setup test environment
-        run: |
-          # Remove repository config files
-          rm -f package.json pnpm-workspace.yaml turbo.json pnpm-lock.yaml .nvmrc
-          # Copy fixture files to current directory
-          cp -r __fixtures__/biome-auto/* .
+      - name: Setup test fixture
+        uses: ./.github/actions/setup-fixture
+        with:
+          fixture: biome-auto
 
       - name: Setup with Biome auto-detect
         id: setup
@@ -75,13 +73,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Setup test environment
-        run: |
-          # Remove repository config files
-          rm -f package.json pnpm-workspace.yaml turbo.json pnpm-lock.yaml .nvmrc
-          # Copy fixture files to current directory
-          cp -r __fixtures__/node-minimal/* .
-          echo 'const y = 2;' > test.js
+      - name: Setup test fixture
+        uses: ./.github/actions/setup-fixture
+        with:
+          fixture: node-minimal
+
+      - name: Create test file
+        run: echo 'const y = 2;' > test.js
 
       - name: Setup with explicit Biome version
         id: setup
@@ -116,12 +114,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Setup test environment
-        run: |
-          # Remove repository config files
-          rm -f package.json pnpm-workspace.yaml biome.jsonc pnpm-lock.yaml .nvmrc
-          # Copy fixture files to current directory
-          cp -r __fixtures__/turbo-monorepo/* .
+      - name: Setup test fixture
+        uses: ./.github/actions/setup-fixture
+        with:
+          fixture: turbo-monorepo
 
       - name: Setup with Turbo detection
         id: setup
@@ -155,12 +151,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Setup test environment
-        run: |
-          # Remove repository config files
-          rm -f package.json pnpm-workspace.yaml biome.jsonc turbo.json pnpm-lock.yaml .nvmrc
-          # Copy fixture files to current directory
-          cp -r __fixtures__/cache-test/* .
+      - name: Setup test fixture
+        uses: ./.github/actions/setup-fixture
+        with:
+          fixture: cache-test
 
       - name: First run (cache miss)
         id: setup1
@@ -222,12 +216,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Setup test environment
-        run: |
-          # Remove repository config files
-          rm -f package.json pnpm-workspace.yaml biome.jsonc turbo.json pnpm-lock.yaml .nvmrc
-          # Copy fixture files to current directory
-          cp -r __fixtures__/cache-test/* .
+      - name: Setup test fixture
+        uses: ./.github/actions/setup-fixture
+        with:
+          fixture: cache-test
 
       - name: Setup with install-deps disabled
         id: setup

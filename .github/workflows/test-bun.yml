@@ -24,12 +24,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Setup test environment
-        run: |
-          # Remove repository config files
-          rm -f package.json pnpm-workspace.yaml biome.jsonc turbo.json pnpm-lock.yaml
-          # Copy fixture files to current directory
-          cp -r __fixtures__/bun-minimal/* .
+      - name: Setup test fixture
+        uses: ./.github/actions/setup-fixture
+        with:
+          fixture: bun-minimal
 
       - name: Setup Bun (auto-detect)
         id: setup
@@ -71,12 +69,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Setup test environment
-        run: |
-          # Remove repository config files
-          rm -f package.json pnpm-workspace.yaml biome.jsonc turbo.json pnpm-lock.yaml
-          # Copy fixture files to current directory
-          cp -r __fixtures__/bun-minimal/* .
+      - name: Setup test fixture
+        uses: ./.github/actions/setup-fixture
+        with:
+          fixture: bun-minimal
 
       - name: Setup Bun (explicit version)
         id: setup
@@ -111,12 +107,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Setup test environment
-        run: |
-          # Remove repository config files
-          rm -f package.json pnpm-workspace.yaml biome.jsonc turbo.json pnpm-lock.yaml
-          # Copy fixture files to current directory
-          cp -r __fixtures__/bun-deps/* .
+      - name: Setup test fixture
+        uses: ./.github/actions/setup-fixture
+        with:
+          fixture: bun-deps
 
       - name: Setup Bun and install dependencies
         id: setup
@@ -147,12 +141,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Setup test environment
-        run: |
-          # Remove repository config files
-          rm -f package.json pnpm-workspace.yaml biome.jsonc turbo.json pnpm-lock.yaml
-          # Copy fixture files to current directory
-          cp -r __fixtures__/bun-lockfile/* .
+      - name: Setup test fixture
+        uses: ./.github/actions/setup-fixture
+        with:
+          fixture: bun-lockfile
 
       - name: Setup Bun with lockfile
         id: setup
