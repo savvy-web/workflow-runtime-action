@@ -108,10 +108,9 @@ jobs:
 
           - name: "Deno - package.json"
             fixture: deno-lockfile
-            deno-version: "1.46.3"
             expected-runtime: deno
             expected-package-manager: npm
-            expected-deno-version: "1.46.3"
+            expected-deno-version: "2.5.6"
             test-command: "deno run app.ts"
             title: "📦 Deno package.json Test Results"
 
@@ -124,12 +123,13 @@ jobs:
             title: "🎯 Deno Explicit Version Test Results"
 
           - name: "Deno - Lockfile"
-            fixture: deno-lockfile
+            fixture: deno-minimal
             package-manager: deno
-            deno-version: "1.46.3"
+            deno-version: "2.5.6"
             test-command: "deno run main.ts"
             verify-lockfile: deno.lock
             title: "🔒 Deno Lockfile Test Results"
+            expected-deno-version: "2.5.6"
 
           # Feature Tests
           - name: "Biome - Auto-detect"

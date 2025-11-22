@@ -1,5 +1,6 @@
 {
 	"name": "deno-lockfile-test",
 	"version": "1.0.0",
-	"type": "module"
+	"type": "module",
+	"packageManager": "deno@2.5.6"
 }
