@@ -2,5 +2,8 @@
 	"name": "node-yarn-test",
 	"version": "1.0.0",
 	"description": "Node.js with Yarn test project",
-	"packageManager": "yarn@4.0.0"
+	"packageManager": "yarn@4.0.0",
+	"dependencies": {
+		"isarray": "1.0.0"
+	}
 }

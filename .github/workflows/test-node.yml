@@ -29,7 +29,7 @@ jobs:
           # Remove repository config files
           rm -f package.json pnpm-workspace.yaml biome.jsonc turbo.json pnpm-lock.yaml .nvmrc .node-version
           # Copy fixture files to current directory
-          cp -r __fixtures__/node-pnpm/* .
+          cp -r __fixtures__/node-minimal/* .
 
       - name: Setup Node.js with NPM
         id: setup
@@ -96,9 +96,43 @@ jobs:
           # Remove repository config files
           rm -f package.json pnpm-workspace.yaml biome.jsonc turbo.json pnpm-lock.yaml .nvmrc .node-version
           # Copy fixture files to current directory
-          cp -r __fixtures__/node-pnpm/* .
+          cp -r __fixtures__/node-yarn/* .
 
-      - name: Setup Node.js with Yarn (auto-detect)
+      - name: Setup Node.js with Yarn
+        id: setup
+        uses: ./
+
+      - name: Verify installation
+        run: |
+          echo "## 📦 PNPM Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Runtime: \`${{ steps.setup.outputs.runtime }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Node.js: \`${{ steps.setup.outputs.node-version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Package Manager: \`${{ steps.setup.outputs.package-manager }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          node --version
+          pnpm --version
+          if [ "${{ steps.setup.outputs.package-manager }}" != "pnpm" ]; then
+            echo "❌ Expected pnpm but got ${{ steps.setup.outputs.package-manager }}" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+          echo "✅ PNPM auto-detection successful" >> $GITHUB_STEP_SUMMARY
+
+  test-nvm:
+    name: Node.js with NVM
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup test environment
+        run: |
+          # Remove repository config files
+          rm -f package.json pnpm-workspace.yaml biome.jsonc turbo.json pnpm-lock.yaml .nvmrc .node-version
+          # Copy fixture files to current directory
+          cp -r __fixtures__/node-nvm/* .
+
+      - name: Setup Node.js with NVM
         id: setup
         uses: ./
 
@@ -130,7 +164,7 @@ jobs:
           # Remove repository config files
           rm -f package.json pnpm-workspace.yaml biome.jsonc turbo.json pnpm-lock.yaml .nvmrc .node-version
           # Copy fixture files to current directory
-          cp -r __fixtures__/node-pnpm/* .
+          cp -r __fixtures__/node-nvm/* .
 
       - name: Setup Node.js from .nvmrc
         id: setup
@@ -162,7 +196,7 @@ jobs:
           # Remove repository config files
           rm -f package.json pnpm-workspace.yaml biome.jsonc turbo.json pnpm-lock.yaml .nvmrc .node-version
           # Copy fixture files to current directory
-          cp -r __fixtures__/node-pnpm/* .
+          cp -r __fixtures__/node-minimal/* .
 
       - name: Setup Node.js LTS
         id: setup
