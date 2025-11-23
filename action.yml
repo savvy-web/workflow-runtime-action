@@ -11,7 +11,7 @@ inputs:
     required: false
     default: ""
   bun-version:
-    description: "Bun version to install (e.g., '1.1.42'). If not provided, reads from package.json devEngines.runtime."
+    description: "Bun version to install (e.g., '1.3.3'). If not provided, reads from package.json devEngines.runtime."
     required: false
     default: ""
   deno-version:
@@ -49,7 +49,7 @@ outputs:
   node-enabled:
     description: "Whether Node.js was installed (true | false)"
   bun-version:
-    description: "The Bun version that was installed (e.g., '1.1.42' or empty if not installed)"
+    description: "The Bun version that was installed (e.g., '1.3.3' or empty if not installed)"
   bun-enabled:
     description: "Whether Bun was installed (true | false)"
   deno-version:

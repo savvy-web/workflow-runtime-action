@@ -92,10 +92,10 @@ jobs:
           - name: Explicit Version
             fixture: bun-minimal
             package-manager: bun
-            package-manager-version: "1.1.42"
-            bun-version: "1.1.42"
+            package-manager-version: "1.3.3"
+            bun-version: "1.3.3"
             expected-bun-enabled: "true"
-            expected-bun-version: "1.1.42"
+            expected-bun-version: "1.3.3"
             test-command: "bun --version && bun run test.js"
             title: "🎯 Bun Explicit Version Test Results"
 

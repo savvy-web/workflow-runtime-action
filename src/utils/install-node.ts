@@ -194,6 +194,28 @@ export async function setupPackageManager(packageManagerName: string, packageMan
 	core.startGroup(`🔧 Setting up package manager via corepack`);
 
 	try {
+		// Check Node.js version - corepack is not bundled with Node.js >= 25.0.0
+		let nodeVersion = "";
+		await exec.exec("node", ["--version"], {
+			listeners: {
+				stdout: (data: Buffer) => {
+					nodeVersion += data.toString().trim();
+				},
+			},
+		});
+
+		// Parse version (format: v25.0.0 -> [25, 0, 0])
+		const versionMatch = nodeVersion.match(/^v(\d+)\.\d+\.\d+$/);
+		if (versionMatch) {
+			const majorVersion = Number.parseInt(versionMatch[1], 10);
+
+			if (majorVersion >= 25) {
+				core.info(`Node.js ${nodeVersion} detected - corepack not bundled, installing globally...`);
+				await exec.exec("npm", ["install", "-g", "corepack@latest"]);
+				core.info("✓ corepack installed successfully");
+			}
+		}
+
 		// Enable corepack first
 		core.info("Enabling corepack...");
 		await exec.exec("corepack", ["enable"]);

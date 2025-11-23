@@ -74,7 +74,7 @@ If at least one runtime version AND package manager are specified via inputs, th
 | Input | Description | Default |
 | ------- | ------------- | --------- |
 | `node-version` | Node.js version (e.g., `24.10.0`) | Auto-detect from `devEngines.runtime` |
-| `bun-version` | Bun version (e.g., `1.1.42`) | Auto-detect from `devEngines.runtime` |
+| `bun-version` | Bun version (e.g., `1.3.3`) | Auto-detect from `devEngines.runtime` |
 | `deno-version` | Deno version (e.g., `2.5.6`) | Auto-detect from `devEngines.runtime` |
 | `package-manager` | Package manager name (`npm` \| `pnpm` \| `yarn` \| `bun` \| `deno`) | Auto-detect from `devEngines.packageManager` |
 | `package-manager-version` | Package manager version (e.g., `10.20.0`) | Auto-detect from `devEngines.packageManager` |
@@ -89,7 +89,7 @@ If at least one runtime version AND package manager are specified via inputs, th
 | -------- | ------------- |
 | `node-version` | Installed Node.js version (e.g., `24.10.0` or empty) |
 | `node-enabled` | Whether Node.js was installed (`true` \| `false`) |
-| `bun-version` | Installed Bun version (e.g., `1.1.42` or empty) |
+| `bun-version` | Installed Bun version (e.g., `1.3.3` or empty) |
 | `bun-enabled` | Whether Bun was installed (`true` \| `false`) |
 | `deno-version` | Installed Deno version (e.g., `2.5.6` or empty) |
 | `deno-enabled` | Whether Deno was installed (`true` \| `false`) |

@@ -210,10 +210,10 @@ describe("installBun", () => {
 		});
 
 		it("should handle different version formats", async () => {
-			await installBun({ version: "1.1.42" });
+			await installBun({ version: "1.3.3" });
 
 			expect(tc.downloadTool).toHaveBeenCalledWith(
-				"https://github.com/oven-sh/bun/releases/download/bun-v1.1.42/bun-linux-x64.zip",
+				"https://github.com/oven-sh/bun/releases/download/bun-v1.3.3/bun-linux-x64.zip",
 			);
 		});
 	});

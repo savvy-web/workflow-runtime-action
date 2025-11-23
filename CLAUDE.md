@@ -66,7 +66,7 @@ Repositories using this action **MUST** have a `package.json` in their root dire
   "devEngines": {
     "packageManager": {
       "name": "bun",
-      "version": "1.1.42",
+      "version": "1.3.3",
       "onFail": "error"
     },
     "runtime": [
@@ -77,7 +77,7 @@ Repositories using this action **MUST** have a `package.json` in their root dire
       },
       {
         "name": "bun",
-        "version": "1.1.42",
+        "version": "1.3.3",
         "onFail": "error"
       }
     ]
@@ -202,7 +202,7 @@ All inputs are **optional**:
 
 * **`runtime`** - Installed runtimes (e.g., `"node"`, `"bun"`, `"node,deno"`)
 * **`node-version`** - Installed Node.js version (e.g., `"24.11.0"` or empty if not installed)
-* **`bun-version`** - Installed Bun version (e.g., `"1.1.42"` or empty if not installed)
+* **`bun-version`** - Installed Bun version (e.g., `"1.3.3"` or empty if not installed)
 * **`deno-version`** - Installed Deno version (e.g., `"1.46.3"` or empty if not installed)
 * **`package-manager`** - Package manager from package.json (e.g., `"pnpm"`, `"yarn"`, `"npm"`, `"bun"`)
 * **`package-manager-version`** - Package manager version from package.json (e.g., `"10.20.0"`)
