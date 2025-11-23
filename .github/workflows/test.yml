@@ -83,7 +83,7 @@ jobs:
           PASSED="${PASSED:-false}"
           RESULTS="${RESULTS:-{}}"
 
-          cat > test-results/${{ matrix.name }}.json <<EOF
+          cat > "test-results/${{ matrix.name }}.json" <<EOF
           {
             "name": "${{ matrix.name }}",
             "title": "${{ matrix.title }}",
@@ -177,7 +177,7 @@ jobs:
           PASSED="${PASSED:-false}"
           RESULTS="${RESULTS:-{}}"
 
-          cat > test-results/${{ matrix.name }}.json <<EOF
+          cat > "test-results/${{ matrix.name }}.json" <<EOF
           {
             "name": "${{ matrix.name }}",
             "title": "${{ matrix.title }}",
@@ -292,7 +292,7 @@ jobs:
           PASSED="${PASSED:-false}"
           RESULTS="${RESULTS:-{}}"
 
-          cat > test-results/${{ matrix.name }}.json <<EOF
+          cat > "test-results/${{ matrix.name }}.json" <<EOF
           {
             "name": "${{ matrix.name }}",
             "title": "${{ matrix.title }}",
