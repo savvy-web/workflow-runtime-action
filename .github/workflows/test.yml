@@ -535,14 +535,13 @@ jobs:
               # Add expandable details
               echo "<details>" >> $GITHUB_STEP_SUMMARY
               if [ "$passed" == "true" ]; then
-                echo "<summary>✓ Test passed - click to view details</summary>" >> $GITHUB_STEP_SUMMARY
+                echo "<summary>$name</summary>" >> $GITHUB_STEP_SUMMARY
               else
-                echo "<summary>⚠️ Test failed - click to view details</summary>" >> $GITHUB_STEP_SUMMARY
+                echo "<summary>$name (failed)</summary>" >> $GITHUB_STEP_SUMMARY
               fi
               echo "" >> $GITHUB_STEP_SUMMARY
 
               # Show test metadata
-              echo "**Test:** $name" >> $GITHUB_STEP_SUMMARY
               echo "**Fixture:** \`$fixture\`" >> $GITHUB_STEP_SUMMARY
               echo "" >> $GITHUB_STEP_SUMMARY
 
@@ -587,6 +586,16 @@ jobs:
                 [ "$deps_verified" != "n/a" ] && echo "- Dependencies verified: $deps_verified" >> $GITHUB_STEP_SUMMARY
                 [ "$cache_verified" != "n/a" ] && echo "- Cache verified: $cache_verified" >> $GITHUB_STEP_SUMMARY
               fi
+
+              # Add raw JSON section
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "<details>" >> $GITHUB_STEP_SUMMARY
+              echo "<summary>Raw Test Data (JSON)</summary>" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "\`\`\`json" >> $GITHUB_STEP_SUMMARY
+              jq '.' "$file" >> $GITHUB_STEP_SUMMARY
+              echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+              echo "</details>" >> $GITHUB_STEP_SUMMARY
 
               echo "" >> $GITHUB_STEP_SUMMARY
               echo "</details>" >> $GITHUB_STEP_SUMMARY
