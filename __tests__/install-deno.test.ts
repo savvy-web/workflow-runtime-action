@@ -218,9 +218,9 @@ describe("installDeno", () => {
 		});
 
 		it("should prepend v to version in URL", async () => {
-			await installDeno({ version: "1.46.3" });
+			await installDeno({ version: "1.3.3" });
 
-			expect(tc.downloadTool).toHaveBeenCalledWith(expect.stringContaining("/v1.46.3/"));
+			expect(tc.downloadTool).toHaveBeenCalledWith(expect.stringContaining("/v1.3.3/"));
 		});
 	});
 

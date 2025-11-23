@@ -147,12 +147,12 @@ jobs:
         include:
           - name: Explicit Input
             fixture: deno-minimal
-            deno-version: "1.46.3"
+            deno-version: "1.3.3"
             package-manager: npm
             package-manager-version: "10.0.0"
             expected-deno-enabled: "true"
             expected-package-manager: npm
-            expected-deno-version: "1.46.3"
+            expected-deno-version: "1.3.3"
             test-command: "deno --version && deno run main.ts"
             title: "🦕 Deno Explicit Input Test Results"
 
@@ -167,10 +167,10 @@ jobs:
           - name: Explicit Version
             fixture: deno-minimal
             package-manager: deno
-            package-manager-version: "1.46.3"
-            deno-version: "1.46.3"
+            package-manager-version: "1.3.3"
+            deno-version: "1.3.3"
             expected-deno-enabled: "true"
-            expected-deno-version: "1.46.3"
+            expected-deno-version: "1.3.3"
             expected-package-manager: deno
             test-command: "deno --version && deno run test.ts"
             title: "🎯 Deno Explicit Version Test Results"

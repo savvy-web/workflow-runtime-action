@@ -181,7 +181,7 @@ Include both Node.js and Deno configurations:
 
 # deno.json
 {
-  "version": "1.46.3"
+  "version": "1.3.3"
 }
 ```
 
