@@ -6,6 +6,7 @@ import * as core from "@actions/core";
 import * as exec from "@actions/exec";
 import * as glob from "@actions/glob";
 import { setOutput } from "./action-io.js";
+import { formatCache, formatSuccess, getPackageManagerEmoji } from "./emoji.js";
 
 /**
  * Supported package managers for caching
@@ -334,8 +335,8 @@ export async function restoreCache(packageManagers: PackageManager | PackageMana
 	// Normalize to array
 	const pmArray = Array.isArray(packageManagers) ? packageManagers : [packageManagers];
 
-	const pmList = pmArray.join(", ");
-	core.startGroup(`📦 Restoring cache for: ${pmList}`);
+	const pmList = pmArray.map((pm) => `${getPackageManagerEmoji(pm)} ${pm}`).join(", ");
+	core.startGroup(formatCache("Restoring", pmList));
 
 	try {
 		const config = await getCombinedCacheConfig(pmArray);
@@ -369,7 +370,7 @@ export async function restoreCache(packageManagers: PackageManager | PackageMana
 		const cacheKey = await cache.restoreCache(config.cachePaths, primaryKey, restoreKeys);
 
 		if (cacheKey) {
-			core.info(`✓ Cache restored from key: ${cacheKey}`);
+			core.info(formatSuccess(`Cache restored from key: ${cacheKey}`));
 			setOutput("cache-hit", cacheKey === primaryKey ? "true" : "partial");
 
 			// Save state for post action
@@ -400,7 +401,8 @@ export async function restoreCache(packageManagers: PackageManager | PackageMana
  * Saves package manager cache (called in post action)
  */
 export async function saveCache(): Promise<void> {
-	core.startGroup("💾 Saving cache");
+	const pmList = "dependencies";
+	core.startGroup(formatCache("Saving", pmList));
 
 	try {
 		// Retrieve saved state
@@ -439,7 +441,7 @@ export async function saveCache(): Promise<void> {
 		if (cacheId === -1) {
 			core.warning("Cache save failed");
 		} else {
-			core.info(`✓ Cache saved successfully with key: ${primaryKey}`);
+			core.info(formatSuccess(`Cache saved successfully with key: ${primaryKey}`));
 		}
 
 		core.endGroup();

@@ -2,6 +2,7 @@ import { chmod } from "node:fs/promises";
 import { arch, platform } from "node:os";
 import * as core from "@actions/core";
 import * as tc from "@actions/tool-cache";
+import { STATE, formatDetection, formatInstallation, formatSuccess } from "./emoji.js";
 
 /**
  * Gets the platform-specific binary name for Biome
@@ -78,11 +79,11 @@ async function downloadBiome(version: string): Promise<string> {
  */
 export async function installBiome(version: string): Promise<void> {
 	if (!version || version === "") {
-		core.info("⚪ No Biome version specified, skipping installation");
+		core.info(`${STATE.neutral} No Biome version specified, skipping installation`);
 		return;
 	}
 
-	core.startGroup(`🧬 Installing Biome ${version}`);
+	core.startGroup(formatInstallation(`Biome ${version}`));
 
 	try {
 		// Resolve "latest" to actual version by checking tool cache or downloading
@@ -92,9 +93,9 @@ export async function installBiome(version: string): Promise<void> {
 		let toolPath = tc.find("biome", resolvedVersion);
 
 		if (toolPath) {
-			core.info(`🟢 Found Biome ${resolvedVersion} in tool cache: ${toolPath}`);
+			core.info(formatDetection(`Biome ${resolvedVersion} in tool cache: ${toolPath}`, true));
 		} else {
-			core.info(`⚪ Biome ${resolvedVersion} not found in cache, downloading...`);
+			core.info(`${STATE.neutral} Biome ${resolvedVersion} not found in cache, downloading...`);
 			toolPath = await downloadBiome(resolvedVersion);
 		}
 
@@ -105,10 +106,10 @@ export async function installBiome(version: string): Promise<void> {
 		const binaryName = platform() === "win32" ? "biome.exe" : "biome";
 		core.info(`Verifying Biome installation at: ${toolPath}/${binaryName}`);
 
-		core.info(`🟢 Biome ${version} installed successfully`);
+		core.info(formatSuccess(`Biome ${version} installed successfully`));
 	} catch (error) {
 		// Don't fail the workflow if Biome installation fails
-		core.warning(`🔴 Failed to install Biome: ${error instanceof Error ? error.message : String(error)}`);
+		core.warning(`${STATE.issue} Failed to install Biome: ${error instanceof Error ? error.message : String(error)}`);
 	} finally {
 		core.endGroup();
 	}

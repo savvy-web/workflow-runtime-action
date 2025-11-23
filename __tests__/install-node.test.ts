@@ -44,7 +44,7 @@ describe("installNode", () => {
 			await installNode({ version: "20.11.0" });
 
 			expect(tc.find).toHaveBeenCalledWith("node", "20.11.0");
-			expect(core.info).toHaveBeenCalledWith(expect.stringContaining("Found Node.js 20.11.0 in tool cache"));
+			expect(core.info).toHaveBeenCalledWith(expect.stringContaining("🟢 Detected Node.js 20.11.0 in tool cache"));
 			expect(tc.downloadTool).not.toHaveBeenCalled();
 		});
 
@@ -54,7 +54,7 @@ describe("installNode", () => {
 			await installNode({ version: "20.11.0" });
 
 			expect(tc.find).toHaveBeenCalledWith("node", "20.11.0");
-			expect(core.info).toHaveBeenCalledWith(expect.stringContaining("not found in cache, downloading"));
+			expect(core.info).toHaveBeenCalledWith(expect.stringContaining("⚪ No Node.js 20.11.0 in cache"));
 			expect(tc.downloadTool).toHaveBeenCalled();
 			expect(tc.extractTar).toHaveBeenCalled();
 			expect(tc.cacheDir).toHaveBeenCalled();
@@ -152,7 +152,7 @@ describe("setupPackageManager", () => {
 
 			expect(core.info).toHaveBeenCalledWith("Node.js v25.0.0 detected - corepack not bundled, installing globally...");
 			expect(exec.exec).toHaveBeenCalledWith("npm", ["install", "-g", "corepack@latest"]);
-			expect(core.info).toHaveBeenCalledWith("✓ corepack installed successfully");
+			expect(core.info).toHaveBeenCalledWith("✅ corepack installed successfully");
 		});
 
 		it("should install corepack globally when Node.js > 25", async () => {
@@ -328,7 +328,7 @@ describe("setupNpm", () => {
 
 			expect(core.info).toHaveBeenCalledWith("Current npm version: 10.0.0");
 			expect(core.info).toHaveBeenCalledWith("Required npm version: 10.0.0");
-			expect(core.info).toHaveBeenCalledWith("✓ npm version 10.0.0 already matches required version");
+			expect(core.info).toHaveBeenCalledWith("✅ npm version 10.0.0 already matches required version");
 			expect(exec.exec).not.toHaveBeenCalledWith("npm", ["install", "-g", expect.any(String)]);
 		});
 
@@ -354,7 +354,7 @@ describe("setupNpm", () => {
 			expect(core.info).toHaveBeenCalledWith("Installing npm@10.0.0...");
 			// On Linux/macOS, uses sudo
 			expect(exec.exec).toHaveBeenCalledWith("sudo", ["npm", "install", "-g", "npm@10.0.0"]);
-			expect(core.info).toHaveBeenCalledWith("✓ npm@10.0.0 installed successfully");
+			expect(core.info).toHaveBeenCalledWith("✅ npm@10.0.0 installed successfully");
 		});
 
 		it("should verify installation after installing", async () => {

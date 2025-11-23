@@ -6,6 +6,13 @@ import { parse } from "jsonc-parser";
 import { getInput, setOutput } from "./utils/action-io.js";
 import type { PackageManager } from "./utils/cache-utils.js";
 import { restoreCache } from "./utils/cache-utils.js";
+import {
+	formatDetection,
+	formatInstallation,
+	formatPackageManager,
+	formatRuntime,
+	formatSuccess,
+} from "./utils/emoji.js";
 import { installBiome } from "./utils/install-biome.js";
 import { installBun } from "./utils/install-bun.js";
 import { installDeno } from "./utils/install-deno.js";
@@ -67,14 +74,14 @@ function detectTurbo(): {
 	configFile: string;
 } {
 	if (existsSync("turbo.json")) {
-		core.info("🟢 Detected Turbo configuration: turbo.json");
+		core.info(formatDetection("Turbo configuration: turbo.json", true));
 		return {
 			enabled: true,
 			configFile: "turbo.json",
 		};
 	}
 
-	core.info("⚪ No Turbo configuration found");
+	core.info(formatDetection("Turbo configuration", false));
 	return {
 		enabled: false,
 		configFile: "",
@@ -132,14 +139,14 @@ async function detectBiome(explicitVersion: string): Promise<{
 	const configFile = detectBiomeConfigFile();
 
 	if (!configFile) {
-		core.info("⚪ No Biome config file found, skipping Biome installation");
+		core.info(formatDetection("Biome config file", false));
 		return {
 			version: "",
 			configFile: "",
 		};
 	}
 
-	core.info(`🟢 Detected Biome config: ${configFile}`);
+	core.info(formatDetection(`Biome config: ${configFile}`, true));
 
 	try {
 		// Parse config file
@@ -308,7 +315,7 @@ async function detectConfiguration(): Promise<SetupResult> {
  * @param packageManager - Package manager to use
  */
 async function installDependencies(packageManager: PackageManager): Promise<void> {
-	core.startGroup(`⚙️ Installing dependencies with ${packageManager}`);
+	core.startGroup(formatInstallation(`dependencies with ${formatPackageManager(packageManager)}`));
 
 	try {
 		let command: string[];
@@ -344,7 +351,7 @@ async function installDependencies(packageManager: PackageManager): Promise<void
 
 		await exec.exec(packageManager, command);
 
-		core.info(`✓ Dependencies installed successfully`);
+		core.info(formatSuccess("Dependencies installed successfully"));
 	} catch (error) {
 		throw new Error(`Failed to install dependencies: ${error instanceof Error ? error.message : String(error)}`);
 	} finally {
@@ -469,11 +476,11 @@ async function main(): Promise<void> {
 
 		// Summary
 		core.startGroup("✅ Runtime Setup Complete");
-		core.info(`Runtime(s): ${config.runtimes.join(", ")}`);
-		if (installedVersions.node) core.info(`Node.js: ${installedVersions.node}`);
-		if (installedVersions.bun) core.info(`Bun: ${installedVersions.bun}`);
-		if (installedVersions.deno) core.info(`Deno: ${installedVersions.deno}`);
-		core.info(`Package Manager: ${config.packageManager}@${config.packageManagerVersion}`);
+		core.info(`Runtime(s): ${config.runtimes.map((r) => formatRuntime(r)).join(", ")}`);
+		if (installedVersions.node) core.info(`${formatRuntime("node")}: ${installedVersions.node}`);
+		if (installedVersions.bun) core.info(`${formatRuntime("bun")}: ${installedVersions.bun}`);
+		if (installedVersions.deno) core.info(`${formatRuntime("deno")}: ${installedVersions.deno}`);
+		core.info(`${formatPackageManager(config.packageManager)}: ${config.packageManagerVersion}`);
 		core.info(`Turbo: ${config.turboEnabled ? "enabled" : "disabled"}`);
 		core.info(`Biome: ${config.biomeVersion ? `v${config.biomeVersion}` : "not installed"}`);
 		core.info(`Dependencies: ${config.installDeps ? "installed" : "skipped"}`);

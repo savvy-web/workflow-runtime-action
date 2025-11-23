@@ -70,7 +70,7 @@ describe("installBun", () => {
 
 			await installBun({ version: "1.0.25" });
 
-			expect(core.info).toHaveBeenCalledWith(expect.stringContaining("Found Bun 1.0.25 in tool cache"));
+			expect(core.info).toHaveBeenCalledWith(expect.stringContaining("Detected Bun 1.0.25 in tool cache"));
 			expect(tc.downloadTool).not.toHaveBeenCalled();
 			expect(core.addPath).toHaveBeenCalledWith("/cached/bun/1.0.25");
 		});
@@ -256,13 +256,13 @@ describe("installBun", () => {
 		it("should log success message", async () => {
 			await installBun({ version: "1.0.25" });
 
-			expect(core.info).toHaveBeenCalledWith("✓ Bun 1.0.25 installed successfully");
+			expect(core.info).toHaveBeenCalledWith("✅ Bun 1.0.25 installed successfully");
 		});
 
 		it("should group output", async () => {
 			await installBun({ version: "1.0.25" });
 
-			expect(core.startGroup).toHaveBeenCalledWith("📦 Installing Bun");
+			expect(core.startGroup).toHaveBeenCalledWith("⚙️ Installing 🥟 Bun");
 			expect(core.endGroup).toHaveBeenCalled();
 		});
 

@@ -4,6 +4,7 @@ import { join } from "node:path";
 import * as core from "@actions/core";
 import * as exec from "@actions/exec";
 import * as tc from "@actions/tool-cache";
+import { formatDetection, formatInstallation, formatRuntime, formatSetup, formatSuccess } from "./emoji.js";
 
 /**
  * Node.js version configuration
@@ -91,7 +92,7 @@ async function downloadNode(version: string): Promise<string> {
  * @returns Installed Node.js version
  */
 export async function installNode(config: NodeVersionConfig): Promise<string> {
-	core.startGroup("📦 Installing Node.js");
+	core.startGroup(formatInstallation(formatRuntime("node")));
 
 	try {
 		const { version } = config;
@@ -100,9 +101,9 @@ export async function installNode(config: NodeVersionConfig): Promise<string> {
 		let toolPath = tc.find("node", version);
 
 		if (toolPath) {
-			core.info(`✓ Found Node.js ${version} in tool cache: ${toolPath}`);
+			core.info(formatDetection(`Node.js ${version} in tool cache: ${toolPath}`, true));
 		} else {
-			core.info(`Node.js ${version} not found in cache, downloading...`);
+			core.info(formatDetection(`Node.js ${version} in cache`, false));
 			toolPath = await downloadNode(version);
 		}
 
@@ -117,7 +118,7 @@ export async function installNode(config: NodeVersionConfig): Promise<string> {
 		await exec.exec("node", ["--version"]);
 		await exec.exec("npm", ["--version"]);
 
-		core.info(`✓ Node.js ${version} installed successfully`);
+		core.info(formatSuccess(`Node.js ${version} installed successfully`));
 		core.endGroup();
 
 		return version;
@@ -137,7 +138,7 @@ export async function installNode(config: NodeVersionConfig): Promise<string> {
  * @param npmVersion - npm version to install (e.g., "10.0.0")
  */
 export async function setupNpm(npmVersion: string): Promise<void> {
-	core.startGroup(`🔧 Setting up npm@${npmVersion}`);
+	core.startGroup(formatSetup(`npm@${npmVersion}`));
 
 	try {
 		// Get current npm version
@@ -174,9 +175,9 @@ export async function setupNpm(npmVersion: string): Promise<void> {
 				},
 			});
 
-			core.info(`✓ npm@${installedVersion} installed successfully`);
+			core.info(formatSuccess(`npm@${installedVersion} installed successfully`));
 		} else {
-			core.info(`✓ npm version ${currentVersion} already matches required version`);
+			core.info(formatSuccess(`npm version ${currentVersion} already matches required version`));
 		}
 
 		core.endGroup();
@@ -197,7 +198,7 @@ export async function setupNpm(npmVersion: string): Promise<void> {
  * @param packageManagerVersion - Package manager version for logging
  */
 export async function setupPackageManager(packageManagerName: string, packageManagerVersion: string): Promise<void> {
-	core.startGroup(`🔧 Setting up ${packageManagerName} via corepack`);
+	core.startGroup(formatSetup(`${packageManagerName} via corepack`));
 
 	try {
 		// Check Node.js version - corepack is not bundled with Node.js >= 25.0.0
@@ -218,7 +219,7 @@ export async function setupPackageManager(packageManagerName: string, packageMan
 			if (majorVersion >= 25) {
 				core.info(`Node.js ${nodeVersion} detected - corepack not bundled, installing globally...`);
 				await exec.exec("npm", ["install", "-g", "corepack@latest"]);
-				core.info("✓ corepack installed successfully");
+				core.info(formatSuccess("corepack installed successfully"));
 			}
 		}
 
@@ -233,7 +234,7 @@ export async function setupPackageManager(packageManagerName: string, packageMan
 		// Verify installation
 		await exec.exec(packageManagerName, ["--version"]);
 
-		core.info(`✓ Package manager ${packageManagerName}@${packageManagerVersion} set up successfully`);
+		core.info(formatSuccess(`Package manager ${packageManagerName}@${packageManagerVersion} set up successfully`));
 		core.endGroup();
 	} catch (error) {
 		core.endGroup();

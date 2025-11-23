@@ -129,7 +129,7 @@ describe("restoreCache", () => {
 
 			const result = await restoreCache("npm");
 
-			expect(core.warning).toHaveBeenCalledWith("No lock files found for npm, skipping cache");
+			expect(core.warning).toHaveBeenCalledWith("No lock files found for 📦 npm, skipping cache");
 			expect(core.setOutput).toHaveBeenCalledWith("lockfiles", "");
 			expect(core.setOutput).toHaveBeenCalledWith("cache-paths", "");
 			expect(result).toBeUndefined();
@@ -591,7 +591,7 @@ describe("saveCache", () => {
 
 			await saveCache();
 
-			expect(core.startGroup).toHaveBeenCalledWith("💾 Saving cache");
+			expect(core.startGroup).toHaveBeenCalledWith("♻️ Saving cache for: dependencies");
 			expect(core.endGroup).toHaveBeenCalled();
 		});
 
