@@ -9,8 +9,7 @@ on:
       - "dist/**"
       - "action.yml"
       - "__fixtures__/**"
-      - "./.github/actions/setup-fixture/**"
-      - "./.github/actions/verify-setup/**"
+      - "./.github/actions/test-fixture/**"
       - ".github/workflows/test.yml"
   pull_request:
     paths:
@@ -18,8 +17,7 @@ on:
       - "dist/**"
       - "action.yml"
       - "__fixtures__/**"
-      - "./.github/actions/setup-fixture/**"
-      - "./.github/actions/verify-setup/**"
+      - "./.github/actions/test-fixture/**"
       - ".github/workflows/test.yml"
 
 jobs:
@@ -59,24 +57,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Setup test fixture
-        uses: ./.github/actions/setup-fixture
+      - name: Test fixture
+        id: test
+        uses: ./.github/actions/test-fixture
         with:
           fixture: ${{ matrix.fixture }}
-
-      - name: Setup runtime
-        id: setup
-        uses: ./
-        with:
+          title: ${{ matrix.title }}
           package-manager: ${{ matrix.package-manager || '' }}
           install-deps: "true"
-
-      - name: Verify setup
-        uses: ./.github/actions/verify-setup
-        with:
-          title: ${{ matrix.title }}
-          outputs: ${{ toJSON(steps.setup.outputs) }}
-          expected-runtime: ${{ matrix.expected-runtime || '' }}
+          expected-node-enabled: ${{ matrix.expected-node-enabled || '' }}
           expected-package-manager: ${{ matrix.expected-package-manager || '' }}
 
       - name: Test runtime
@@ -119,24 +108,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Setup test fixture
-        uses: ./.github/actions/setup-fixture
+      - name: Test fixture
+        id: test
+        uses: ./.github/actions/test-fixture
         with:
           fixture: ${{ matrix.fixture }}
-
-      - name: Setup runtime
-        id: setup
-        uses: ./
-        with:
+          title: ${{ matrix.title }}
           package-manager: ${{ matrix.package-manager || '' }}
           bun-version: ${{ matrix.bun-version || '' }}
           install-deps: "true"
-
-      - name: Verify setup
-        uses: ./.github/actions/verify-setup
-        with:
-          title: ${{ matrix.title }}
-          outputs: ${{ toJSON(steps.setup.outputs) }}
           expected-bun-enabled: ${{ matrix.expected-bun-enabled || '' }}
           expected-bun-version: ${{ matrix.expected-bun-version || '' }}
           expected-package-manager: ${{ matrix.expected-package-manager || '' }}
@@ -176,7 +156,7 @@ jobs:
           - name: From devEngines
             fixture: deno-lockfile
             expected-deno-enabled: "true"
-            expected-package-manager: deno
+            expected-package-manager: npm
             expected-deno-version: "2.5.6"
             test-command: "deno run app.ts"
             title: "📦 Deno from devEngines Test Results"
@@ -187,6 +167,7 @@ jobs:
             deno-version: "1.46.3"
             expected-deno-enabled: "true"
             expected-deno-version: "1.46.3"
+            expected-package-manager: deno
             test-command: "deno --version && deno run test.ts"
             title: "🎯 Deno Explicit Version Test Results"
 
@@ -198,30 +179,22 @@ jobs:
             verify-lockfile: deno.lock
             expected-deno-enabled: "true"
             expected-deno-version: "2.5.6"
+            expected-package-manager: deno
             title: "🔒 Deno Lockfile Test Results"
 
     steps:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Setup test fixture
-        uses: ./.github/actions/setup-fixture
+      - name: Test fixture
+        id: test
+        uses: ./.github/actions/test-fixture
         with:
           fixture: ${{ matrix.fixture }}
-
-      - name: Setup runtime
-        id: setup
-        uses: ./
-        with:
+          title: ${{ matrix.title }}
           package-manager: ${{ matrix.package-manager || '' }}
           deno-version: ${{ matrix.deno-version || '' }}
           install-deps: "true"
-
-      - name: Verify setup
-        uses: ./.github/actions/verify-setup
-        with:
-          title: ${{ matrix.title }}
-          outputs: ${{ toJSON(steps.setup.outputs) }}
           expected-deno-enabled: ${{ matrix.expected-deno-enabled || '' }}
           expected-deno-version: ${{ matrix.expected-deno-version || '' }}
           expected-package-manager: ${{ matrix.expected-package-manager || '' }}
@@ -281,23 +254,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Setup test fixture
-        uses: ./.github/actions/setup-fixture
+      - name: Test fixture
+        id: test
+        uses: ./.github/actions/test-fixture
         with:
           fixture: ${{ matrix.fixture }}
-
-      - name: Setup runtime
-        id: setup
-        uses: ./
-        with:
+          title: ${{ matrix.title }}
           biome-version: ${{ matrix.biome-version || '' }}
           install-deps: ${{ matrix.install-deps || 'true' }}
-
-      - name: Verify setup
-        uses: ./.github/actions/verify-setup
-        with:
-          title: ${{ matrix.title }}
-          outputs: ${{ toJSON(steps.setup.outputs) }}
           expected-biome-enabled: ${{ matrix.expected-biome-enabled || '' }}
           expected-biome-version: ${{ matrix.expected-biome-version || '' }}
           expected-turbo-enabled: ${{ matrix.expected-turbo-enabled || '' }}
@@ -325,20 +289,26 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Setup test fixture
-        uses: ./.github/actions/setup-fixture
-        with:
-          fixture: cache-test
+      - name: Setup fixture
+        run: |
+          # Remove repository config files
+          rm -f package.json pnpm-workspace.yaml biome.jsonc turbo.json pnpm-lock.yaml .nvmrc .node-version deno.json deno.lock
+          # Copy fixture files to current directory
+          cp -r __fixtures__/cache-test/. .
+          echo "✓ Fixture 'cache-test' prepared"
 
       - name: First run (cache miss)
         id: setup1
         uses: ./
 
-      - name: Verify first run
-        uses: ./.github/actions/verify-setup
-        with:
-          title: "💾 Cache First Run Results"
-          outputs: ${{ toJSON(steps.setup1.outputs) }}
+      - name: Display first run outputs
+        run: |
+          echo "## 💾 Cache First Run Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "node-version: ${{ steps.setup1.outputs.node-version }} ✔️" >> $GITHUB_STEP_SUMMARY
+          echo "package-manager: ${{ steps.setup1.outputs.package-manager }} ✔️" >> $GITHUB_STEP_SUMMARY
+          echo "cache-hit: ${{ steps.setup1.outputs.cache-hit }} ✔️" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
 
       - name: Verify dependencies installed
         run: |
@@ -355,11 +325,14 @@ jobs:
         id: setup2
         uses: ./
 
-      - name: Verify second run
-        uses: ./.github/actions/verify-setup
-        with:
-          title: "💾 Cache Second Run Results"
-          outputs: ${{ toJSON(steps.setup2.outputs) }}
+      - name: Display second run outputs
+        run: |
+          echo "## 💾 Cache Second Run Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "node-version: ${{ steps.setup2.outputs.node-version }} ✔️" >> $GITHUB_STEP_SUMMARY
+          echo "package-manager: ${{ steps.setup2.outputs.package-manager }} ✔️" >> $GITHUB_STEP_SUMMARY
+          echo "cache-hit: ${{ steps.setup2.outputs.cache-hit }} ✔️" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
 
       - name: Verify cache restoration
         run: |

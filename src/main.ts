@@ -188,28 +188,71 @@ async function detectBiome(explicitVersion: string): Promise<{
  * @returns Complete runtime setup configuration
  */
 async function detectConfiguration(): Promise<SetupResult> {
-	// Read inputs
+	// Read all inputs
+	const nodeVersionInput = core.getInput("node-version") || "";
+	const bunVersionInput = core.getInput("bun-version") || "";
+	const denoVersionInput = core.getInput("deno-version") || "";
+	const packageManagerInput = core.getInput("package-manager") || "";
+	const packageManagerVersionInput = core.getInput("package-manager-version") || "";
 	const biomeVersionInput = core.getInput("biome-version") || "";
 	const installDeps = core.getInput("install-deps") !== "false";
 
 	core.startGroup("🔍 Detecting runtime configuration");
 
-	// 1. Parse package.json (required - this validates all runtime and package manager config)
-	const packageJsonConfig = await parsePackageJson();
+	// Check if we're in explicit mode (at least one runtime version AND package manager provided)
+	const hasExplicitRuntime = nodeVersionInput || bunVersionInput || denoVersionInput;
+	const hasExplicitPackageManager = packageManagerInput;
+	const isExplicitMode = hasExplicitRuntime && hasExplicitPackageManager;
 
-	// 2. Build runtime versions map from devEngines.runtime
 	const runtimeVersions: RuntimeVersions = {};
 	const runtimes: RuntimeName[] = [];
+	let packageManager: PackageManager;
+	let packageManagerVersion: string;
 
-	for (const runtime of packageJsonConfig.runtimes) {
-		runtimes.push(runtime.name);
-		runtimeVersions[runtime.name] = runtime.version;
+	if (isExplicitMode) {
+		// Explicit mode - use inputs directly, no package.json required
+		core.info("Using explicit configuration from inputs");
+
+		// Build runtime versions from inputs
+		if (nodeVersionInput) {
+			runtimes.push("node");
+			runtimeVersions.node = nodeVersionInput;
+		}
+		if (bunVersionInput) {
+			runtimes.push("bun");
+			runtimeVersions.bun = bunVersionInput;
+		}
+		if (denoVersionInput) {
+			runtimes.push("deno");
+			runtimeVersions.deno = denoVersionInput;
+		}
+
+		// Set package manager
+		packageManager = packageManagerInput as PackageManager;
+		packageManagerVersion = packageManagerVersionInput || "latest";
+
+		core.info(`✓ Configured runtime(s): ${runtimes.map((rt) => `${rt}@${runtimeVersions[rt]}`).join(", ")}`);
+		core.info(`✓ Configured package manager: ${packageManager}@${packageManagerVersion}`);
+	} else {
+		// Auto-detect mode - parse package.json
+		core.info("Auto-detecting configuration from package.json");
+
+		const packageJsonConfig = await parsePackageJson();
+
+		// Build runtime versions map from devEngines.runtime
+		for (const runtime of packageJsonConfig.runtimes) {
+			runtimes.push(runtime.name);
+			runtimeVersions[runtime.name] = runtime.version;
+		}
+
+		packageManager = packageJsonConfig.packageManager.name as PackageManager;
+		packageManagerVersion = packageJsonConfig.packageManager.version;
 	}
 
-	// 3. Detect Turbo
+	// Detect Turbo (works in both modes)
 	const turbo = detectTurbo();
 
-	// 4. Detect Biome (conditional)
+	// Detect Biome (works in both modes)
 	const biome = await detectBiome(biomeVersionInput);
 
 	core.endGroup();
@@ -217,8 +260,8 @@ async function detectConfiguration(): Promise<SetupResult> {
 	return {
 		runtimes,
 		runtimeVersions,
-		packageManager: packageJsonConfig.packageManager.name as PackageManager,
-		packageManagerVersion: packageJsonConfig.packageManager.version,
+		packageManager,
+		packageManagerVersion,
 		turboEnabled: turbo.enabled,
 		turboConfigFile: turbo.configFile,
 		biomeVersion: biome.version,

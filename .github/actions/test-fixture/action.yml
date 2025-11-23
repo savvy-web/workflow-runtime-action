@@ -1,0 +1,208 @@
+name: Test Runtime Fixture
+description: Complete test workflow - setup fixture, run runtime action, and verify outputs
+
+inputs:
+  # Test configuration
+  fixture:
+    description: Name of the fixture directory in __fixtures__/
+    required: true
+  title:
+    description: Title for the test results section (including emoji)
+    required: true
+
+  # Runtime action inputs (all optional)
+  node-version:
+    description: Node.js version to install
+    required: false
+  bun-version:
+    description: Bun version to install
+    required: false
+  deno-version:
+    description: Deno version to install
+    required: false
+  package-manager:
+    description: Package manager name
+    required: false
+  package-manager-version:
+    description: Package manager version
+    required: false
+  biome-version:
+    description: Biome version to install
+    required: false
+  install-deps:
+    description: Whether to install dependencies
+    required: false
+    default: "true"
+  turbo-token:
+    description: Turbo remote cache token
+    required: false
+  turbo-team:
+    description: Turbo team slug
+    required: false
+
+  # Expected output values for validation (all optional)
+  expected-node-version:
+    description: Expected Node.js version
+    required: false
+  expected-node-enabled:
+    description: Expected node-enabled value (true/false)
+    required: false
+  expected-bun-version:
+    description: Expected Bun version
+    required: false
+  expected-bun-enabled:
+    description: Expected bun-enabled value (true/false)
+    required: false
+  expected-deno-version:
+    description: Expected Deno version
+    required: false
+  expected-deno-enabled:
+    description: Expected deno-enabled value (true/false)
+    required: false
+  expected-package-manager:
+    description: Expected package manager name
+    required: false
+  expected-package-manager-version:
+    description: Expected package manager version
+    required: false
+  expected-biome-version:
+    description: Expected Biome version
+    required: false
+  expected-biome-enabled:
+    description: Expected biome-enabled value (true/false)
+    required: false
+  expected-turbo-enabled:
+    description: Expected turbo-enabled value (true/false)
+    required: false
+  expected-cache-hit:
+    description: Expected cache hit status
+    required: false
+
+outputs:
+  node-version:
+    description: Installed Node.js version
+    value: ${{ steps.setup.outputs.node-version }}
+  node-enabled:
+    description: Whether Node.js was installed
+    value: ${{ steps.setup.outputs.node-enabled }}
+  bun-version:
+    description: Installed Bun version
+    value: ${{ steps.setup.outputs.bun-version }}
+  bun-enabled:
+    description: Whether Bun was installed
+    value: ${{ steps.setup.outputs.bun-enabled }}
+  deno-version:
+    description: Installed Deno version
+    value: ${{ steps.setup.outputs.deno-version }}
+  deno-enabled:
+    description: Whether Deno was installed
+    value: ${{ steps.setup.outputs.deno-enabled }}
+  package-manager:
+    description: Package manager name
+    value: ${{ steps.setup.outputs.package-manager }}
+  package-manager-version:
+    description: Package manager version
+    value: ${{ steps.setup.outputs.package-manager-version }}
+  biome-version:
+    description: Installed Biome version
+    value: ${{ steps.setup.outputs.biome-version }}
+  biome-enabled:
+    description: Whether Biome was installed
+    value: ${{ steps.setup.outputs.biome-enabled }}
+  turbo-enabled:
+    description: Whether Turbo was detected
+    value: ${{ steps.setup.outputs.turbo-enabled }}
+  cache-hit:
+    description: Cache status
+    value: ${{ steps.setup.outputs.cache-hit }}
+
+runs:
+  using: composite
+  steps:
+    # Step 1: Setup the test fixture
+    - name: Setup fixture
+      shell: bash
+      run: |
+        # Remove repository config files
+        rm -f package.json pnpm-workspace.yaml biome.jsonc turbo.json pnpm-lock.yaml .nvmrc .node-version deno.json deno.lock
+
+        # Copy fixture files to current directory (including hidden files)
+        cp -r __fixtures__/${{ inputs.fixture }}/. .
+
+        echo "✓ Fixture '${{ inputs.fixture }}' prepared"
+
+    # Step 2: Run the runtime setup action
+    - name: Setup runtime
+      id: setup
+      uses: ./
+      with:
+        node-version: ${{ inputs.node-version }}
+        bun-version: ${{ inputs.bun-version }}
+        deno-version: ${{ inputs.deno-version }}
+        package-manager: ${{ inputs.package-manager }}
+        package-manager-version: ${{ inputs.package-manager-version }}
+        biome-version: ${{ inputs.biome-version }}
+        install-deps: ${{ inputs.install-deps }}
+        turbo-token: ${{ inputs.turbo-token }}
+        turbo-team: ${{ inputs.turbo-team }}
+
+    # Step 3: Verify outputs
+    - name: Verify outputs
+      shell: bash
+      run: |
+        echo "## ${{ inputs.title }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        FAILED=0
+
+        # Helper function to check and report a value
+        check_value() {
+          local key="$1"
+          local actual="$2"
+          local expected="$3"
+
+          # Skip if no actual value
+          if [ -z "$actual" ]; then
+            return
+          fi
+
+          # Show the key and value
+          echo -n "$key: $actual " >> $GITHUB_STEP_SUMMARY
+
+          # If expected value is provided, validate it
+          if [ -n "$expected" ]; then
+            if [ "$actual" = "$expected" ]; then
+              echo "✅" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "❌ (expected: $expected)" >> $GITHUB_STEP_SUMMARY
+              FAILED=1
+            fi
+          else
+            # Neutral check - no expectation
+            echo "✔️" >> $GITHUB_STEP_SUMMARY
+          fi
+        }
+
+        # Report all values with optional validation
+        check_value "node-version" "${{ steps.setup.outputs.node-version }}" "${{ inputs.expected-node-version }}"
+        check_value "node-enabled" "${{ steps.setup.outputs.node-enabled }}" "${{ inputs.expected-node-enabled }}"
+        check_value "bun-version" "${{ steps.setup.outputs.bun-version }}" "${{ inputs.expected-bun-version }}"
+        check_value "bun-enabled" "${{ steps.setup.outputs.bun-enabled }}" "${{ inputs.expected-bun-enabled }}"
+        check_value "deno-version" "${{ steps.setup.outputs.deno-version }}" "${{ inputs.expected-deno-version }}"
+        check_value "deno-enabled" "${{ steps.setup.outputs.deno-enabled }}" "${{ inputs.expected-deno-enabled }}"
+        check_value "package-manager" "${{ steps.setup.outputs.package-manager }}" "${{ inputs.expected-package-manager }}"
+        check_value "package-manager-version" "${{ steps.setup.outputs.package-manager-version }}" "${{ inputs.expected-package-manager-version }}"
+        check_value "biome-version" "${{ steps.setup.outputs.biome-version }}" "${{ inputs.expected-biome-version }}"
+        check_value "biome-enabled" "${{ steps.setup.outputs.biome-enabled }}" "${{ inputs.expected-biome-enabled }}"
+        check_value "turbo-enabled" "${{ steps.setup.outputs.turbo-enabled }}" "${{ inputs.expected-turbo-enabled }}"
+        check_value "cache-hit" "${{ steps.setup.outputs.cache-hit }}" "${{ inputs.expected-cache-hit }}"
+
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        # Report final status
+        if [ $FAILED -eq 0 ]; then
+          echo "✅ All validations passed" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "❌ Some validations failed" >> $GITHUB_STEP_SUMMARY
+          exit 1
+        fi

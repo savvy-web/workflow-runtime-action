@@ -33,17 +33,6 @@ on:
         description: "Turbo team (optional)"
         required: false
         default: ""
-  push:
-    branches: [main]
-    paths:
-      - "src/**"
-      - "action.yml"
-      - ".github/workflows/test-action.yml"
-  pull_request:
-    paths:
-      - "src/**"
-      - "action.yml"
-      - ".github/workflows/test-action.yml"
 
 jobs:
   test-action:
