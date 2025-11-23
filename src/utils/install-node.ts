@@ -5,6 +5,7 @@ import * as core from "@actions/core";
 import * as exec from "@actions/exec";
 import * as tc from "@actions/tool-cache";
 import { formatDetection, formatInstallation, formatRuntime, formatSetup, formatSuccess } from "./emoji.js";
+import { wrapError } from "./error.js";
 
 /**
  * Node.js version configuration
@@ -83,7 +84,7 @@ async function downloadNode(version: string): Promise<string> {
 		core.info(`Node.js ${version} cached at ${cachedPath}`);
 		return cachedPath;
 	} catch (error) {
-		throw new Error(`Failed to download Node.js ${version}: ${error instanceof Error ? error.message : String(error)}`);
+		throw wrapError(`Failed to download Node.js ${version}`, error);
 	}
 }
 
@@ -126,7 +127,7 @@ export async function installNode(config: NodeVersionConfig): Promise<string> {
 		return version;
 	} catch (error) {
 		core.endGroup();
-		throw new Error(`Failed to install Node.js: ${error instanceof Error ? error.message : String(error)}`);
+		throw wrapError("Failed to install Node.js", error);
 	}
 }
 
@@ -185,7 +186,7 @@ export async function setupNpm(npmVersion: string): Promise<void> {
 		core.endGroup();
 	} catch (error) {
 		core.endGroup();
-		throw new Error(`Failed to setup npm: ${error instanceof Error ? error.message : String(error)}`);
+		throw wrapError("Failed to setup npm", error);
 	}
 }
 
@@ -240,6 +241,6 @@ export async function setupPackageManager(packageManagerName: string, packageMan
 		core.endGroup();
 	} catch (error) {
 		core.endGroup();
-		throw new Error(`Failed to setup package manager: ${error instanceof Error ? error.message : String(error)}`);
+		throw wrapError("Failed to setup package manager", error);
 	}
 }
