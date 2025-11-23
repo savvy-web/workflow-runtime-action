@@ -72,6 +72,28 @@ jobs:
         if: matrix.test-command != ''
         run: ${{ matrix.test-command }}
 
+      - name: Save test results
+        if: always()
+        run: |
+          mkdir -p test-results
+          cat > test-results/${{ matrix.name }}.json <<'EOF'
+          {
+            "name": "${{ matrix.name }}",
+            "title": "${{ matrix.title }}",
+            "fixture": "${{ matrix.fixture }}",
+            "passed": ${{ steps.test.outputs.test-passed }},
+            "results": ${{ steps.test.outputs.test-results }}
+          }
+          EOF
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-node-${{ strategy.job-index }}
+          path: test-results/
+          retention-days: 1
+
   # ============================================================================
   # Bun Tests
   # ============================================================================
@@ -127,13 +149,38 @@ jobs:
         run: ${{ matrix.test-command }}
 
       - name: Verify lockfile
+        id: verify-lockfile
         if: matrix.verify-lockfile != ''
+        continue-on-error: true
         run: |
           if [ ! -f "${{ matrix.verify-lockfile }}" ]; then
-            echo "❌ ${{ matrix.verify-lockfile }} not found" >> $GITHUB_STEP_SUMMARY
+            echo "lockfile-verified=false" >> $GITHUB_OUTPUT
             exit 1
           fi
-          echo "✅ Lockfile handled correctly" >> $GITHUB_STEP_SUMMARY
+          echo "lockfile-verified=true" >> $GITHUB_OUTPUT
+
+      - name: Save test results
+        if: always()
+        run: |
+          mkdir -p test-results
+          cat > test-results/${{ matrix.name }}.json <<'EOF'
+          {
+            "name": "${{ matrix.name }}",
+            "title": "${{ matrix.title }}",
+            "fixture": "${{ matrix.fixture }}",
+            "passed": ${{ steps.test.outputs.test-passed }},
+            "lockfile_verified": "${{ steps.verify-lockfile.outputs.lockfile-verified || 'n/a' }}",
+            "results": ${{ steps.test.outputs.test-results }}
+          }
+          EOF
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-bun-${{ strategy.job-index }}
+          path: test-results/
+          retention-days: 1
 
   # ============================================================================
   # Deno Tests
@@ -210,13 +257,38 @@ jobs:
         run: ${{ matrix.test-command }}
 
       - name: Verify lockfile
+        id: verify-lockfile
         if: matrix.verify-lockfile != ''
+        continue-on-error: true
         run: |
           if [ ! -f "${{ matrix.verify-lockfile }}" ]; then
-            echo "❌ ${{ matrix.verify-lockfile }} not found" >> $GITHUB_STEP_SUMMARY
+            echo "lockfile-verified=false" >> $GITHUB_OUTPUT
             exit 1
           fi
-          echo "✅ Lockfile handled correctly" >> $GITHUB_STEP_SUMMARY
+          echo "lockfile-verified=true" >> $GITHUB_OUTPUT
+
+      - name: Save test results
+        if: always()
+        run: |
+          mkdir -p test-results
+          cat > test-results/${{ matrix.name }}.json <<'EOF'
+          {
+            "name": "${{ matrix.name }}",
+            "title": "${{ matrix.title }}",
+            "fixture": "${{ matrix.fixture }}",
+            "passed": ${{ steps.test.outputs.test-passed }},
+            "lockfile_verified": "${{ steps.verify-lockfile.outputs.lockfile-verified || 'n/a' }}",
+            "results": ${{ steps.test.outputs.test-results }}
+          }
+          EOF
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-deno-${{ strategy.job-index }}
+          path: test-results/
+          retention-days: 1
 
   # ============================================================================
   # Feature Tests
@@ -277,13 +349,38 @@ jobs:
         run: ${{ matrix.test-command }}
 
       - name: Verify no node_modules
+        id: verify-no-modules
         if: matrix.verify-no-node-modules == 'true'
+        continue-on-error: true
         run: |
           if [ -d "node_modules" ]; then
-            echo "❌ node_modules should not exist when install-deps is false" >> $GITHUB_STEP_SUMMARY
+            echo "no-modules-verified=false" >> $GITHUB_OUTPUT
             exit 1
           fi
-          echo "✅ Dependencies correctly skipped" >> $GITHUB_STEP_SUMMARY
+          echo "no-modules-verified=true" >> $GITHUB_OUTPUT
+
+      - name: Save test results
+        if: always()
+        run: |
+          mkdir -p test-results
+          cat > test-results/${{ matrix.name }}.json <<'EOF'
+          {
+            "name": "${{ matrix.name }}",
+            "title": "${{ matrix.title }}",
+            "fixture": "${{ matrix.fixture }}",
+            "passed": ${{ steps.test.outputs.test-passed }},
+            "no_modules_verified": "${{ steps.verify-no-modules.outputs.no-modules-verified || 'n/a' }}",
+            "results": ${{ steps.test.outputs.test-results }}
+          }
+          EOF
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-features-${{ strategy.job-index }}
+          path: test-results/
+          retention-days: 1
 
   # ============================================================================
   # Cache Test
@@ -319,12 +416,14 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
 
       - name: Verify dependencies installed
+        id: verify-deps
+        continue-on-error: true
         run: |
           if [ ! -d "node_modules/lodash" ]; then
-            echo "❌ Dependencies not installed" >> $GITHUB_STEP_SUMMARY
+            echo "deps-verified=false" >> $GITHUB_OUTPUT
             exit 1
           fi
-          echo "✅ Dependencies installed successfully" >> $GITHUB_STEP_SUMMARY
+          echo "deps-verified=true" >> $GITHUB_OUTPUT
 
       - name: Clear node_modules for second run
         run: rm -rf node_modules
@@ -343,18 +442,46 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
 
       - name: Verify cache restoration
+        id: verify-cache
+        continue-on-error: true
         run: |
           if [ "${{ steps.setup2.outputs.cache-hit }}" == "false" ]; then
-            echo "❌ Second run should have cache hit or partial" >> $GITHUB_STEP_SUMMARY
+            echo "cache-verified=false" >> $GITHUB_OUTPUT
             exit 1
           fi
 
           if [ ! -d "node_modules/lodash" ]; then
-            echo "❌ Dependencies not restored from cache" >> $GITHUB_STEP_SUMMARY
+            echo "cache-verified=false" >> $GITHUB_OUTPUT
             exit 1
           fi
 
-          echo "✅ Cache restoration successful" >> $GITHUB_STEP_SUMMARY
+          echo "cache-verified=true" >> $GITHUB_OUTPUT
+
+      - name: Save test results
+        if: always()
+        run: |
+          mkdir -p test-results
+          cat > test-results/cache-test.json <<'EOF'
+          {
+            "name": "Cache Effectiveness",
+            "title": "💾 Cache Effectiveness Test Results",
+            "fixture": "cache-test",
+            "passed": "${{ steps.verify-deps.outputs.deps-verified == 'true' && steps.verify-cache.outputs.cache-verified == 'true' }}",
+            "deps_verified": "${{ steps.verify-deps.outputs.deps-verified || 'false' }}",
+            "cache_verified": "${{ steps.verify-cache.outputs.cache-verified || 'false' }}",
+            "first_run_cache_hit": "${{ steps.setup1.outputs.cache-hit }}",
+            "second_run_cache_hit": "${{ steps.setup2.outputs.cache-hit }}",
+            "results": {}
+          }
+          EOF
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-cache
+          path: test-results/
+          retention-days: 1
 
   # ============================================================================
   # Test Summary
@@ -365,25 +492,62 @@ jobs:
     needs: [test-node, test-bun, test-deno, test-features, test-cache]
     if: always()
     steps:
-      - name: Generate summary
+      - name: Download all test results
+        uses: actions/download-artifact@v4
+        with:
+          pattern: test-results-*
+          path: all-results
+          merge-multiple: true
+
+      - name: Generate aggregated summary
         run: |
           echo "## 🧪 Test Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          if [ "${{ needs.test-node.result }}" == "success" ] && \
-             [ "${{ needs.test-bun.result }}" == "success" ] && \
-             [ "${{ needs.test-deno.result }}" == "success" ] && \
-             [ "${{ needs.test-features.result }}" == "success" ] && \
-             [ "${{ needs.test-cache.result }}" == "success" ]; then
-            echo "### ✅ All tests passed!" >> $GITHUB_STEP_SUMMARY
+          TOTAL=0
+          PASSED=0
+          FAILED=0
+
+          # Process all JSON result files
+          for file in all-results/*.json; do
+            if [ -f "$file" ]; then
+              TOTAL=$((TOTAL + 1))
+
+              # Extract test info
+              name=$(jq -r '.name // "Unknown"' "$file")
+              title=$(jq -r '.title // "Unknown"' "$file")
+              passed=$(jq -r '.passed // "false"' "$file")
+
+              # Count passes/fails
+              if [ "$passed" == "true" ]; then
+                PASSED=$((PASSED + 1))
+                echo "- ✅ **$name**" >> $GITHUB_STEP_SUMMARY
+              else
+                FAILED=$((FAILED + 1))
+                echo "- ❌ **$name**" >> $GITHUB_STEP_SUMMARY
+
+                # Show failures in detail
+                echo "  <details><summary>Details</summary>" >> $GITHUB_STEP_SUMMARY
+                echo "" >> $GITHUB_STEP_SUMMARY
+                echo "  \`\`\`json" >> $GITHUB_STEP_SUMMARY
+                jq '.' "$file" >> $GITHUB_STEP_SUMMARY
+                echo "  \`\`\`" >> $GITHUB_STEP_SUMMARY
+                echo "  </details>" >> $GITHUB_STEP_SUMMARY
+              fi
+            fi
+          done
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Final summary
+          if [ $FAILED -eq 0 ]; then
+            echo "### ✅ All $TOTAL tests passed!" >> $GITHUB_STEP_SUMMARY
             exit 0
           else
-            echo "### ❌ Some tests failed" >> $GITHUB_STEP_SUMMARY
+            echo "### ❌ $FAILED of $TOTAL tests failed" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "- Node.js tests: ${{ needs.test-node.result }}" >> $GITHUB_STEP_SUMMARY
-            echo "- Bun tests: ${{ needs.test-bun.result }}" >> $GITHUB_STEP_SUMMARY
-            echo "- Deno tests: ${{ needs.test-deno.result }}" >> $GITHUB_STEP_SUMMARY
-            echo "- Feature tests: ${{ needs.test-features.result }}" >> $GITHUB_STEP_SUMMARY
-            echo "- Cache test: ${{ needs.test-cache.result }}" >> $GITHUB_STEP_SUMMARY
+            echo "**Passed:** $PASSED / **Failed:** $FAILED / **Total:** $TOTAL" >> $GITHUB_STEP_SUMMARY
             exit 1
           fi

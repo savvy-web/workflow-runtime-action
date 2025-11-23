@@ -121,6 +121,12 @@ outputs:
   cache-paths:
     description: Cache paths
     value: ${{ steps.setup.outputs.cache-paths }}
+  test-passed:
+    description: Whether all validations passed (true | false)
+    value: ${{ steps.verify.outputs.test-passed }}
+  test-results:
+    description: JSON string of test results
+    value: ${{ steps.verify.outputs.test-results }}
 
 runs:
   using: composite
@@ -157,42 +163,47 @@ runs:
 
     # Step 3: Verify outputs
     - name: Verify outputs
+      id: verify
       shell: bash
       run: |
-        echo "## ${{ inputs.title }}" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-
         FAILED=0
+        RESULTS_JSON="{"
 
         # Helper function to check and report a value
         check_value() {
           local key="$1"
           local actual="$2"
           local expected="$3"
+          local status="skipped"
 
           # Skip if no actual value
           if [ -z "$actual" ]; then
             return
           fi
 
-          # Show the key and value
-          echo -n "$key: $actual " >> $GITHUB_STEP_SUMMARY
-
-          # If expected value is provided, validate it
+          # Determine status
           if [ -n "$expected" ]; then
             if [ "$actual" = "$expected" ]; then
-              echo "✅" >> $GITHUB_STEP_SUMMARY
+              status="passed"
             else
-              echo "❌ (expected: $expected)" >> $GITHUB_STEP_SUMMARY
+              status="failed"
               FAILED=1
             fi
           else
-            # Neutral check - no expectation
-            echo "✔️" >> $GITHUB_STEP_SUMMARY
+            status="info"
           fi
+
+          # Add to JSON (escape quotes in values)
+          actual_escaped=$(echo "$actual" | sed 's/"/\\"/g')
+          expected_escaped=$(echo "$expected" | sed 's/"/\\"/g')
+
+          if [ "$RESULTS_JSON" != "{" ]; then
+            RESULTS_JSON="$RESULTS_JSON,"
+          fi
+          RESULTS_JSON="$RESULTS_JSON\"$key\":{\"actual\":\"$actual_escaped\",\"expected\":\"$expected_escaped\",\"status\":\"$status\"}"
         }
 
-        # Report all values with optional validation
+        # Check all values
         check_value "node-version" "${{ steps.setup.outputs.node-version }}" "${{ inputs.expected-node-version }}"
         check_value "node-enabled" "${{ steps.setup.outputs.node-enabled }}" "${{ inputs.expected-node-enabled }}"
         check_value "bun-version" "${{ steps.setup.outputs.bun-version }}" "${{ inputs.expected-bun-version }}"
@@ -208,12 +219,16 @@ runs:
         check_value "lockfiles" "${{ steps.setup.outputs.lockfiles }}" ""
         check_value "cache-paths" "${{ steps.setup.outputs.cache-paths }}" ""
 
-        echo "" >> $GITHUB_STEP_SUMMARY
+        RESULTS_JSON="$RESULTS_JSON}"
 
-        # Report final status
+        # Set outputs
         if [ $FAILED -eq 0 ]; then
-          echo "✅ All validations passed" >> $GITHUB_STEP_SUMMARY
+          echo "test-passed=true" >> $GITHUB_OUTPUT
         else
-          echo "❌ Some validations failed" >> $GITHUB_STEP_SUMMARY
-          exit 1
+          echo "test-passed=false" >> $GITHUB_OUTPUT
         fi
+
+        echo "test-results=$RESULTS_JSON" >> $GITHUB_OUTPUT
+
+        # Always exit 0 - don't fail the job
+        exit 0
