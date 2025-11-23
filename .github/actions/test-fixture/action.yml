@@ -78,49 +78,55 @@ inputs:
     description: Expected cache hit status
     required: false
 
+  # Cache testing
+  test-cache:
+    description: Whether to test cache effectiveness (runs action twice)
+    required: false
+    default: "false"
+
 outputs:
   node-version:
     description: Installed Node.js version
-    value: ${{ steps.setup.outputs.node-version }}
+    value: ${{ steps.setup.outputs.node-version || steps.setup1.outputs.node-version }}
   node-enabled:
     description: Whether Node.js was installed
-    value: ${{ steps.setup.outputs.node-enabled }}
+    value: ${{ steps.setup.outputs.node-enabled || steps.setup1.outputs.node-enabled }}
   bun-version:
     description: Installed Bun version
-    value: ${{ steps.setup.outputs.bun-version }}
+    value: ${{ steps.setup.outputs.bun-version || steps.setup1.outputs.bun-version }}
   bun-enabled:
     description: Whether Bun was installed
-    value: ${{ steps.setup.outputs.bun-enabled }}
+    value: ${{ steps.setup.outputs.bun-enabled || steps.setup1.outputs.bun-enabled }}
   deno-version:
     description: Installed Deno version
-    value: ${{ steps.setup.outputs.deno-version }}
+    value: ${{ steps.setup.outputs.deno-version || steps.setup1.outputs.deno-version }}
   deno-enabled:
     description: Whether Deno was installed
-    value: ${{ steps.setup.outputs.deno-enabled }}
+    value: ${{ steps.setup.outputs.deno-enabled || steps.setup1.outputs.deno-enabled }}
   package-manager:
     description: Package manager name
-    value: ${{ steps.setup.outputs.package-manager }}
+    value: ${{ steps.setup.outputs.package-manager || steps.setup1.outputs.package-manager }}
   package-manager-version:
     description: Package manager version
-    value: ${{ steps.setup.outputs.package-manager-version }}
+    value: ${{ steps.setup.outputs.package-manager-version || steps.setup1.outputs.package-manager-version }}
   biome-version:
     description: Installed Biome version
-    value: ${{ steps.setup.outputs.biome-version }}
+    value: ${{ steps.setup.outputs.biome-version || steps.setup1.outputs.biome-version }}
   biome-enabled:
     description: Whether Biome was installed
-    value: ${{ steps.setup.outputs.biome-enabled }}
+    value: ${{ steps.setup.outputs.biome-enabled || steps.setup1.outputs.biome-enabled }}
   turbo-enabled:
     description: Whether Turbo was detected
-    value: ${{ steps.setup.outputs.turbo-enabled }}
+    value: ${{ steps.setup.outputs.turbo-enabled || steps.setup1.outputs.turbo-enabled }}
   cache-hit:
-    description: Cache status
-    value: ${{ steps.setup.outputs.cache-hit }}
+    description: Cache status (from second run in cache test mode)
+    value: ${{ steps.setup.outputs.cache-hit || steps.setup2.outputs.cache-hit }}
   lockfiles:
     description: Detected lockfiles
-    value: ${{ steps.setup.outputs.lockfiles }}
+    value: ${{ steps.setup.outputs.lockfiles || steps.setup1.outputs.lockfiles }}
   cache-paths:
     description: Cache paths
-    value: ${{ steps.setup.outputs.cache-paths }}
+    value: ${{ steps.setup.outputs.cache-paths || steps.setup1.outputs.cache-paths }}
   test-passed:
     description: Whether all validations passed (true | false)
     value: ${{ steps.verify.outputs.test-passed }}
@@ -148,10 +154,11 @@ runs:
 
         echo "✓ Fixture '${{ inputs.fixture }}' prepared"
 
-    # Step 2: Run the runtime setup action
+    # Step 2: Run the runtime setup action (single run mode)
     - name: Setup runtime
       id: setup
-      uses: ./
+      if: inputs.test-cache != 'true'
+      uses: ./.github/actions/runtime
       with:
         node-version: ${{ inputs.node-version }}
         bun-version: ${{ inputs.bun-version }}
@@ -163,6 +170,79 @@ runs:
         turbo-token: ${{ inputs.turbo-token }}
         turbo-team: ${{ inputs.turbo-team }}
 
+    # Step 2a: First run for cache testing (cache miss expected)
+    - name: First run (cache miss)
+      id: setup1
+      if: inputs.test-cache == 'true'
+      uses: ./.github/actions/runtime
+      with:
+        node-version: ${{ inputs.node-version }}
+        bun-version: ${{ inputs.bun-version }}
+        deno-version: ${{ inputs.deno-version }}
+        package-manager: ${{ inputs.package-manager }}
+        package-manager-version: ${{ inputs.package-manager-version }}
+        biome-version: ${{ inputs.biome-version }}
+        install-deps: ${{ inputs.install-deps }}
+        turbo-token: ${{ inputs.turbo-token }}
+        turbo-team: ${{ inputs.turbo-team }}
+
+    # Step 2b: Verify dependencies installed after first run
+    - name: Verify dependencies installed
+      id: verify-deps
+      if: inputs.test-cache == 'true'
+      continue-on-error: true
+      shell: bash
+      run: |
+        # Check for common dependency marker (lodash is in cache-test fixture)
+        if [ ! -d "node_modules/lodash" ]; then
+          echo "deps-verified=false" >> $GITHUB_OUTPUT
+          exit 1
+        fi
+        echo "deps-verified=true" >> $GITHUB_OUTPUT
+
+    # Step 2c: Clear node_modules for second run
+    - name: Clear node_modules for second run
+      if: inputs.test-cache == 'true'
+      shell: bash
+      run: rm -rf node_modules
+
+    # Step 2d: Second run for cache testing (cache hit expected)
+    - name: Second run (cache hit expected)
+      id: setup2
+      if: inputs.test-cache == 'true'
+      uses: ./.github/actions/runtime
+      with:
+        node-version: ${{ inputs.node-version }}
+        bun-version: ${{ inputs.bun-version }}
+        deno-version: ${{ inputs.deno-version }}
+        package-manager: ${{ inputs.package-manager }}
+        package-manager-version: ${{ inputs.package-manager-version }}
+        biome-version: ${{ inputs.biome-version }}
+        install-deps: ${{ inputs.install-deps }}
+        turbo-token: ${{ inputs.turbo-token }}
+        turbo-team: ${{ inputs.turbo-team }}
+
+    # Step 2e: Verify cache restoration
+    - name: Verify cache restoration
+      id: verify-cache
+      if: inputs.test-cache == 'true'
+      continue-on-error: true
+      shell: bash
+      run: |
+        # Check cache hit status
+        if [ "${{ steps.setup2.outputs.cache-hit }}" != "true" ]; then
+          echo "cache-verified=false" >> $GITHUB_OUTPUT
+          exit 1
+        fi
+
+        # Check dependencies were restored
+        if [ ! -d "node_modules/lodash" ]; then
+          echo "cache-verified=false" >> $GITHUB_OUTPUT
+          exit 1
+        fi
+
+        echo "cache-verified=true" >> $GITHUB_OUTPUT
+
     # Step 3: Verify outputs
     - name: Verify outputs
       id: verify
@@ -170,6 +250,7 @@ runs:
       run: |
         FAILED=0
         RESULTS_JSON="{"
+        TEST_CACHE="${{ inputs.test-cache }}"
 
         # Helper function to check and report a value
         check_value() {
@@ -205,21 +286,45 @@ runs:
           RESULTS_JSON="$RESULTS_JSON\"$key\":{\"actual\":\"$actual_escaped\",\"expected\":\"$expected_escaped\",\"status\":\"$status\"}"
         }
 
-        # Check all values
-        check_value "node-version" "${{ steps.setup.outputs.node-version }}" "${{ inputs.expected-node-version }}"
-        check_value "node-enabled" "${{ steps.setup.outputs.node-enabled }}" "${{ inputs.expected-node-enabled }}"
-        check_value "bun-version" "${{ steps.setup.outputs.bun-version }}" "${{ inputs.expected-bun-version }}"
-        check_value "bun-enabled" "${{ steps.setup.outputs.bun-enabled }}" "${{ inputs.expected-bun-enabled }}"
-        check_value "deno-version" "${{ steps.setup.outputs.deno-version }}" "${{ inputs.expected-deno-version }}"
-        check_value "deno-enabled" "${{ steps.setup.outputs.deno-enabled }}" "${{ inputs.expected-deno-enabled }}"
-        check_value "package-manager" "${{ steps.setup.outputs.package-manager }}" "${{ inputs.expected-package-manager }}"
-        check_value "package-manager-version" "${{ steps.setup.outputs.package-manager-version }}" "${{ inputs.expected-package-manager-version }}"
-        check_value "biome-version" "${{ steps.setup.outputs.biome-version }}" "${{ inputs.expected-biome-version }}"
-        check_value "biome-enabled" "${{ steps.setup.outputs.biome-enabled }}" "${{ inputs.expected-biome-enabled }}"
-        check_value "turbo-enabled" "${{ steps.setup.outputs.turbo-enabled }}" "${{ inputs.expected-turbo-enabled }}"
-        check_value "cache-hit" "${{ steps.setup.outputs.cache-hit }}" "${{ inputs.expected-cache-hit }}"
-        check_value "lockfiles" "${{ steps.setup.outputs.lockfiles }}" ""
-        check_value "cache-paths" "${{ steps.setup.outputs.cache-paths }}" ""
+        # Check outputs based on mode
+        if [ "$TEST_CACHE" = "true" ]; then
+          # Cache test mode - use first run outputs for standard checks
+          check_value "node-version" "${{ steps.setup1.outputs.node-version }}" "${{ inputs.expected-node-version }}"
+          check_value "node-enabled" "${{ steps.setup1.outputs.node-enabled }}" "${{ inputs.expected-node-enabled }}"
+          check_value "bun-version" "${{ steps.setup1.outputs.bun-version }}" "${{ inputs.expected-bun-version }}"
+          check_value "bun-enabled" "${{ steps.setup1.outputs.bun-enabled }}" "${{ inputs.expected-bun-enabled }}"
+          check_value "deno-version" "${{ steps.setup1.outputs.deno-version }}" "${{ inputs.expected-deno-version }}"
+          check_value "deno-enabled" "${{ steps.setup1.outputs.deno-enabled }}" "${{ inputs.expected-deno-enabled }}"
+          check_value "package-manager" "${{ steps.setup1.outputs.package-manager }}" "${{ inputs.expected-package-manager }}"
+          check_value "package-manager-version" "${{ steps.setup1.outputs.package-manager-version }}" "${{ inputs.expected-package-manager-version }}"
+          check_value "biome-version" "${{ steps.setup1.outputs.biome-version }}" "${{ inputs.expected-biome-version }}"
+          check_value "biome-enabled" "${{ steps.setup1.outputs.biome-enabled }}" "${{ inputs.expected-biome-enabled }}"
+          check_value "turbo-enabled" "${{ steps.setup1.outputs.turbo-enabled }}" "${{ inputs.expected-turbo-enabled }}"
+          check_value "lockfiles" "${{ steps.setup1.outputs.lockfiles }}" ""
+          check_value "cache-paths" "${{ steps.setup1.outputs.cache-paths }}" ""
+
+          # Cache-specific checks
+          check_value "first-run-cache-hit" "${{ steps.setup1.outputs.cache-hit }}" "false"
+          check_value "second-run-cache-hit" "${{ steps.setup2.outputs.cache-hit }}" "true"
+          check_value "dependencies-installed" "${{ steps.verify-deps.outputs.deps-verified || 'false' }}" "true"
+          check_value "cache-restored" "${{ steps.verify-cache.outputs.cache-verified || 'false' }}" "true"
+        else
+          # Standard test mode - use setup outputs
+          check_value "node-version" "${{ steps.setup.outputs.node-version }}" "${{ inputs.expected-node-version }}"
+          check_value "node-enabled" "${{ steps.setup.outputs.node-enabled }}" "${{ inputs.expected-node-enabled }}"
+          check_value "bun-version" "${{ steps.setup.outputs.bun-version }}" "${{ inputs.expected-bun-version }}"
+          check_value "bun-enabled" "${{ steps.setup.outputs.bun-enabled }}" "${{ inputs.expected-bun-enabled }}"
+          check_value "deno-version" "${{ steps.setup.outputs.deno-version }}" "${{ inputs.expected-deno-version }}"
+          check_value "deno-enabled" "${{ steps.setup.outputs.deno-enabled }}" "${{ inputs.expected-deno-enabled }}"
+          check_value "package-manager" "${{ steps.setup.outputs.package-manager }}" "${{ inputs.expected-package-manager }}"
+          check_value "package-manager-version" "${{ steps.setup.outputs.package-manager-version }}" "${{ inputs.expected-package-manager-version }}"
+          check_value "biome-version" "${{ steps.setup.outputs.biome-version }}" "${{ inputs.expected-biome-version }}"
+          check_value "biome-enabled" "${{ steps.setup.outputs.biome-enabled }}" "${{ inputs.expected-biome-enabled }}"
+          check_value "turbo-enabled" "${{ steps.setup.outputs.turbo-enabled }}" "${{ inputs.expected-turbo-enabled }}"
+          check_value "cache-hit" "${{ steps.setup.outputs.cache-hit }}" "${{ inputs.expected-cache-hit }}"
+          check_value "lockfiles" "${{ steps.setup.outputs.lockfiles }}" ""
+          check_value "cache-paths" "${{ steps.setup.outputs.cache-paths }}" ""
+        fi
 
         RESULTS_JSON="$RESULTS_JSON}"
 

@@ -440,134 +440,46 @@ jobs:
   # Cache Test
   # ============================================================================
   test-cache:
-    name: Cache Effectiveness (${{ matrix.os }})
+    name: Cache - ${{ matrix.name }} (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          - name: "Cache Effectiveness"
+            fixture: "cache-test"
+            title: "💾 Cache Effectiveness Test Results"
+            expected-node-version: "20.11.0"
+            expected-package-manager: "npm"
+            expected-package-manager-version: "10.2.4"
     steps:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Setup fixture
-        shell: bash
-        run: |
-          # Remove repository config files (use conditional to avoid errors if files don't exist)
-          for file in package.json pnpm-workspace.yaml biome.jsonc turbo.json pnpm-lock.yaml deno.json deno.lock; do
-            [ -f "$file" ] && rm "$file" || true
-          done
-          # Copy fixture files to current directory
-          cp -r __fixtures__/cache-test/. .
-          # Remove __fixtures__ directory to prevent glob pattern interference
-          [ -d "__fixtures__" ] && rm -r "__fixtures__" || true
-          echo "✓ Fixture 'cache-test' prepared"
-
-      - name: First run (cache miss)
-        id: setup1
-        uses: ./
-
-      - name: Display first run outputs
-        run: |
-          echo "## 💾 Cache First Run Results" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "node-version: ${{ steps.setup1.outputs.node-version }} ✔️" >> $GITHUB_STEP_SUMMARY
-          echo "package-manager: ${{ steps.setup1.outputs.package-manager }} ✔️" >> $GITHUB_STEP_SUMMARY
-          echo "cache-hit: ${{ steps.setup1.outputs.cache-hit }} ✔️" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-
-      - name: Verify dependencies installed
-        id: verify-deps
-        continue-on-error: true
-        shell: bash
-        run: |
-          if [ ! -d "node_modules/lodash" ]; then
-            echo "deps-verified=false" >> $GITHUB_OUTPUT
-            exit 1
-          fi
-          echo "deps-verified=true" >> $GITHUB_OUTPUT
-
-      - name: Clear node_modules for second run
-        shell: bash
-        run: rm -rf node_modules
-
-      - name: Second run (cache hit expected)
-        id: setup2
-        uses: ./
-
-      - name: Display second run outputs
-        run: |
-          echo "## 💾 Cache Second Run Results" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "node-version: ${{ steps.setup2.outputs.node-version }} ✔️" >> $GITHUB_STEP_SUMMARY
-          echo "package-manager: ${{ steps.setup2.outputs.package-manager }} ✔️" >> $GITHUB_STEP_SUMMARY
-          echo "cache-hit: ${{ steps.setup2.outputs.cache-hit }} ✔️" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-
-      - name: Verify cache restoration
-        id: verify-cache
-        continue-on-error: true
-        shell: bash
-        run: |
-          if [ "${{ steps.setup2.outputs.cache-hit }}" == "false" ]; then
-            echo "cache-verified=false" >> $GITHUB_OUTPUT
-            exit 1
-          fi
-
-          if [ ! -d "node_modules/lodash" ]; then
-            echo "cache-verified=false" >> $GITHUB_OUTPUT
-            exit 1
-          fi
-
-          echo "cache-verified=true" >> $GITHUB_OUTPUT
+      - name: Test with cache
+        id: test
+        uses: ./.github/actions/test-fixture
+        with:
+          fixture: ${{ matrix.fixture }}
+          title: ${{ matrix.title }}
+          test-cache: "true"
+          expected-node-version: ${{ matrix.expected-node-version }}
+          expected-package-manager: ${{ matrix.expected-package-manager }}
+          expected-package-manager-version: ${{ matrix.expected-package-manager-version }}
 
       - name: Save test results
         if: always()
         shell: bash
         run: |
           mkdir -p test-results
-
-          # Calculate passed status
-          DEPS_VERIFIED="${{ steps.verify-deps.outputs.deps-verified || 'false' }}"
-          CACHE_VERIFIED="${{ steps.verify-cache.outputs.cache-verified || 'false' }}"
-          FIRST_RUN_CACHE="${{ steps.setup1.outputs.cache-hit || 'n/a' }}"
-          SECOND_RUN_CACHE="${{ steps.setup2.outputs.cache-hit || 'n/a' }}"
-
-          if [ "$DEPS_VERIFIED" = "true" ] && [ "$CACHE_VERIFIED" = "true" ]; then
-            PASSED="true"
-          else
-            PASSED="false"
-          fi
-
-          # Build detailed results JSON
-          cat > "test-results/Cache Effectiveness.json" <<EOF
+          cat > "test-results/${{ matrix.name }}.json" <<EOF
           {
-            "name": "Cache Effectiveness",
-            "title": "💾 Cache Effectiveness Test Results",
-            "fixture": "node-minimal",
-            "passed": $PASSED,
-            "results": {
-              "first-run-cache-hit": {
-                "actual": "$FIRST_RUN_CACHE",
-                "expected": "false",
-                "status": "$( [ "$FIRST_RUN_CACHE" = "false" ] && echo "passed" || echo "failed" )"
-              },
-              "second-run-cache-hit": {
-                "actual": "$SECOND_RUN_CACHE",
-                "expected": "true",
-                "status": "$( [ "$SECOND_RUN_CACHE" = "true" ] && echo "passed" || echo "failed" )"
-              },
-              "dependencies-installed": {
-                "actual": "$DEPS_VERIFIED",
-                "expected": "true",
-                "status": "$( [ "$DEPS_VERIFIED" = "true" ] && echo "passed" || echo "failed" )"
-              },
-              "cache-restored": {
-                "actual": "$CACHE_VERIFIED",
-                "expected": "true",
-                "status": "$( [ "$CACHE_VERIFIED" = "true" ] && echo "passed" || echo "failed" )"
-              }
-            }
+            "name": "${{ matrix.name }}",
+            "title": "${{ matrix.title }}",
+            "fixture": "${{ matrix.fixture }}",
+            "passed": ${{ steps.test.outputs.test-passed }},
+            "results": ${{ steps.test.outputs.test-results }}
           }
           EOF
 
@@ -575,7 +487,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results-cache-${{ matrix.os }}
+          name: test-results-cache-${{ matrix.os }}-${{ strategy.job-index }}
           path: test-results/
           retention-days: 1
 
