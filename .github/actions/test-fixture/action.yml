@@ -129,6 +129,9 @@ runs:
         # Copy fixture files to current directory (including hidden files)
         cp -r __fixtures__/${{ inputs.fixture }}/. .
 
+        # Remove __fixtures__ directory to prevent glob pattern interference
+        rm -rf __fixtures__
+
         echo "✓ Fixture '${{ inputs.fixture }}' prepared"
 
     # Step 2: Run the runtime setup action

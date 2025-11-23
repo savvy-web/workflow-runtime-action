@@ -300,6 +300,8 @@ jobs:
           rm -f package.json pnpm-workspace.yaml biome.jsonc turbo.json pnpm-lock.yaml deno.json deno.lock
           # Copy fixture files to current directory
           cp -r __fixtures__/cache-test/. .
+          # Remove __fixtures__ directory to prevent glob pattern interference
+          rm -rf __fixtures__
           echo "✓ Fixture 'cache-test' prepared"
 
       - name: First run (cache miss)
