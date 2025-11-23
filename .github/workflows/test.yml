@@ -516,28 +516,84 @@ jobs:
               # Extract test info
               name=$(jq -r '.name // "Unknown"' "$file")
               title=$(jq -r '.title // "Unknown"' "$file")
+              fixture=$(jq -r '.fixture // "Unknown"' "$file")
               passed=$(jq -r '.passed // "false"' "$file")
 
               # Count passes/fails
               if [ "$passed" == "true" ]; then
                 PASSED=$((PASSED + 1))
-                echo "- ✅ **$name**" >> $GITHUB_STEP_SUMMARY
+                status="✅"
               else
                 FAILED=$((FAILED + 1))
-                echo "- ❌ **$name**" >> $GITHUB_STEP_SUMMARY
-
-                # Show failures in detail
-                echo "  <details><summary>Details</summary>" >> $GITHUB_STEP_SUMMARY
-                echo "" >> $GITHUB_STEP_SUMMARY
-                echo "  \`\`\`json" >> $GITHUB_STEP_SUMMARY
-                jq '.' "$file" >> $GITHUB_STEP_SUMMARY
-                echo "  \`\`\`" >> $GITHUB_STEP_SUMMARY
-                echo "  </details>" >> $GITHUB_STEP_SUMMARY
+                status="❌"
               fi
+
+              # Show test with title
+              echo "### $status $title" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+
+              # Add expandable details
+              echo "<details>" >> $GITHUB_STEP_SUMMARY
+              if [ "$passed" == "true" ]; then
+                echo "<summary>✓ Test passed - click to view details</summary>" >> $GITHUB_STEP_SUMMARY
+              else
+                echo "<summary>⚠️ Test failed - click to view details</summary>" >> $GITHUB_STEP_SUMMARY
+              fi
+              echo "" >> $GITHUB_STEP_SUMMARY
+
+              # Show test metadata
+              echo "**Test:** $name" >> $GITHUB_STEP_SUMMARY
+              echo "**Fixture:** \`$fixture\`" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+
+              # Parse and display results
+              results=$(jq -r '.results // {}' "$file")
+              if [ "$results" != "{}" ]; then
+                echo "**Results:**" >> $GITHUB_STEP_SUMMARY
+                echo "" >> $GITHUB_STEP_SUMMARY
+                echo "| Output | Actual | Expected | Status |" >> $GITHUB_STEP_SUMMARY
+                echo "|--------|--------|----------|--------|" >> $GITHUB_STEP_SUMMARY
+
+                # Iterate through each result
+                jq -r '.results | to_entries | .[] | "\(.key)|\(.value.actual)|\(.value.expected)|\(.value.status)"' "$file" | while IFS='|' read -r key actual expected status; do
+                  # Format status with emoji
+                  case "$status" in
+                    passed) status_icon="✅" ;;
+                    failed) status_icon="❌" ;;
+                    info) status_icon="ℹ️" ;;
+                    *) status_icon="—" ;;
+                  esac
+
+                  # Handle empty expected
+                  if [ -z "$expected" ]; then
+                    expected="—"
+                  fi
+
+                  echo "| \`$key\` | \`$actual\` | \`$expected\` | $status_icon |" >> $GITHUB_STEP_SUMMARY
+                done
+              fi
+
+              # Show additional verification info if present
+              lockfile_verified=$(jq -r '.lockfile_verified // "n/a"' "$file")
+              no_modules_verified=$(jq -r '.no_modules_verified // "n/a"' "$file")
+              deps_verified=$(jq -r '.deps_verified // "n/a"' "$file")
+              cache_verified=$(jq -r '.cache_verified // "n/a"' "$file")
+
+              if [ "$lockfile_verified" != "n/a" ] || [ "$no_modules_verified" != "n/a" ] || [ "$deps_verified" != "n/a" ] || [ "$cache_verified" != "n/a" ]; then
+                echo "" >> $GITHUB_STEP_SUMMARY
+                echo "**Additional Verifications:**" >> $GITHUB_STEP_SUMMARY
+                [ "$lockfile_verified" != "n/a" ] && echo "- Lockfile verified: $lockfile_verified" >> $GITHUB_STEP_SUMMARY
+                [ "$no_modules_verified" != "n/a" ] && echo "- No modules verified: $no_modules_verified" >> $GITHUB_STEP_SUMMARY
+                [ "$deps_verified" != "n/a" ] && echo "- Dependencies verified: $deps_verified" >> $GITHUB_STEP_SUMMARY
+                [ "$cache_verified" != "n/a" ] && echo "- Cache verified: $cache_verified" >> $GITHUB_STEP_SUMMARY
+              fi
+
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "</details>" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
             fi
           done
 
-          echo "" >> $GITHUB_STEP_SUMMARY
           echo "---" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
