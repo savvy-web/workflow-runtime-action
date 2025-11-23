@@ -451,13 +451,16 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Setup fixture
+        shell: bash
         run: |
-          # Remove repository config files
-          rm -f package.json pnpm-workspace.yaml biome.jsonc turbo.json pnpm-lock.yaml deno.json deno.lock
+          # Remove repository config files (use conditional to avoid errors if files don't exist)
+          for file in package.json pnpm-workspace.yaml biome.jsonc turbo.json pnpm-lock.yaml deno.json deno.lock; do
+            [ -f "$file" ] && rm "$file" || true
+          done
           # Copy fixture files to current directory
           cp -r __fixtures__/cache-test/. .
           # Remove __fixtures__ directory to prevent glob pattern interference
-          rm -rf __fixtures__
+          [ -d "__fixtures__" ] && rm -r "__fixtures__" || true
           echo "✓ Fixture 'cache-test' prepared"
 
       - name: First run (cache miss)
