@@ -76,13 +76,20 @@ jobs:
         if: always()
         run: |
           mkdir -p test-results
-          cat > test-results/${{ matrix.name }}.json <<'EOF'
+
+          # Set defaults for missing outputs
+          PASSED="${{ steps.test.outputs.test-passed }}"
+          RESULTS="${{ steps.test.outputs.test-results }}"
+          PASSED="${PASSED:-false}"
+          RESULTS="${RESULTS:-{}}"
+
+          cat > test-results/${{ matrix.name }}.json <<EOF
           {
             "name": "${{ matrix.name }}",
             "title": "${{ matrix.title }}",
             "fixture": "${{ matrix.fixture }}",
-            "passed": ${{ steps.test.outputs.test-passed }},
-            "results": ${{ steps.test.outputs.test-results }}
+            "passed": $PASSED,
+            "results": $RESULTS
           }
           EOF
 
@@ -163,14 +170,21 @@ jobs:
         if: always()
         run: |
           mkdir -p test-results
-          cat > test-results/${{ matrix.name }}.json <<'EOF'
+
+          # Set defaults for missing outputs
+          PASSED="${{ steps.test.outputs.test-passed }}"
+          RESULTS="${{ steps.test.outputs.test-results }}"
+          PASSED="${PASSED:-false}"
+          RESULTS="${RESULTS:-{}}"
+
+          cat > test-results/${{ matrix.name }}.json <<EOF
           {
             "name": "${{ matrix.name }}",
             "title": "${{ matrix.title }}",
             "fixture": "${{ matrix.fixture }}",
-            "passed": ${{ steps.test.outputs.test-passed }},
+            "passed": $PASSED,
             "lockfile_verified": "${{ steps.verify-lockfile.outputs.lockfile-verified || 'n/a' }}",
-            "results": ${{ steps.test.outputs.test-results }}
+            "results": $RESULTS
           }
           EOF
 
@@ -271,14 +285,21 @@ jobs:
         if: always()
         run: |
           mkdir -p test-results
-          cat > test-results/${{ matrix.name }}.json <<'EOF'
+
+          # Set defaults for missing outputs
+          PASSED="${{ steps.test.outputs.test-passed }}"
+          RESULTS="${{ steps.test.outputs.test-results }}"
+          PASSED="${PASSED:-false}"
+          RESULTS="${RESULTS:-{}}"
+
+          cat > test-results/${{ matrix.name }}.json <<EOF
           {
             "name": "${{ matrix.name }}",
             "title": "${{ matrix.title }}",
             "fixture": "${{ matrix.fixture }}",
-            "passed": ${{ steps.test.outputs.test-passed }},
+            "passed": $PASSED,
             "lockfile_verified": "${{ steps.verify-lockfile.outputs.lockfile-verified || 'n/a' }}",
-            "results": ${{ steps.test.outputs.test-results }}
+            "results": $RESULTS
           }
           EOF
 
@@ -363,14 +384,21 @@ jobs:
         if: always()
         run: |
           mkdir -p test-results
-          cat > test-results/${{ matrix.name }}.json <<'EOF'
+
+          # Set defaults for missing outputs
+          PASSED="${{ steps.test.outputs.test-passed }}"
+          RESULTS="${{ steps.test.outputs.test-results }}"
+          PASSED="${PASSED:-false}"
+          RESULTS="${RESULTS:-{}}"
+
+          cat > test-results/${{ matrix.name }}.json <<EOF
           {
             "name": "${{ matrix.name }}",
             "title": "${{ matrix.title }}",
             "fixture": "${{ matrix.fixture }}",
-            "passed": ${{ steps.test.outputs.test-passed }},
+            "passed": $PASSED,
             "no_modules_verified": "${{ steps.verify-no-modules.outputs.no-modules-verified || 'n/a' }}",
-            "results": ${{ steps.test.outputs.test-results }}
+            "results": $RESULTS
           }
           EOF
 
@@ -461,16 +489,26 @@ jobs:
         if: always()
         run: |
           mkdir -p test-results
-          cat > test-results/cache-test.json <<'EOF'
+
+          # Calculate passed status
+          DEPS_VERIFIED="${{ steps.verify-deps.outputs.deps-verified || 'false' }}"
+          CACHE_VERIFIED="${{ steps.verify-cache.outputs.cache-verified || 'false' }}"
+          if [ "$DEPS_VERIFIED" = "true" ] && [ "$CACHE_VERIFIED" = "true" ]; then
+            PASSED="true"
+          else
+            PASSED="false"
+          fi
+
+          cat > test-results/cache-test.json <<EOF
           {
             "name": "Cache Effectiveness",
             "title": "💾 Cache Effectiveness Test Results",
             "fixture": "cache-test",
-            "passed": "${{ steps.verify-deps.outputs.deps-verified == 'true' && steps.verify-cache.outputs.cache-verified == 'true' }}",
-            "deps_verified": "${{ steps.verify-deps.outputs.deps-verified || 'false' }}",
-            "cache_verified": "${{ steps.verify-cache.outputs.cache-verified || 'false' }}",
-            "first_run_cache_hit": "${{ steps.setup1.outputs.cache-hit }}",
-            "second_run_cache_hit": "${{ steps.setup2.outputs.cache-hit }}",
+            "passed": $PASSED,
+            "deps_verified": "$DEPS_VERIFIED",
+            "cache_verified": "$CACHE_VERIFIED",
+            "first_run_cache_hit": "${{ steps.setup1.outputs.cache-hit || 'n/a' }}",
+            "second_run_cache_hit": "${{ steps.setup2.outputs.cache-hit || 'n/a' }}",
             "results": {}
           }
           EOF
@@ -493,6 +531,7 @@ jobs:
     if: always()
     steps:
       - name: Download all test results
+        continue-on-error: true
         uses: actions/download-artifact@v4
         with:
           pattern: test-results-*
@@ -507,6 +546,15 @@ jobs:
           TOTAL=0
           PASSED=0
           FAILED=0
+
+          # Create directory if it doesn't exist
+          mkdir -p all-results
+
+          # Check if there are any test results
+          if [ ! "$(ls -A all-results/*.json 2>/dev/null)" ]; then
+            echo "⚠️ No test results found - all test jobs may have failed before uploading results." >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
 
           # Process all JSON result files
           for file in all-results/*.json; do

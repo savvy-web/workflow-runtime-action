@@ -67,14 +67,14 @@ function detectTurbo(): {
 	configFile: string;
 } {
 	if (existsSync("turbo.json")) {
-		core.info("✓ Detected Turbo configuration: turbo.json");
+		core.info("🟢 Detected Turbo configuration: turbo.json");
 		return {
 			enabled: true,
 			configFile: "turbo.json",
 		};
 	}
 
-	core.info("No Turbo configuration found");
+	core.info("⚪ No Turbo configuration found");
 	return {
 		enabled: false,
 		configFile: "",
@@ -132,14 +132,14 @@ async function detectBiome(explicitVersion: string): Promise<{
 	const configFile = detectBiomeConfigFile();
 
 	if (!configFile) {
-		core.info("No Biome config file found, skipping Biome installation");
+		core.info("⚪ No Biome config file found, skipping Biome installation");
 		return {
 			version: "",
 			configFile: "",
 		};
 	}
 
-	core.info(`Detected Biome config: ${configFile}`);
+	core.info(`🟢 Detected Biome config: ${configFile}`);
 
 	try {
 		// Parse config file
@@ -308,7 +308,7 @@ async function detectConfiguration(): Promise<SetupResult> {
  * @param packageManager - Package manager to use
  */
 async function installDependencies(packageManager: PackageManager): Promise<void> {
-	core.startGroup(`📦 Installing dependencies with ${packageManager}`);
+	core.startGroup(`⚙️ Installing dependencies with ${packageManager}`);
 
 	try {
 		let command: string[];
@@ -339,17 +339,16 @@ async function installDependencies(packageManager: PackageManager): Promise<void
 				// Deno caches dependencies automatically on first use
 				// Skip explicit install step as 'deno install' is for CLI tools in Deno 1.x
 				core.info("Deno caches dependencies automatically, skipping install step");
-				core.endGroup();
 				return;
 		}
 
 		await exec.exec(packageManager, command);
 
 		core.info(`✓ Dependencies installed successfully`);
-		core.endGroup();
 	} catch (error) {
-		core.endGroup();
 		throw new Error(`Failed to install dependencies: ${error instanceof Error ? error.message : String(error)}`);
+	} finally {
+		core.endGroup();
 	}
 }
 
@@ -395,7 +394,7 @@ async function main(): Promise<void> {
 
 		// Get all active package managers based on runtimes
 		const activePackageManagers = getActivePackageManagers(config.runtimes, config.packageManager);
-		core.info(`Active package managers: ${activePackageManagers.join(", ")}`);
+		//core.info(`Active package managers: ${activePackageManagers.join(", ")}`);
 
 		// Save package manager to state for post action
 		core.saveState("PACKAGE_MANAGER", config.packageManager);

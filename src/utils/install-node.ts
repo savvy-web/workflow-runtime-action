@@ -197,7 +197,7 @@ export async function setupNpm(npmVersion: string): Promise<void> {
  * @param packageManagerVersion - Package manager version for logging
  */
 export async function setupPackageManager(packageManagerName: string, packageManagerVersion: string): Promise<void> {
-	core.startGroup(`🔧 Setting up package manager via corepack`);
+	core.startGroup(`🔧 Setting up ${packageManagerName} via corepack`);
 
 	try {
 		// Check Node.js version - corepack is not bundled with Node.js >= 25.0.0

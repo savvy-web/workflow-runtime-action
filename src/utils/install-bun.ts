@@ -100,7 +100,7 @@ async function downloadBun(version: string): Promise<string> {
  * @returns Installed Bun version
  */
 export async function installBun(config: BunVersionConfig): Promise<string> {
-	core.startGroup("📦 Installing Bun");
+	core.startGroup("🥟 Installing Bun");
 
 	try {
 		const { version } = config;
@@ -113,9 +113,9 @@ export async function installBun(config: BunVersionConfig): Promise<string> {
 		let toolPath = tc.find("bun", version);
 
 		if (toolPath) {
-			core.info(`✓ Found Bun ${version} in tool cache: ${toolPath}`);
+			core.info(`🟢 Found Bun ${version} in tool cache: ${toolPath}`);
 		} else {
-			core.info(`Bun ${version} not found in cache, downloading...`);
+			core.info(`🟠 Bun ${version} not found in cache, downloading...`);
 			toolPath = await downloadBun(version);
 		}
 
@@ -125,7 +125,7 @@ export async function installBun(config: BunVersionConfig): Promise<string> {
 		// Verify installation
 		await exec.exec("bun", ["--version"]);
 
-		core.info(`✓ Bun ${version} installed successfully`);
+		core.info(`🟢 Bun ${version} installed successfully`);
 		core.endGroup();
 
 		return version;
