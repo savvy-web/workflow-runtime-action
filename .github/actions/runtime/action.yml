@@ -75,6 +75,5 @@ outputs:
 
 runs:
   using: "node24"
-  pre: "dist/pre.js"
   main: "dist/main.js"
   post: "dist/post.js"

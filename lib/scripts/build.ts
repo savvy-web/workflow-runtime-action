@@ -1,4 +1,4 @@
-import { copyFile, mkdir, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { resolve } from "node:path";
 
@@ -101,16 +101,20 @@ async function build(): Promise<void> {
 		await mkdir(runtimeDir, { recursive: true });
 		await mkdir(`${runtimeDir}/dist`, { recursive: true });
 
-		// Copy action.yml
-		await copyFile("action.yml", `${runtimeDir}/action.yml`);
-		console.log("✓ Copied action.yml");
+		// Read action.yml and remove pre script line
+		const actionYml = await readFile("action.yml", "utf-8");
+		const modifiedActionYml = actionYml
+			.split("\n")
+			.filter((line) => !line.trim().startsWith('pre: "dist/pre.js"'))
+			.join("\n");
+		await writeFile(`${runtimeDir}/action.yml`, modifiedActionYml);
+		console.log("✓ Copied action.yml (without pre script)");
 
-		// Copy dist files
-		await copyFile("dist/pre.js", `${runtimeDir}/dist/pre.js`);
+		// Copy dist files (omit pre.js for runtime action)
 		await copyFile("dist/main.js", `${runtimeDir}/dist/main.js`);
 		await copyFile("dist/post.js", `${runtimeDir}/dist/post.js`);
 		await copyFile("dist/package.json", `${runtimeDir}/dist/package.json`);
-		console.log("✓ Copied dist files");
+		console.log("✓ Copied dist files (omitted pre.js)");
 
 		console.log("\n✓ All builds completed successfully.");
 	} catch (error) {
