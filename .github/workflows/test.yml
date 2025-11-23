@@ -25,11 +25,12 @@ jobs:
   # Node.js Tests
   # ============================================================================
   test-node:
-    name: Node.js - ${{ matrix.name }}
-    runs-on: ubuntu-latest
+    name: Node.js - ${{ matrix.name }} (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
         include:
           - name: NPM
             fixture: node-minimal
@@ -97,7 +98,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results-node-${{ strategy.job-index }}
+          name: test-results-node-${{ matrix.os }}-${{ strategy.job-index }}
           path: test-results/
           retention-days: 1
 
@@ -105,11 +106,12 @@ jobs:
   # Bun Tests
   # ============================================================================
   test-bun:
-    name: Bun - ${{ matrix.name }}
-    runs-on: ubuntu-latest
+    name: Bun - ${{ matrix.name }} (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
         include:
           - name: From devEngines
             fixture: bun-minimal
@@ -192,7 +194,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results-bun-${{ strategy.job-index }}
+          name: test-results-bun-${{ matrix.os }}-${{ strategy.job-index }}
           path: test-results/
           retention-days: 1
 
@@ -200,11 +202,12 @@ jobs:
   # Deno Tests
   # ============================================================================
   test-deno:
-    name: Deno - ${{ matrix.name }}
-    runs-on: ubuntu-latest
+    name: Deno - ${{ matrix.name }} (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
         include:
           - name: Explicit Input
             fixture: deno-minimal
@@ -307,7 +310,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results-deno-${{ strategy.job-index }}
+          name: test-results-deno-${{ matrix.os }}-${{ strategy.job-index }}
           path: test-results/
           retention-days: 1
 
@@ -315,11 +318,12 @@ jobs:
   # Feature Tests
   # ============================================================================
   test-features:
-    name: Features - ${{ matrix.name }}
-    runs-on: ubuntu-latest
+    name: Features - ${{ matrix.name }} (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
         include:
           - name: Biome from Config
             fixture: biome-auto
@@ -406,7 +410,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results-features-${{ strategy.job-index }}
+          name: test-results-features-${{ matrix.os }}-${{ strategy.job-index }}
           path: test-results/
           retention-days: 1
 
@@ -414,8 +418,12 @@ jobs:
   # Cache Test
   # ============================================================================
   test-cache:
-    name: Cache Effectiveness
-    runs-on: ubuntu-latest
+    name: Cache Effectiveness (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -517,7 +525,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results-cache
+          name: test-results-cache-${{ matrix.os }}
           path: test-results/
           retention-days: 1
 
