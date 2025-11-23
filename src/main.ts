@@ -207,16 +207,24 @@ async function detectConfiguration(): Promise<SetupResult> {
 		);
 	}
 
+	// For npm, pnpm, and yarn: require package-manager-version in explicit mode
+	// For bun and deno: version comes from runtime version, not package-manager-version
 	if (packageManagerInput && !packageManagerVersionInput && hasExplicitRuntime) {
-		throw new Error(
-			"To use explicit mode (skip auto-detection), you must provide both package-manager and package-manager-version together with at least one runtime version.",
-		);
+		const isRuntimePackageManager = packageManagerInput === "bun" || packageManagerInput === "deno";
+		if (!isRuntimePackageManager) {
+			throw new Error(
+				"To use explicit mode (skip auto-detection), you must provide both package-manager and package-manager-version together with at least one runtime version.",
+			);
+		}
 	}
 
 	core.startGroup("🔍 Detecting runtime configuration");
 
 	// Check if we're in explicit mode (runtime version + package manager + package manager version)
-	const hasExplicitPackageManager = packageManagerInput && packageManagerVersionInput;
+	// For bun/deno: package manager version comes from runtime version
+	const hasExplicitPackageManager =
+		packageManagerInput &&
+		(packageManagerVersionInput || packageManagerInput === "bun" || packageManagerInput === "deno");
 	const isExplicitMode = hasExplicitRuntime && hasExplicitPackageManager;
 
 	const runtimeVersions: RuntimeVersions = {};
@@ -242,9 +250,18 @@ async function detectConfiguration(): Promise<SetupResult> {
 			runtimeVersions.deno = denoVersionInput;
 		}
 
-		// Set package manager (both are guaranteed to be present by validation above)
+		// Set package manager
 		packageManager = packageManagerInput as PackageManager;
-		packageManagerVersion = packageManagerVersionInput;
+
+		// For bun/deno, use runtime version as package manager version
+		if (packageManager === "bun") {
+			packageManagerVersion = bunVersionInput;
+		} else if (packageManager === "deno") {
+			packageManagerVersion = denoVersionInput;
+		} else {
+			// For npm, pnpm, yarn: use explicit package-manager-version
+			packageManagerVersion = packageManagerVersionInput;
+		}
 
 		core.info(`✓ Configured runtime(s): ${runtimes.map((rt) => `${rt}@${runtimeVersions[rt]}`).join(", ")}`);
 		core.info(`✓ Configured package manager: ${packageManager}@${packageManagerVersion}`);

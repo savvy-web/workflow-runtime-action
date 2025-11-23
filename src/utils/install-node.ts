@@ -156,7 +156,13 @@ export async function setupNpm(npmVersion: string): Promise<void> {
 		// Only install if version doesn't match
 		if (currentVersion !== npmVersion) {
 			core.info(`Installing npm@${npmVersion}...`);
-			await exec.exec("npm", ["install", "-g", `npm@${npmVersion}`]);
+			// Use sudo on Linux/macOS for global npm install to avoid permission issues
+			const plat = platform();
+			if (plat === "linux" || plat === "darwin") {
+				await exec.exec("sudo", ["npm", "install", "-g", `npm@${npmVersion}`]);
+			} else {
+				await exec.exec("npm", ["install", "-g", `npm@${npmVersion}`]);
+			}
 
 			// Verify installation
 			let installedVersion = "";

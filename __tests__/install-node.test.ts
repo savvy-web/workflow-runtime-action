@@ -333,6 +333,9 @@ describe("setupNpm", () => {
 		});
 
 		it("should install npm when version does not match", async () => {
+			// Mock platform to return linux (triggers sudo usage)
+			vi.mocked(platform).mockReturnValue("linux");
+
 			let versionCallCount = 0;
 			// Mock npm --version to return 9.0.0 first, then 10.0.0 after install
 			vi.mocked(exec.exec).mockImplementation(async (command, args, options) => {
@@ -349,7 +352,8 @@ describe("setupNpm", () => {
 			expect(core.info).toHaveBeenCalledWith("Current npm version: 9.0.0");
 			expect(core.info).toHaveBeenCalledWith("Required npm version: 10.0.0");
 			expect(core.info).toHaveBeenCalledWith("Installing npm@10.0.0...");
-			expect(exec.exec).toHaveBeenCalledWith("npm", ["install", "-g", "npm@10.0.0"]);
+			// On Linux/macOS, uses sudo
+			expect(exec.exec).toHaveBeenCalledWith("sudo", ["npm", "install", "-g", "npm@10.0.0"]);
 			expect(core.info).toHaveBeenCalledWith("✓ npm@10.0.0 installed successfully");
 		});
 
