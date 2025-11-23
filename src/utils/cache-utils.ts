@@ -5,6 +5,7 @@ import * as cache from "@actions/cache";
 import * as core from "@actions/core";
 import * as exec from "@actions/exec";
 import * as glob from "@actions/glob";
+import { setOutput } from "./action-io.js";
 
 /**
  * Supported package managers for caching
@@ -362,7 +363,7 @@ export async function restoreCache(packageManagers: PackageManager | PackageMana
 
 		if (cacheKey) {
 			core.info(`✓ Cache restored from key: ${cacheKey}`);
-			core.setOutput("cache-hit", cacheKey === primaryKey ? "true" : "partial");
+			setOutput("cache-hit", cacheKey === primaryKey ? "true" : "partial");
 
 			// Save state for post action
 			core.saveState("CACHE_KEY", cacheKey);
@@ -371,7 +372,7 @@ export async function restoreCache(packageManagers: PackageManager | PackageMana
 			core.saveState("PACKAGE_MANAGERS", JSON.stringify(pmArray));
 		} else {
 			core.info("Cache not found");
-			core.setOutput("cache-hit", "false");
+			setOutput("cache-hit", "false");
 
 			// Still save state for post action to save new cache
 			core.saveState("CACHE_PRIMARY_KEY", primaryKey);

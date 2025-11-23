@@ -14,11 +14,9 @@ This directory contains isolated test project setups for integration testing. Ea
 
 ### Node.js Fixtures
 
-* **node-minimal** - Minimal Node.js project with npm (no dependencies, no version file)
-* **node-pnpm** - Node.js project with pnpm (`packageManager: "pnpm@10.20.0"`)
-* **node-yarn** - Node.js project with Yarn (`packageManager: "yarn@4.0.0"`)
-* **node-nvm** - Node.js project with `.nvmrc` file (version: `24.11.0`)
-* **node-version-file** - Node.js project with `.node-version` file (version: `24.11.0`)
+* **node-minimal** - Minimal Node.js project with npm (devEngines configuration)
+* **node-pnpm** - Node.js project with pnpm (devEngines: `packageManager.name: "pnpm"`)
+* **node-yarn** - Node.js project with Yarn (devEngines: `packageManager.name: "yarn"`)
 
 ### Bun Fixtures
 
@@ -156,18 +154,6 @@ Use `packageManager` field in package.json:
 }
 ```
 
-### Version File Testing
-
-Create a version file:
-
-```bash
-# .nvmrc
-echo "24.11.0" > __fixtures__/my-fixture/.nvmrc
-
-# .node-version
-echo "24.11.0" > __fixtures__/my-fixture/.node-version
-```
-
 ### Lockfile Testing
 
 Commit a lockfile to test lockfile handling:
@@ -218,7 +204,7 @@ Include feature configuration files:
 ## Fixture Naming Conventions
 
 * **runtime-packageManager** - `node-pnpm`, `bun-minimal`, `deno-minimal`
-* **runtime-feature** - `node-nvm`, `node-version-file`, `bun-lockfile`, `deno-lockfile`
+* **runtime-feature** - `bun-lockfile`, `deno-lockfile`
 * **feature-purpose** - `biome-auto`, `turbo-monorepo`, `cache-test`
 * **multi-runtime** - For fixtures with multiple runtimes
 

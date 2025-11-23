@@ -92,6 +92,7 @@ jobs:
           - name: Explicit Version
             fixture: bun-minimal
             package-manager: bun
+            package-manager-version: "1.1.42"
             bun-version: "1.1.42"
             expected-bun-enabled: "true"
             expected-bun-version: "1.1.42"
@@ -147,6 +148,8 @@ jobs:
           - name: Explicit Input
             fixture: deno-minimal
             deno-version: "1.46.3"
+            package-manager: npm
+            package-manager-version: "10.0.0"
             expected-deno-enabled: "true"
             expected-package-manager: npm
             expected-deno-version: "1.46.3"
@@ -164,6 +167,7 @@ jobs:
           - name: Explicit Version
             fixture: deno-minimal
             package-manager: deno
+            package-manager-version: "1.46.3"
             deno-version: "1.46.3"
             expected-deno-enabled: "true"
             expected-deno-version: "1.46.3"
@@ -174,6 +178,7 @@ jobs:
           - name: Lockfile
             fixture: deno-lockfile
             package-manager: deno
+            package-manager-version: "2.5.6"
             deno-version: "2.5.6"
             test-command: "deno run main.ts"
             verify-lockfile: deno.lock
@@ -292,7 +297,7 @@ jobs:
       - name: Setup fixture
         run: |
           # Remove repository config files
-          rm -f package.json pnpm-workspace.yaml biome.jsonc turbo.json pnpm-lock.yaml .nvmrc .node-version deno.json deno.lock
+          rm -f package.json pnpm-workspace.yaml biome.jsonc turbo.json pnpm-lock.yaml deno.json deno.lock
           # Copy fixture files to current directory
           cp -r __fixtures__/cache-test/. .
           echo "✓ Fixture 'cache-test' prepared"

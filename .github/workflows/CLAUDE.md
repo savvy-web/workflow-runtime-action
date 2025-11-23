@@ -14,20 +14,20 @@ This directory contains GitHub Actions workflows for testing the runtime action 
 
 Main test workflow that runs on push and pull requests. Includes comprehensive test coverage:
 
-* **test-node** - Node.js runtime tests (npm, pnpm, yarn, version files, LTS)
-* **test-bun** - Bun runtime tests (auto-detect, explicit version, lockfile)
-* **test-deno** - Deno runtime tests (auto-detect, package.json, explicit version, lockfile)
+* **test-node** - Node.js runtime tests (npm, pnpm, yarn)
+* **test-bun** - Bun runtime tests (auto-detect from devEngines, explicit version, lockfile)
+* **test-deno** - Deno runtime tests (auto-detect from devEngines, explicit version, lockfile)
 * **test-features** - Feature tests (Biome auto-detect, Turbo detection, skip dependencies)
 * **test-cache** - Cache effectiveness testing (cache miss → cache hit)
 * **summary** - Aggregates test results and reports overall status
 
 ## Reusable Composite Actions
 
-### [setup-fixture](../actions/setup-fixture/action.yml)
+### [test-fixture](../actions/test-fixture/action.yml)
 
-Prepares the test environment by removing repository config files and copying fixture files.
+Complete test workflow that sets up a fixture, runs the runtime action, and verifies outputs - all in one action.
 
-**Purpose:** Isolate tests by replacing repository configuration with fixture configuration.
+**Purpose:** Simplify testing by combining fixture setup, action execution, and output validation into a single reusable action.
 
 **How it works:**
 
@@ -35,7 +35,6 @@ Prepares the test environment by removing repository config files and copying fi
    * `package.json`, `pnpm-workspace.yaml`
    * `biome.jsonc`, `turbo.json`
    * Lock files: `pnpm-lock.yaml`, `deno.lock`
-   * Version files: `.nvmrc`, `.node-version`
 
 2. **Copy fixture files** - Copies all files from the specified fixture directory (including hidden files):
 
@@ -43,75 +42,43 @@ Prepares the test environment by removing repository config files and copying fi
    cp -r __fixtures__/${{ inputs.fixture }}/. .
    ```
 
-**Inputs:**
+3. **Run runtime action** - Executes the runtime setup action with provided inputs
 
-* `fixture` (required) - Name of the fixture directory in `__fixtures__/`
-
-**Example usage:**
-
-```yaml
-- name: Setup test fixture
-  uses: ./.github/actions/setup-fixture
-  with:
-    fixture: node-pnpm
-```
-
-**Why this approach?**
-
-* **Simple** - No complex /tmp directory management
-* **Fast** - Files copied in-place, action runs in same directory
-* **Isolated** - Repository config removed, only fixture config remains
-* **Works on all platforms** - No platform-specific path issues
-
-### [verify-setup](../actions/verify-setup/action.yml)
-
-Validates action outputs against expected values and generates formatted test results.
-
-**Purpose:** Report action outputs and verify they match expectations.
-
-**How it works:**
-
-1. **Parse outputs** - Receives action outputs as JSON string
-2. **Validate each output** - Compares actual vs expected values
-3. **Generate summary** - Creates formatted markdown summary with emojis:
+4. **Validate outputs** - Compares actual vs expected values and generates summary:
    * ✅ Value matches expectation
    * ✔️ Value reported (no expectation to validate)
    * ❌ Value doesn't match expectation
-4. **Fail if mismatches** - Exits with error if any validation fails
+
+5. **Fail if mismatches** - Exits with error if any validation fails
 
 **Inputs:**
 
+* `fixture` (required) - Name of the fixture directory in `__fixtures__/`
 * `title` (required) - Title for the test results section (including emoji)
-* `outputs` (required) - JSON string of all setup outputs from `steps.setup.outputs`
-* `expected-runtime` - Expected runtime value (`node`, `bun`, `deno`)
-* `expected-package-manager` - Expected package manager (`npm`, `pnpm`, `yarn`, `bun`, `deno`)
-* `expected-node-version` - Expected Node.js version
-* `expected-node-version-file` - Expected version file (`.nvmrc`, `.node-version`)
-* `expected-bun-version` - Expected Bun version
-* `expected-deno-version` - Expected Deno version
-* `expected-biome-enabled` - Expected biome-enabled value (`true`, `false`)
-* `expected-biome-version` - Expected Biome version
-* `expected-biome-config-file` - Expected Biome config file path
-* `expected-turbo-enabled` - Expected turbo-enabled value (`true`, `false`)
-* `expected-turbo-config-file` - Expected Turbo config file path
-* `expected-cache-hit` - Expected cache hit status (`true`, `partial`, `false`)
+* Runtime action inputs (all optional):
+  * `node-version`, `bun-version`, `deno-version`
+  * `package-manager`, `package-manager-version`
+  * `biome-version`, `install-deps`
+  * `turbo-token`, `turbo-team`
+* Expected values for validation (all optional):
+  * `expected-node-version`, `expected-node-enabled`
+  * `expected-bun-version`, `expected-bun-enabled`
+  * `expected-deno-version`, `expected-deno-enabled`
+  * `expected-package-manager`, `expected-package-manager-version`
+  * `expected-biome-version`, `expected-biome-enabled`
+  * `expected-turbo-enabled`
+  * `expected-cache-hit`
 
 **Example usage:**
 
 ```yaml
-- name: Setup runtime
-  id: setup
-  uses: ./
+- name: Test PNPM
+  uses: ./.github/actions/test-fixture
   with:
-    package-manager: pnpm
-
-- name: Verify setup
-  uses: ./.github/actions/verify-setup
-  with:
+    fixture: node-pnpm
     title: "📦 PNPM Test Results"
-    outputs: ${{ toJSON(steps.setup.outputs) }}
-    expected-runtime: node
     expected-package-manager: pnpm
+    expected-node-enabled: "true"
 ```
 
 **Output format:**
@@ -119,13 +86,21 @@ Validates action outputs against expected values and generates formatted test re
 ```markdown
 ## 📦 PNPM Test Results
 
-runtime: node ✅
-package-manager: pnpm ✅
 node-version: 20.19.5 ✔️
+node-enabled: true ✅
+package-manager: pnpm ✅
 cache-hit: false ✔️
 
 ✅ All validations passed
 ```
+
+**Why this approach?**
+
+* **Simple** - One action instead of three separate steps
+* **Fast** - Files copied in-place, action runs in same directory
+* **Isolated** - Repository config removed, only fixture config remains
+* **Comprehensive** - Combines setup, execution, and validation
+* **Works on all platforms** - No platform-specific path issues
 
 ## Matrix-Based Testing Pattern
 
@@ -158,23 +133,13 @@ test-node:
     - name: Checkout
       uses: actions/checkout@v6
 
-    - name: Setup test fixture
-      uses: ./.github/actions/setup-fixture
+    - name: Test fixture
+      uses: ./.github/actions/test-fixture
       with:
         fixture: ${{ matrix.fixture }}
-
-    - name: Setup runtime
-      id: setup
-      uses: ./
-      with:
-        package-manager: ${{ matrix.package-manager || '' }}
-
-    - name: Verify setup
-      uses: ./.github/actions/verify-setup
-      with:
         title: ${{ matrix.title }}
-        outputs: ${{ toJSON(steps.setup.outputs) }}
-        expected-runtime: ${{ matrix.expected-runtime || '' }}
+        package-manager: ${{ matrix.package-manager || '' }}
+        expected-node-enabled: ${{ matrix.expected-node-enabled || '' }}
         expected-package-manager: ${{ matrix.expected-package-manager || '' }}
 
     - name: Test runtime
@@ -187,22 +152,17 @@ test-node:
 Every test follows this pattern:
 
 1. **Checkout** - Check out the repository
-2. **Setup fixture** - Use `setup-fixture` action to prepare test environment
-3. **Run action** - Execute the runtime action with test inputs
-4. **Verify outputs** - Use `verify-setup` action to validate results
-5. **Test runtime** - Run commands to verify runtime is working (optional)
-6. **Additional verification** - Custom verification steps (optional)
+2. **Test fixture** - Use `test-fixture` action to setup environment, run action, and verify outputs
+3. **Test runtime** - Run commands to verify runtime is working (optional)
+4. **Additional verification** - Custom verification steps (optional)
 
 ## Test Scenarios
 
 ### Node.js Tests
 
-* **NPM** - Default npm package manager
-* **PNPM** - Auto-detected from `package.json` `packageManager` field
-* **Yarn** - Auto-detected from `package.json` `packageManager` field
-* **.nvmrc** - Node.js version from `.nvmrc` file
-* **.node-version** - Node.js version from `.node-version` file
-* **LTS** - Latest LTS version resolution
+* **NPM** - Default npm package manager from devEngines
+* **PNPM** - Auto-detected from devEngines `packageManager` field
+* **Yarn** - Auto-detected from devEngines `packageManager` field
 
 ### Bun Tests
 
@@ -261,22 +221,12 @@ test-my-feature:
     - name: Checkout
       uses: actions/checkout@v6
 
-    - name: Setup test fixture
-      uses: ./.github/actions/setup-fixture
+    - name: Test fixture
+      uses: ./.github/actions/test-fixture
       with:
         fixture: my-fixture
-
-    - name: Setup runtime
-      id: setup
-      uses: ./
-      with:
-        # ... custom inputs ...
-
-    - name: Verify setup
-      uses: ./.github/actions/verify-setup
-      with:
         title: "🧪 My Feature Test Results"
-        outputs: ${{ toJSON(steps.setup.outputs) }}
+        # ... runtime inputs ...
         # ... expected values ...
 
     - name: Custom verification
@@ -301,10 +251,11 @@ EOF
 Then reference it in the workflow:
 
 ```yaml
-- name: Setup test fixture
-  uses: ./.github/actions/setup-fixture
+- name: Test my new fixture
+  uses: ./.github/actions/test-fixture
   with:
     fixture: my-new-fixture
+    title: "🧪 My New Test Results"
 ```
 
 ## Debugging Test Failures

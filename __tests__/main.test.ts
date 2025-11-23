@@ -61,54 +61,6 @@ describe("main detection logic", () => {
 		});
 	});
 
-	describe("Node.js version detection", () => {
-		it("should detect .nvmrc file", () => {
-			vi.mocked(existsSync).mockImplementation((path) => path === ".nvmrc");
-
-			const hasNvmrc = existsSync(".nvmrc");
-			const hasNodeVersion = existsSync(".node-version");
-
-			expect(hasNvmrc).toBe(true);
-			expect(hasNodeVersion).toBe(false);
-		});
-
-		it("should detect .node-version file", () => {
-			vi.mocked(existsSync).mockImplementation((path) => path === ".node-version");
-
-			const hasNvmrc = existsSync(".nvmrc");
-			const hasNodeVersion = existsSync(".node-version");
-
-			expect(hasNvmrc).toBe(false);
-			expect(hasNodeVersion).toBe(true);
-		});
-
-		it("should prioritize .nvmrc over .node-version", () => {
-			vi.mocked(existsSync).mockImplementation((path) => path === ".nvmrc" || path === ".node-version");
-
-			const hasNvmrc = existsSync(".nvmrc");
-
-			expect(hasNvmrc).toBe(true);
-		});
-
-		it("should read version from file", async () => {
-			vi.mocked(readFile).mockResolvedValue("20.11.0\n");
-
-			const content = await readFile(".nvmrc", "utf-8");
-			const version = content.trim().replace(/^v/, "").split("\n")[0];
-
-			expect(version).toBe("20.11.0");
-		});
-
-		it("should strip v prefix from version", async () => {
-			vi.mocked(readFile).mockResolvedValue("v20.11.0\n");
-
-			const content = await readFile(".nvmrc", "utf-8");
-			const version = content.trim().replace(/^v/, "");
-
-			expect(version).toBe("20.11.0");
-		});
-	});
-
 	describe("Turbo detection", () => {
 		it("should detect turbo.json", () => {
 			vi.mocked(existsSync).mockImplementation((path) => path === "turbo.json");

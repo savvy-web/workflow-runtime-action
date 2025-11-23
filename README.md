@@ -439,8 +439,11 @@ Full test suite with:
 
 **Available inputs:**
 
-* `package-manager`: Choose npm, pnpm, or yarn (or leave empty for auto-detect)
-* `node-version`: Specify Node.js version (or leave empty to use `.nvmrc`)
+* `package-manager`: Package manager name (required with `package-manager-version` for explicit mode)
+* `package-manager-version`: Package manager version (required with `package-manager` for explicit mode)
+* `node-version`: Node.js version for explicit mode (leave empty for auto-detect from package.json)
+* `bun-version`: Bun version for explicit mode
+* `deno-version`: Deno version for explicit mode
 * `biome-version`: Specify Biome version (or leave empty for auto-detect)
 * `install-deps`: Enable/disable dependency installation
 * `turbo-token`: Optional Turbo remote cache token

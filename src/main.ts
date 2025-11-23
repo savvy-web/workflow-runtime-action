@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import * as core from "@actions/core";
 import * as exec from "@actions/exec";
 import { parse } from "jsonc-parser";
+import { getInput, setOutput } from "./utils/action-io.js";
 import type { PackageManager } from "./utils/cache-utils.js";
 import { restoreCache } from "./utils/cache-utils.js";
 import { installBiome } from "./utils/install-biome.js";
@@ -189,19 +190,33 @@ async function detectBiome(explicitVersion: string): Promise<{
  */
 async function detectConfiguration(): Promise<SetupResult> {
 	// Read all inputs
-	const nodeVersionInput = core.getInput("node-version") || "";
-	const bunVersionInput = core.getInput("bun-version") || "";
-	const denoVersionInput = core.getInput("deno-version") || "";
-	const packageManagerInput = core.getInput("package-manager") || "";
-	const packageManagerVersionInput = core.getInput("package-manager-version") || "";
-	const biomeVersionInput = core.getInput("biome-version") || "";
-	const installDeps = core.getInput("install-deps") !== "false";
+	const nodeVersionInput = getInput("node-version");
+	const bunVersionInput = getInput("bun-version");
+	const denoVersionInput = getInput("deno-version");
+	const packageManagerInput = getInput("package-manager");
+	const packageManagerVersionInput = getInput("package-manager-version");
+	const biomeVersionInput = getInput("biome-version");
+	const installDeps = getInput("install-deps") !== "false";
+
+	// Validate that package-manager and package-manager-version are used together
+	const hasExplicitRuntime = nodeVersionInput || bunVersionInput || denoVersionInput;
+
+	if (packageManagerVersionInput && !packageManagerInput) {
+		throw new Error(
+			"package-manager-version input requires package-manager to be specified. Please provide both inputs together.",
+		);
+	}
+
+	if (packageManagerInput && !packageManagerVersionInput && hasExplicitRuntime) {
+		throw new Error(
+			"To use explicit mode (skip auto-detection), you must provide both package-manager and package-manager-version together with at least one runtime version.",
+		);
+	}
 
 	core.startGroup("🔍 Detecting runtime configuration");
 
-	// Check if we're in explicit mode (at least one runtime version AND package manager provided)
-	const hasExplicitRuntime = nodeVersionInput || bunVersionInput || denoVersionInput;
-	const hasExplicitPackageManager = packageManagerInput;
+	// Check if we're in explicit mode (runtime version + package manager + package manager version)
+	const hasExplicitPackageManager = packageManagerInput && packageManagerVersionInput;
 	const isExplicitMode = hasExplicitRuntime && hasExplicitPackageManager;
 
 	const runtimeVersions: RuntimeVersions = {};
@@ -227,9 +242,9 @@ async function detectConfiguration(): Promise<SetupResult> {
 			runtimeVersions.deno = denoVersionInput;
 		}
 
-		// Set package manager
+		// Set package manager (both are guaranteed to be present by validation above)
 		packageManager = packageManagerInput as PackageManager;
-		packageManagerVersion = packageManagerVersionInput || "latest";
+		packageManagerVersion = packageManagerVersionInput;
 
 		core.info(`✓ Configured runtime(s): ${runtimes.map((rt) => `${rt}@${runtimeVersions[rt]}`).join(", ")}`);
 		core.info(`✓ Configured package manager: ${packageManager}@${packageManagerVersion}`);
@@ -419,17 +434,17 @@ async function main(): Promise<void> {
 		}
 
 		// Set all outputs
-		core.setOutput("runtime", config.runtimes.join(","));
-		core.setOutput("node-version", installedVersions.node || "");
-		core.setOutput("bun-version", installedVersions.bun || "");
-		core.setOutput("deno-version", installedVersions.deno || "");
-		core.setOutput("package-manager", config.packageManager);
-		core.setOutput("package-manager-version", config.packageManagerVersion);
-		core.setOutput("turbo-enabled", config.turboEnabled.toString());
-		core.setOutput("turbo-config-file", config.turboConfigFile);
-		core.setOutput("biome-enabled", (!!config.biomeVersion).toString());
-		core.setOutput("biome-version", config.biomeVersion);
-		core.setOutput("biome-config-file", config.biomeConfigFile);
+		setOutput("node-version", installedVersions.node || "");
+		setOutput("node-enabled", !!installedVersions.node);
+		setOutput("bun-version", installedVersions.bun || "");
+		setOutput("bun-enabled", !!installedVersions.bun);
+		setOutput("deno-version", installedVersions.deno || "");
+		setOutput("deno-enabled", !!installedVersions.deno);
+		setOutput("package-manager", config.packageManager);
+		setOutput("package-manager-version", config.packageManagerVersion);
+		setOutput("biome-version", config.biomeVersion);
+		setOutput("biome-enabled", !!config.biomeVersion);
+		setOutput("turbo-enabled", config.turboEnabled);
 
 		// Summary
 		core.startGroup("✅ Runtime Setup Complete");
