@@ -32,21 +32,16 @@ Located in [utils/](utils/):
 
 #### [install-node.ts](utils/install-node.ts)
 
-Node.js version resolution and installation.
+Node.js installation from exact versions specified in `devEngines.runtime`.
 
-* Queries `https://nodejs.org/dist/index.json` for version specs
 * Downloads and extracts Node.js tarballs from `https://nodejs.org/dist/v{version}/`
-* Handles version files (`.nvmrc`, `.node-version`)
-* Supports version specs:
-  * `lts/*` → Latest LTS version
-  * `20.x` or `20` → Latest 20.x version
-  * `24.11.0` → Exact version
+* Uses GitHub Actions tool cache for caching binaries
+* Supports all platforms (Linux, macOS, Windows)
 
 **Key functions:**
 
-* `installNode({ version, versionFile })` - Main entry point
-* `resolveVersion(versionSpec)` - Resolves version specs to exact versions
-* `downloadAndExtract(version)` - Downloads and caches Node.js
+* `installNode({ version })` - Downloads and installs exact Node.js version
+* `downloadNode(version)` - Downloads and caches Node.js from official distribution
 
 #### [install-bun.ts](utils/install-bun.ts)
 

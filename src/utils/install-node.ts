@@ -1,108 +1,16 @@
 import { readdirSync } from "node:fs";
-import { readFile } from "node:fs/promises";
 import { arch, platform } from "node:os";
 import { join } from "node:path";
 import * as core from "@actions/core";
 import * as exec from "@actions/exec";
-import { HttpClient } from "@actions/http-client";
 import * as tc from "@actions/tool-cache";
 
 /**
  * Node.js version configuration
  */
 interface NodeVersionConfig {
-	/** Node.js version string (e.g., "20.11.0") or empty if using version file */
+	/** Exact Node.js version (e.g., "20.11.0") */
 	version: string;
-	/** Path to version file (.nvmrc or .node-version) or empty */
-	versionFile: string;
-}
-
-/**
- * Reads Node.js version from a version file
- *
- * @param file - Path to version file (.nvmrc or .node-version)
- * @returns Version string from the file
- */
-async function readVersionFile(file: string): Promise<string> {
-	const content = await readFile(file, "utf-8");
-	// Trim whitespace and remove common prefixes
-	return content
-		.trim()
-		.replace(/^v/, "") // Remove leading 'v'
-		.split("\n")[0]; // Take first line only
-}
-
-/**
- * Queries nodejs.org/dist/index.json to resolve version specs
- *
- * @param spec - Version spec (e.g., "lts/*", "20.x", "latest")
- * @returns Resolved version number (e.g., "20.19.5")
- */
-async function queryNodeVersion(spec: string): Promise<string> {
-	const client = new HttpClient("workflow-runtime-action");
-
-	try {
-		const response = await client.get("https://nodejs.org/dist/index.json");
-		const body = await response.readBody();
-		const versions = JSON.parse(body) as Array<{ version: string; lts: string | boolean }>;
-
-		// Handle lts/*
-		if (spec === "lts/*" || spec.toLowerCase() === "lts") {
-			const ltsVersion = versions.find((v) => v.lts && typeof v.lts === "string");
-			if (!ltsVersion) throw new Error("Could not find LTS version");
-			return ltsVersion.version.replace(/^v/, "");
-		}
-
-		// Handle version ranges like "20.x" or "20"
-		if (spec.includes(".x") || !spec.includes(".")) {
-			const major = spec.split(".")[0];
-			const matchingVersion = versions.find((v) => v.version.startsWith(`v${major}.`));
-			if (!matchingVersion) throw new Error(`Could not find version matching ${spec}`);
-			return matchingVersion.version.replace(/^v/, "");
-		}
-
-		// Exact version
-		return spec.replace(/^v/, "");
-	} catch (error) {
-		throw new Error(`Failed to query Node.js versions: ${error instanceof Error ? error.message : String(error)}`);
-	}
-}
-
-/**
- * Resolves Node.js version from input or version file
- *
- * @param version - Explicit version from input (e.g., "20.11.0", "lts/*")
- * @param versionFile - Path to version file
- * @returns Resolved version string
- */
-async function resolveNodeVersion(version: string, versionFile: string): Promise<string> {
-	if (versionFile) {
-		core.info(`Reading Node.js version from ${versionFile}`);
-		const fileVersion = await readVersionFile(versionFile);
-		// Version from file might also be "lts/*" or similar
-		if (fileVersion.includes("*") || fileVersion.includes(".x") || fileVersion.toLowerCase() === "lts") {
-			return await queryNodeVersion(fileVersion);
-		}
-		return fileVersion;
-	}
-
-	if (version) {
-		core.info(`Using Node.js version from input: ${version}`);
-		// Resolve version specs (lts/*, 20.x, 20, etc.)
-		if (
-			version.includes("*") ||
-			version.includes(".x") ||
-			version.toLowerCase().startsWith("lts") ||
-			!version.includes(".")
-		) {
-			return await queryNodeVersion(version);
-		}
-		return version;
-	}
-
-	// Default to LTS
-	core.info("No version specified, defaulting to lts/*");
-	return await queryNodeVersion("lts/*");
 }
 
 /**
@@ -186,24 +94,16 @@ export async function installNode(config: NodeVersionConfig): Promise<string> {
 	core.startGroup("📦 Installing Node.js");
 
 	try {
-		// Resolve version
-		const versionSpec = await resolveNodeVersion(config.version, config.versionFile);
+		const { version } = config;
 
 		// Check if already in tool cache
-		let toolPath = tc.find("node", versionSpec);
+		let toolPath = tc.find("node", version);
 
 		if (toolPath) {
-			core.info(`✓ Found Node.js ${versionSpec} in tool cache: ${toolPath}`);
+			core.info(`✓ Found Node.js ${version} in tool cache: ${toolPath}`);
 		} else {
-			// Resolve exact version if using version spec (lts/*, 20.x, etc.)
-			const exactVersion = versionSpec;
-
-			// If version spec is lts/* or contains wildcards, we need to resolve it
-			// For now, we'll use the spec as-is and let the download fail if needed
-			// A production implementation would query nodejs.org/dist/index.json
-
-			core.info(`Node.js ${exactVersion} not found in cache, downloading...`);
-			toolPath = await downloadNode(exactVersion);
+			core.info(`Node.js ${version} not found in cache, downloading...`);
+			toolPath = await downloadNode(version);
 		}
 
 		// Add to PATH
@@ -217,10 +117,10 @@ export async function installNode(config: NodeVersionConfig): Promise<string> {
 		await exec.exec("node", ["--version"]);
 		await exec.exec("npm", ["--version"]);
 
-		core.info(`✓ Node.js ${versionSpec} installed successfully`);
+		core.info(`✓ Node.js ${version} installed successfully`);
 		core.endGroup();
 
-		return versionSpec;
+		return version;
 	} catch (error) {
 		core.endGroup();
 		throw new Error(`Failed to install Node.js: ${error instanceof Error ? error.message : String(error)}`);
@@ -230,34 +130,32 @@ export async function installNode(config: NodeVersionConfig): Promise<string> {
 /**
  * Sets up package manager using corepack
  *
- * @param packageManager - Package manager to enable (pnpm or yarn)
+ * This function enables corepack and prepares the package manager specified in
+ * package.json devEngines.packageManager. Corepack will automatically read the
+ * configuration from package.json.
+ *
+ * @param packageManagerName - Package manager name for logging (pnpm or yarn)
+ * @param packageManagerVersion - Package manager version for logging
  */
-export async function setupPackageManager(packageManager: "pnpm" | "yarn"): Promise<void> {
-	core.startGroup(`🔧 Setting up ${packageManager}`);
+export async function setupPackageManager(packageManagerName: string, packageManagerVersion: string): Promise<void> {
+	core.startGroup(`🔧 Setting up package manager via corepack`);
 
 	try {
 		// Enable corepack first
 		core.info("Enabling corepack...");
 		await exec.exec("corepack", ["enable"]);
 
-		// For pnpm, prepare latest version
-		// For yarn, let corepack use the version from package.json or default
-		if (packageManager === "pnpm") {
-			core.info("Preparing pnpm...");
-			await exec.exec("corepack", ["prepare", "pnpm@latest", "--activate"]);
-		} else {
-			// For yarn, just enable it - corepack will handle the version
-			core.info("Preparing yarn...");
-			await exec.exec("corepack", ["prepare", "yarn@stable", "--activate"]);
-		}
+		// Prepare package manager using explicit version from devEngines.packageManager
+		core.info(`Preparing package manager ${packageManagerName}@${packageManagerVersion}...`);
+		await exec.exec("corepack", ["prepare", `${packageManagerName}@${packageManagerVersion}`, "--activate"]);
 
 		// Verify installation
-		await exec.exec(packageManager, ["--version"]);
+		await exec.exec(packageManagerName, ["--version"]);
 
-		core.info(`✓ ${packageManager} set up successfully`);
+		core.info(`✓ Package manager ${packageManagerName}@${packageManagerVersion} set up successfully`);
 		core.endGroup();
 	} catch (error) {
 		core.endGroup();
-		throw new Error(`Failed to setup ${packageManager}: ${error instanceof Error ? error.message : String(error)}`);
+		throw new Error(`Failed to setup package manager: ${error instanceof Error ? error.message : String(error)}`);
 	}
 }

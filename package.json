@@ -65,11 +65,16 @@
 	},
 	"packageManager": "pnpm@10.20.0",
 	"devEngines": {
+		"packageManager": {
+			"name": "pnpm",
+			"version": "10.20.0",
+			"onFail": "error"
+		},
 		"runtime": [
 			{
 				"name": "node",
-				"version": "24.11.0",
-				"onFail": "warn"
+				"version": "24.10.0",
+				"onFail": "error"
 			}
 		]
 	}

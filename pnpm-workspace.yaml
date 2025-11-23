@@ -1,6 +1,6 @@
 packages:
   - .
-loglevel: warn
+loglevel: info
 onlyBuiltDependencies:
   - core-js
   - esbuild

@@ -124,23 +124,16 @@ This ensures type safety and catches errors at compile time.
 
 ### Mocking HTTP Requests
 
-For functions that query external APIs (e.g., Node.js version resolution):
+For functions that download binaries from external sources:
 
 ```typescript
-import { HttpClient } from "@actions/http-client";
+import * as tc from "@actions/tool-cache";
 
-const mockGet = vi.fn().mockResolvedValue({
-  readBody: vi.fn().mockResolvedValue(
-    JSON.stringify([
-      { version: "v20.19.5", lts: "Iron" },
-      { version: "v18.20.0", lts: "Hydrogen" },
-    ])
-  ),
+beforeEach(() => {
+  vi.mocked(tc.downloadTool).mockResolvedValue("/tmp/download-path");
+  vi.mocked(tc.extractTar).mockResolvedValue("/tmp/extracted-path");
+  vi.mocked(tc.cacheDir).mockResolvedValue("/cached/tool/path");
 });
-
-vi.mocked(HttpClient).mockImplementation(
-  () => ({ get: mockGet }) as unknown as InstanceType<typeof HttpClient>
-);
 ```
 
 ### Mocking File System Operations
@@ -241,25 +234,25 @@ describe("installNode", () => {
 });
 ```
 
-### 2. Test Version Resolution
+### 2. Test Configuration Validation
 
-Test all version spec patterns:
+Test validation of package.json devEngines configuration:
 
 ```typescript
-describe("resolveVersion", () => {
-  it("should resolve lts/*", async () => {
-    const version = await resolveVersion("lts/*");
-    expect(version).toBe("20.19.5");
+describe("validateRuntimeConfig", () => {
+  it("should validate exact versions", () => {
+    const config = { name: "node", version: "24.10.0", onFail: "error" };
+    expect(() => validateRuntimeConfig(config, 0)).not.toThrow();
   });
 
-  it("should resolve version ranges (20.x)", async () => {
-    const version = await resolveVersion("20.x");
-    expect(version).toMatch(/^20\.\d+\.\d+$/);
+  it("should reject missing onFail", () => {
+    const config = { name: "node", version: "24.10.0" };
+    expect(() => validateRuntimeConfig(config, 0)).toThrow("onFail must be");
   });
 
-  it("should resolve exact versions", async () => {
-    const version = await resolveVersion("24.11.0");
-    expect(version).toBe("24.11.0");
+  it("should reject wrong onFail value", () => {
+    const config = { name: "node", version: "24.10.0", onFail: "warn" };
+    expect(() => validateRuntimeConfig(config, 0)).toThrow('onFail must be "error"');
   });
 });
 ```
@@ -272,13 +265,13 @@ Test platform-specific behavior (Linux tar vs Windows zip):
 describe("platform-specific extraction", () => {
   it("should use extractTar on Linux", async () => {
     vi.spyOn(process, "platform", "get").mockReturnValue("linux");
-    await installNode({ version: "20.11.0", versionFile: "" });
+    await installNode({ version: "20.11.0" });
     expect(tc.extractTar).toHaveBeenCalled();
   });
 
   it("should use extractZip on Windows", async () => {
     vi.spyOn(process, "platform", "get").mockReturnValue("win32");
-    await installNode({ version: "20.11.0", versionFile: "" });
+    await installNode({ version: "20.11.0" });
     expect(tc.extractZip).toHaveBeenCalled();
   });
 });
@@ -290,20 +283,17 @@ Ensure errors are handled gracefully:
 
 ```typescript
 describe("error handling", () => {
-  it("should throw on network failure", async () => {
-    vi.mocked(HttpClient).mockImplementation(
-      () => ({
-        get: vi.fn().mockRejectedValue(new Error("Network error")),
-      }) as unknown as InstanceType<typeof HttpClient>
-    );
+  it("should throw on download failure", async () => {
+    vi.mocked(tc.downloadTool).mockRejectedValue(new Error("Network error"));
 
-    await expect(resolveVersion("lts/*")).rejects.toThrow("Network error");
+    await expect(installNode({ version: "20.11.0" }))
+      .rejects.toThrow("Network error");
   });
 
   it("should throw on extraction failure", async () => {
     vi.mocked(tc.extractTar).mockRejectedValue(new Error("Extraction failed"));
 
-    await expect(installNode({ version: "20.11.0", versionFile: "" }))
+    await expect(installNode({ version: "20.11.0" }))
       .rejects.toThrow("Extraction failed");
   });
 });
@@ -311,25 +301,20 @@ describe("error handling", () => {
 
 ### 5. Test Edge Cases
 
-Cover empty inputs, malformed data, missing environment variables:
+Cover empty inputs, malformed data, missing configuration:
 
 ```typescript
 describe("edge cases", () => {
-  it("should handle empty version string", async () => {
-    await expect(installNode({ version: "", versionFile: "" }))
-      .rejects.toThrow("Version is required");
+  it("should handle missing devEngines", async () => {
+    vi.mocked(readFile).mockResolvedValue("{}");
+
+    await expect(parsePackageJson()).rejects.toThrow("devEngines not found");
   });
 
-  it("should handle malformed JSON response", async () => {
-    vi.mocked(HttpClient).mockImplementation(
-      () => ({
-        get: vi.fn().mockResolvedValue({
-          readBody: vi.fn().mockResolvedValue("invalid json"),
-        }),
-      }) as unknown as InstanceType<typeof HttpClient>
-    );
+  it("should handle malformed package.json", async () => {
+    vi.mocked(readFile).mockResolvedValue("invalid json");
 
-    await expect(resolveVersion("lts/*")).rejects.toThrow();
+    await expect(parsePackageJson()).rejects.toThrow();
   });
 });
 ```

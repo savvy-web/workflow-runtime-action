@@ -36,45 +36,24 @@ jobs:
           - name: NPM
             fixture: node-minimal
             package-manager: npm
-            node-version: "20.x"
-            expected-runtime: node
+            expected-node-enabled: "true"
             expected-package-manager: npm
             test-command: "node --version && npm --version"
             title: "📦 NPM Test Results"
 
           - name: PNPM
             fixture: node-pnpm
-            expected-runtime: node
+            expected-node-enabled: "true"
             expected-package-manager: pnpm
             test-command: "node --version && pnpm --version"
             title: "📦 PNPM Test Results"
 
           - name: Yarn
             fixture: node-yarn
-            expected-runtime: node
+            expected-node-enabled: "true"
             expected-package-manager: yarn
             test-command: "node --version && yarn --version"
             title: "📦 Yarn Test Results"
-
-          - name: .nvmrc
-            fixture: node-nvm
-            expected-node-version-file: .nvmrc
-            expected-node-version: "24.11.0"
-            test-command: "node --version"
-            title: "📄 .nvmrc File Test Results"
-
-          - name: .node-version
-            fixture: node-version-file
-            expected-node-version-file: .node-version
-            expected-node-version: "24.11.0"
-            test-command: "node --version"
-            title: "📄 .node-version File Test Results"
-
-          - name: LTS
-            fixture: node-minimal
-            node-version: "lts/*"
-            test-command: "node --version"
-            title: "🔖 LTS Version Test Results"
 
     steps:
       - name: Checkout
@@ -90,7 +69,6 @@ jobs:
         uses: ./
         with:
           package-manager: ${{ matrix.package-manager || '' }}
-          node-version: ${{ matrix.node-version || '' }}
           install-deps: "true"
 
       - name: Verify setup
@@ -100,8 +78,6 @@ jobs:
           outputs: ${{ toJSON(steps.setup.outputs) }}
           expected-runtime: ${{ matrix.expected-runtime || '' }}
           expected-package-manager: ${{ matrix.expected-package-manager || '' }}
-          expected-node-version: ${{ matrix.expected-node-version || '' }}
-          expected-node-version-file: ${{ matrix.expected-node-version-file || '' }}
 
       - name: Test runtime
         if: matrix.test-command != ''
@@ -117,17 +93,18 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: Auto-detect
+          - name: From devEngines
             fixture: bun-minimal
-            expected-runtime: bun
+            expected-bun-enabled: "true"
             expected-package-manager: bun
             test-command: "bun --version && bun run index.ts"
-            title: "🚀 Bun Auto-detect Test Results"
+            title: "🚀 Bun from devEngines Test Results"
 
           - name: Explicit Version
             fixture: bun-minimal
             package-manager: bun
             bun-version: "1.1.42"
+            expected-bun-enabled: "true"
             expected-bun-version: "1.1.42"
             test-command: "bun --version && bun run test.js"
             title: "🎯 Bun Explicit Version Test Results"
@@ -160,9 +137,9 @@ jobs:
         with:
           title: ${{ matrix.title }}
           outputs: ${{ toJSON(steps.setup.outputs) }}
-          expected-runtime: ${{ matrix.expected-runtime || '' }}
-          expected-package-manager: ${{ matrix.expected-package-manager || '' }}
+          expected-bun-enabled: ${{ matrix.expected-bun-enabled || '' }}
           expected-bun-version: ${{ matrix.expected-bun-version || '' }}
+          expected-package-manager: ${{ matrix.expected-package-manager || '' }}
 
       - name: Test runtime
         if: matrix.test-command != ''
@@ -187,27 +164,28 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: Auto-detect
+          - name: Explicit Input
             fixture: deno-minimal
             deno-version: "1.46.3"
-            expected-runtime: deno
+            expected-deno-enabled: "true"
             expected-package-manager: npm
             expected-deno-version: "1.46.3"
             test-command: "deno --version && deno run main.ts"
-            title: "🦕 Deno Auto-detect Test Results"
+            title: "🦕 Deno Explicit Input Test Results"
 
-          - name: package.json
+          - name: From devEngines
             fixture: deno-lockfile
-            expected-runtime: deno
+            expected-deno-enabled: "true"
             expected-package-manager: deno
             expected-deno-version: "2.5.6"
             test-command: "deno run app.ts"
-            title: "📦 Deno package.json Test Results"
+            title: "📦 Deno from devEngines Test Results"
 
           - name: Explicit Version
             fixture: deno-minimal
             package-manager: deno
             deno-version: "1.46.3"
+            expected-deno-enabled: "true"
             expected-deno-version: "1.46.3"
             test-command: "deno --version && deno run test.ts"
             title: "🎯 Deno Explicit Version Test Results"
@@ -218,6 +196,7 @@ jobs:
             deno-version: "2.5.6"
             test-command: "deno run main.ts"
             verify-lockfile: deno.lock
+            expected-deno-enabled: "true"
             expected-deno-version: "2.5.6"
             title: "🔒 Deno Lockfile Test Results"
 
@@ -243,9 +222,9 @@ jobs:
         with:
           title: ${{ matrix.title }}
           outputs: ${{ toJSON(steps.setup.outputs) }}
-          expected-runtime: ${{ matrix.expected-runtime || '' }}
-          expected-package-manager: ${{ matrix.expected-package-manager || '' }}
+          expected-deno-enabled: ${{ matrix.expected-deno-enabled || '' }}
           expected-deno-version: ${{ matrix.expected-deno-version || '' }}
+          expected-package-manager: ${{ matrix.expected-package-manager || '' }}
 
       - name: Test runtime
         if: matrix.test-command != ''
@@ -270,13 +249,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: Biome Auto-detect
+          - name: Biome from Config
             fixture: biome-auto
             expected-biome-enabled: "true"
             expected-biome-version: "2.3.6"
-            expected-biome-config-file: biome.jsonc
             test-command: "biome --version"
-            title: "🧬 Biome Auto-detect Test Results"
+            title: "🧬 Biome from Config Test Results"
 
           - name: Biome Explicit Version
             fixture: node-minimal
@@ -289,7 +267,6 @@ jobs:
           - name: Turbo Detection
             fixture: turbo-monorepo
             expected-turbo-enabled: "true"
-            expected-turbo-config-file: turbo.json
             test-command: "echo 'Turbo detected'"
             title: "⚡ Turbo Detection Test Results"
 
@@ -323,9 +300,7 @@ jobs:
           outputs: ${{ toJSON(steps.setup.outputs) }}
           expected-biome-enabled: ${{ matrix.expected-biome-enabled || '' }}
           expected-biome-version: ${{ matrix.expected-biome-version || '' }}
-          expected-biome-config-file: ${{ matrix.expected-biome-config-file || '' }}
           expected-turbo-enabled: ${{ matrix.expected-turbo-enabled || '' }}
-          expected-turbo-config-file: ${{ matrix.expected-turbo-config-file || '' }}
 
       - name: Test runtime
         if: matrix.test-command != ''

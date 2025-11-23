@@ -10,38 +10,38 @@ inputs:
     required: true
 
   # Expected values for validation
-  expected-runtime:
-    description: Expected runtime value
-    required: false
-  expected-package-manager:
-    description: Expected package manager value
-    required: false
   expected-node-version:
     description: Expected Node.js version
     required: false
-  expected-node-version-file:
-    description: Expected version file
+  expected-node-enabled:
+    description: Expected node-enabled value (true/false)
     required: false
   expected-bun-version:
     description: Expected Bun version
     required: false
+  expected-bun-enabled:
+    description: Expected bun-enabled value (true/false)
+    required: false
   expected-deno-version:
     description: Expected Deno version
     required: false
-  expected-biome-enabled:
-    description: Expected biome-enabled value
+  expected-deno-enabled:
+    description: Expected deno-enabled value (true/false)
+    required: false
+  expected-package-manager:
+    description: Expected package manager name
+    required: false
+  expected-package-manager-version:
+    description: Expected package manager version
     required: false
   expected-biome-version:
-    description: Expected biome version
+    description: Expected Biome version
     required: false
-  expected-biome-config-file:
-    description: Expected biome config file
+  expected-biome-enabled:
+    description: Expected biome-enabled value (true/false)
     required: false
   expected-turbo-enabled:
-    description: Expected turbo-enabled value
-    required: false
-  expected-turbo-config-file:
-    description: Expected turbo config file
+    description: Expected turbo-enabled value (true/false)
     required: false
   expected-cache-hit:
     description: Expected cache hit status
@@ -96,18 +96,17 @@ runs:
         }
 
         # Report all values with optional validation
-        check_value "runtime" "${{ inputs.expected-runtime }}"
-        check_value "package-manager" "${{ inputs.expected-package-manager }}"
         check_value "node-version" "${{ inputs.expected-node-version }}"
-        check_value "node-version-file" "${{ inputs.expected-node-version-file }}"
-        check_value "node-version-source" ""
+        check_value "node-enabled" "${{ inputs.expected-node-enabled }}"
         check_value "bun-version" "${{ inputs.expected-bun-version }}"
+        check_value "bun-enabled" "${{ inputs.expected-bun-enabled }}"
         check_value "deno-version" "${{ inputs.expected-deno-version }}"
-        check_value "biome-enabled" "${{ inputs.expected-biome-enabled }}"
+        check_value "deno-enabled" "${{ inputs.expected-deno-enabled }}"
+        check_value "package-manager" "${{ inputs.expected-package-manager }}"
+        check_value "package-manager-version" "${{ inputs.expected-package-manager-version }}"
         check_value "biome-version" "${{ inputs.expected-biome-version }}"
-        check_value "biome-config-file" "${{ inputs.expected-biome-config-file }}"
+        check_value "biome-enabled" "${{ inputs.expected-biome-enabled }}"
         check_value "turbo-enabled" "${{ inputs.expected-turbo-enabled }}"
-        check_value "turbo-config-file" "${{ inputs.expected-turbo-config-file }}"
         check_value "cache-hit" "${{ inputs.expected-cache-hit }}"
 
         echo "" >> $GITHUB_STEP_SUMMARY

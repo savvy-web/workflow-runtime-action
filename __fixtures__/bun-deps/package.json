@@ -1,8 +1,19 @@
 {
-  "name": "bun-deps-test",
-  "version": "1.0.0",
-  "packageManager": "bun@1.1.42",
-  "dependencies": {
-    "lodash": "^4.17.21"
-  }
+	"name": "bun-deps-test",
+	"version": "1.0.0",
+	"devEngines": {
+		"packageManager": {
+			"name": "bun",
+			"version": "1.1.42",
+			"onFail": "error"
+		},
+		"runtime": {
+			"name": "bun",
+			"version": "1.1.42",
+			"onFail": "error"
+		}
+	},
+	"dependencies": {
+		"lodash": "^4.17.21"
+	}
 }
