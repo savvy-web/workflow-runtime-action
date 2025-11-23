@@ -9,7 +9,7 @@ import { restoreCache } from "./utils/cache-utils.js";
 import { installBiome } from "./utils/install-biome.js";
 import { installBun } from "./utils/install-bun.js";
 import { installDeno } from "./utils/install-deno.js";
-import { installNode, setupPackageManager } from "./utils/install-node.js";
+import { installNode, setupNpm, setupPackageManager } from "./utils/install-node.js";
 import type { RuntimeName } from "./utils/parse-package-json.js";
 import { parsePackageJson } from "./utils/parse-package-json.js";
 
@@ -411,10 +411,15 @@ async function main(): Promise<void> {
 			}
 		}
 
-		// 3. Setup package manager (pnpm/yarn need corepack)
-		if (config.packageManager === "pnpm" || config.packageManager === "yarn") {
+		// 3. Setup package manager
+		if (config.packageManager === "npm") {
+			// npm comes with Node.js but may need version update
+			await setupNpm(config.packageManagerVersion);
+		} else if (config.packageManager === "pnpm" || config.packageManager === "yarn") {
+			// pnpm/yarn use corepack
 			await setupPackageManager(config.packageManager, config.packageManagerVersion);
 		}
+		// bun and deno are their own package managers, no setup needed
 
 		// 4. Restore cache before installing dependencies (using all active package managers)
 		if (config.installDeps) {

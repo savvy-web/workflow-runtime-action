@@ -128,6 +128,59 @@ export async function installNode(config: NodeVersionConfig): Promise<string> {
 }
 
 /**
+ * Sets up npm to a specific version
+ *
+ * Node.js comes with a bundled npm version, but we may need a different version
+ * as specified in devEngines.packageManager. This function installs the correct
+ * npm version globally.
+ *
+ * @param npmVersion - npm version to install (e.g., "10.0.0")
+ */
+export async function setupNpm(npmVersion: string): Promise<void> {
+	core.startGroup(`🔧 Setting up npm@${npmVersion}`);
+
+	try {
+		// Get current npm version
+		let currentVersion = "";
+		await exec.exec("npm", ["--version"], {
+			listeners: {
+				stdout: (data: Buffer) => {
+					currentVersion += data.toString().trim();
+				},
+			},
+		});
+
+		core.info(`Current npm version: ${currentVersion}`);
+		core.info(`Required npm version: ${npmVersion}`);
+
+		// Only install if version doesn't match
+		if (currentVersion !== npmVersion) {
+			core.info(`Installing npm@${npmVersion}...`);
+			await exec.exec("npm", ["install", "-g", `npm@${npmVersion}`]);
+
+			// Verify installation
+			let installedVersion = "";
+			await exec.exec("npm", ["--version"], {
+				listeners: {
+					stdout: (data: Buffer) => {
+						installedVersion += data.toString().trim();
+					},
+				},
+			});
+
+			core.info(`✓ npm@${installedVersion} installed successfully`);
+		} else {
+			core.info(`✓ npm version ${currentVersion} already matches required version`);
+		}
+
+		core.endGroup();
+	} catch (error) {
+		core.endGroup();
+		throw new Error(`Failed to setup npm: ${error instanceof Error ? error.message : String(error)}`);
+	}
+}
+
+/**
  * Sets up package manager using corepack
  *
  * This function enables corepack and prepares the package manager specified in
