@@ -54,6 +54,14 @@ jobs:
             test-command: "node --version && yarn --version"
             title: "📦 Yarn Test Results"
 
+          - name: Cache Effectiveness
+            fixture: cache-test
+            test-cache: "true"
+            expected-node-version: "20.11.0"
+            expected-package-manager: npm
+            expected-package-manager-version: "10.2.4"
+            title: "💾 Cache Effectiveness Test Results"
+
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -66,8 +74,11 @@ jobs:
           title: ${{ matrix.title }}
           package-manager: ${{ matrix.package-manager || '' }}
           install-deps: "true"
+          test-cache: ${{ matrix.test-cache || 'false' }}
+          expected-node-version: ${{ matrix.expected-node-version || '' }}
           expected-node-enabled: ${{ matrix.expected-node-enabled || '' }}
           expected-package-manager: ${{ matrix.expected-package-manager || '' }}
+          expected-package-manager-version: ${{ matrix.expected-package-manager-version || '' }}
 
       - name: Test runtime
         if: matrix.test-command != ''
@@ -437,67 +448,12 @@ jobs:
           retention-days: 1
 
   # ============================================================================
-  # Cache Test
-  # ============================================================================
-  test-cache:
-    name: Cache - ${{ matrix.name }} (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        include:
-          - name: "Cache Effectiveness"
-            fixture: "cache-test"
-            title: "💾 Cache Effectiveness Test Results"
-            expected-node-version: "20.11.0"
-            expected-package-manager: "npm"
-            expected-package-manager-version: "10.2.4"
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Test with cache
-        id: test
-        uses: ./.github/actions/test-fixture
-        with:
-          fixture: ${{ matrix.fixture }}
-          title: ${{ matrix.title }}
-          test-cache: "true"
-          expected-node-version: ${{ matrix.expected-node-version }}
-          expected-package-manager: ${{ matrix.expected-package-manager }}
-          expected-package-manager-version: ${{ matrix.expected-package-manager-version }}
-
-      - name: Save test results
-        if: always()
-        shell: bash
-        run: |
-          mkdir -p test-results
-          cat > "test-results/${{ matrix.name }}.json" <<EOF
-          {
-            "name": "${{ matrix.name }}",
-            "title": "${{ matrix.title }}",
-            "fixture": "${{ matrix.fixture }}",
-            "passed": ${{ steps.test.outputs.test-passed }},
-            "results": ${{ steps.test.outputs.test-results }}
-          }
-          EOF
-
-      - name: Upload test results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-results-cache-${{ matrix.os }}-${{ strategy.job-index }}
-          path: test-results/
-          retention-days: 1
-
-  # ============================================================================
   # Test Summary
   # ============================================================================
   summary:
     name: Test Summary
     runs-on: ubuntu-latest
-    needs: [test-node, test-bun, test-deno, test-features, test-cache]
+    needs: [test-node, test-bun, test-deno, test-features]
     if: always()
     steps:
       - name: Download all test results
