@@ -36,7 +36,9 @@ function getDownloadUrl(version: string): string {
 	// Determine file extension and format
 	const isWindows = plat === "win32";
 	const ext = isWindows ? "zip" : "tar.gz";
-	const fileName = `node-v${version}-${plat}-${nodeArch}.${ext}`;
+	// Node.js uses "win" in filenames, not "win32"
+	const platName = isWindows ? "win" : plat;
+	const fileName = `node-v${version}-${platName}-${nodeArch}.${ext}`;
 
 	return `https://nodejs.org/dist/v${version}/${fileName}`;
 }
