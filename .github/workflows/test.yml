@@ -75,6 +75,7 @@ jobs:
 
       - name: Save test results
         if: always()
+        shell: bash
         run: |
           mkdir -p test-results
 
@@ -161,6 +162,7 @@ jobs:
         id: verify-lockfile
         if: matrix.verify-lockfile != ''
         continue-on-error: true
+        shell: bash
         run: |
           if [ ! -f "${{ matrix.verify-lockfile }}" ]; then
             echo "lockfile-verified=false" >> $GITHUB_OUTPUT
@@ -170,6 +172,7 @@ jobs:
 
       - name: Save test results
         if: always()
+        shell: bash
         run: |
           mkdir -p test-results
 
@@ -277,6 +280,7 @@ jobs:
         id: verify-lockfile
         if: matrix.verify-lockfile != ''
         continue-on-error: true
+        shell: bash
         run: |
           if [ ! -f "${{ matrix.verify-lockfile }}" ]; then
             echo "lockfile-verified=false" >> $GITHUB_OUTPUT
@@ -286,6 +290,7 @@ jobs:
 
       - name: Save test results
         if: always()
+        shell: bash
         run: |
           mkdir -p test-results
 
@@ -377,6 +382,7 @@ jobs:
         id: verify-no-modules
         if: matrix.verify-no-node-modules == 'true'
         continue-on-error: true
+        shell: bash
         run: |
           if [ -d "node_modules" ]; then
             echo "no-modules-verified=false" >> $GITHUB_OUTPUT
@@ -386,6 +392,7 @@ jobs:
 
       - name: Save test results
         if: always()
+        shell: bash
         run: |
           mkdir -p test-results
 
@@ -469,6 +476,7 @@ jobs:
       - name: Verify dependencies installed
         id: verify-deps
         continue-on-error: true
+        shell: bash
         run: |
           if [ ! -d "node_modules/lodash" ]; then
             echo "deps-verified=false" >> $GITHUB_OUTPUT
@@ -477,6 +485,7 @@ jobs:
           echo "deps-verified=true" >> $GITHUB_OUTPUT
 
       - name: Clear node_modules for second run
+        shell: bash
         run: rm -rf node_modules
 
       - name: Second run (cache hit expected)
@@ -495,6 +504,7 @@ jobs:
       - name: Verify cache restoration
         id: verify-cache
         continue-on-error: true
+        shell: bash
         run: |
           if [ "${{ steps.setup2.outputs.cache-hit }}" == "false" ]; then
             echo "cache-verified=false" >> $GITHUB_OUTPUT
@@ -510,6 +520,7 @@ jobs:
 
       - name: Save test results
         if: always()
+        shell: bash
         run: |
           mkdir -p test-results
 
