@@ -332,8 +332,8 @@ async function installDependencies(packageManager: PackageManager): Promise<void
 				}
 				break;
 			case "bun":
-				// Use frozen lockfile if bun.lockb exists
-				command = existsSync("bun.lockb") ? ["install", "--frozen-lockfile"] : ["install"];
+				// Use frozen lockfile if bun.lock exists
+				command = existsSync("bun.lock") ? ["install", "--frozen-lockfile"] : ["install"];
 				break;
 			case "deno":
 				// Deno caches dependencies automatically on first use

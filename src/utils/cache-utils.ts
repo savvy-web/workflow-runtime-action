@@ -196,7 +196,7 @@ async function getCacheConfig(packageManager: PackageManager): Promise<CacheConf
 			lockFilePatterns = ["**/yarn.lock"];
 			break;
 		case "bun":
-			lockFilePatterns = ["**/bun.lockb"];
+			lockFilePatterns = ["**/bun.lock"];
 			break;
 		case "deno":
 			lockFilePatterns = ["**/deno.lock"];

@@ -253,9 +253,9 @@ describe("restoreCache", () => {
 				return 0;
 			});
 
-			// Mock globber for bun.lockb
+			// Mock globber for bun.lock
 			const globber = {
-				glob: vi.fn().mockResolvedValue(["bun.lockb"]),
+				glob: vi.fn().mockResolvedValue(["bun.lock"]),
 				getSearchPaths: vi.fn().mockReturnValue([]),
 				globGenerator: vi.fn(),
 			};
@@ -286,10 +286,10 @@ describe("restoreCache", () => {
 			);
 		});
 
-		it("should find bun.lockb files", async () => {
+		it("should find bun.lock files", async () => {
 			await restoreCache("bun");
 
-			expect(glob.create).toHaveBeenCalledWith("**/bun.lockb", expect.any(Object));
+			expect(glob.create).toHaveBeenCalledWith("**/bun.lock", expect.any(Object));
 		});
 	});
 
@@ -718,7 +718,7 @@ describe("multi-package manager support", () => {
 
 		it("should combine lock file patterns from all package managers", async () => {
 			const globber = {
-				glob: vi.fn().mockResolvedValue(["pnpm-lock.yaml", "bun.lockb"]),
+				glob: vi.fn().mockResolvedValue(["pnpm-lock.yaml", "bun.lock"]),
 				getSearchPaths: vi.fn().mockReturnValue([]),
 				globGenerator: vi.fn(),
 			};
@@ -729,12 +729,12 @@ describe("multi-package manager support", () => {
 			// Should create globber with both lock file patterns
 			const createCallArg = vi.mocked(glob.create).mock.calls[0][0];
 			expect(createCallArg).toContain("**/pnpm-lock.yaml");
-			expect(createCallArg).toContain("**/bun.lockb");
+			expect(createCallArg).toContain("**/bun.lock");
 		});
 
 		it("should sort package managers for consistent cache key", async () => {
 			const globber = {
-				glob: vi.fn().mockResolvedValue(["yarn.lock", "bun.lockb"]),
+				glob: vi.fn().mockResolvedValue(["yarn.lock", "bun.lock"]),
 				getSearchPaths: vi.fn().mockReturnValue([]),
 				globGenerator: vi.fn(),
 			};

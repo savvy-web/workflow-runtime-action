@@ -23,7 +23,7 @@ This directory contains isolated test project setups for integration testing. Ea
 * **bun-minimal** - Basic Bun project with simple TypeScript and test files
 * **bun-workspace** - Bun monorepo with workspace packages
 * **bun-deps** - Bun project with external dependency (lodash)
-* **bun-lockfile** - Bun project with committed `bun.lockb` lockfile
+* **bun-lockfile** - Bun project with committed `bun.lock` lockfile
 
 ### Deno Fixtures
 

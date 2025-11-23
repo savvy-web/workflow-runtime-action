@@ -380,7 +380,7 @@ case "yarn":
   break;
 
 case "bun":
-  command = existsSync("bun.lockb")
+  command = existsSync("bun.lock")
     ? ["install", "--frozen-lockfile"]
     : ["install"];
   break;

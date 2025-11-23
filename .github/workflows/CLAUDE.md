@@ -168,7 +168,7 @@ Every test follows this pattern:
 
 * **Auto-detect** - Detect Bun from `package.json` `packageManager` field
 * **Explicit Version** - Install specific Bun version
-* **Lockfile** - Verify `bun.lockb` handling
+* **Lockfile** - Verify `bun.lock` handling
 
 ### Deno Tests
 
