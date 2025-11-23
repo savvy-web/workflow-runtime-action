@@ -108,7 +108,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: test-results-node-${{ matrix.os }}-${{ strategy.job-index }}
           path: test-results/
@@ -206,7 +206,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: test-results-bun-${{ matrix.os }}-${{ strategy.job-index }}
           path: test-results/
@@ -324,7 +324,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: test-results-deno-${{ matrix.os }}-${{ strategy.job-index }}
           path: test-results/
@@ -441,7 +441,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: test-results-features-${{ matrix.os }}-${{ strategy.job-index }}
           path: test-results/
@@ -458,7 +458,7 @@ jobs:
     steps:
       - name: Download all test results
         continue-on-error: true
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           pattern: test-results-*
           path: all-results
