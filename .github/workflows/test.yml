@@ -392,16 +392,31 @@ jobs:
           # Set defaults for missing outputs
           PASSED="${{ steps.test.outputs.test-passed }}"
           RESULTS="${{ steps.test.outputs.test-results }}"
+          NO_MODULES="${{ steps.verify-no-modules.outputs.no-modules-verified || 'n/a' }}"
           PASSED="${PASSED:-false}"
           RESULTS="${RESULTS:-{}}"
 
-          cat > test-results/${{ matrix.name }}.json <<EOF
+          # If we have no_modules verification, we need to check it for overall pass/fail
+          if [ "$NO_MODULES" != "n/a" ] && [ "$NO_MODULES" != "true" ]; then
+            PASSED="false"
+          fi
+
+          # Add no_modules_verified to results if it was checked
+          if [ "$NO_MODULES" != "n/a" ]; then
+            # Remove trailing } from RESULTS and add the new field
+            RESULTS="${RESULTS%\}}"
+            if [ "$RESULTS" != "{" ]; then
+              RESULTS="$RESULTS,"
+            fi
+            RESULTS="$RESULTS\"no-node-modules\":{\"actual\":\"$NO_MODULES\",\"expected\":\"true\",\"status\":\"$( [ "$NO_MODULES" = "true" ] && echo "passed" || echo "failed" )\"}"
+          fi
+
+          cat > "test-results/${{ matrix.name }}.json" <<EOF
           {
             "name": "${{ matrix.name }}",
             "title": "${{ matrix.title }}",
             "fixture": "${{ matrix.fixture }}",
             "passed": $PASSED,
-            "no_modules_verified": "${{ steps.verify-no-modules.outputs.no-modules-verified || 'n/a' }}",
             "results": $RESULTS
           }
           EOF
@@ -501,23 +516,44 @@ jobs:
           # Calculate passed status
           DEPS_VERIFIED="${{ steps.verify-deps.outputs.deps-verified || 'false' }}"
           CACHE_VERIFIED="${{ steps.verify-cache.outputs.cache-verified || 'false' }}"
+          FIRST_RUN_CACHE="${{ steps.setup1.outputs.cache-hit || 'n/a' }}"
+          SECOND_RUN_CACHE="${{ steps.setup2.outputs.cache-hit || 'n/a' }}"
+
           if [ "$DEPS_VERIFIED" = "true" ] && [ "$CACHE_VERIFIED" = "true" ]; then
             PASSED="true"
           else
             PASSED="false"
           fi
 
-          cat > test-results/cache-test.json <<EOF
+          # Build detailed results JSON
+          cat > "test-results/Cache Effectiveness.json" <<EOF
           {
             "name": "Cache Effectiveness",
             "title": "💾 Cache Effectiveness Test Results",
-            "fixture": "cache-test",
+            "fixture": "node-minimal",
             "passed": $PASSED,
-            "deps_verified": "$DEPS_VERIFIED",
-            "cache_verified": "$CACHE_VERIFIED",
-            "first_run_cache_hit": "${{ steps.setup1.outputs.cache-hit || 'n/a' }}",
-            "second_run_cache_hit": "${{ steps.setup2.outputs.cache-hit || 'n/a' }}",
-            "results": {}
+            "results": {
+              "first-run-cache-hit": {
+                "actual": "$FIRST_RUN_CACHE",
+                "expected": "false",
+                "status": "$( [ "$FIRST_RUN_CACHE" = "false" ] && echo "passed" || echo "failed" )"
+              },
+              "second-run-cache-hit": {
+                "actual": "$SECOND_RUN_CACHE",
+                "expected": "true",
+                "status": "$( [ "$SECOND_RUN_CACHE" = "true" ] && echo "passed" || echo "failed" )"
+              },
+              "dependencies-installed": {
+                "actual": "$DEPS_VERIFIED",
+                "expected": "true",
+                "status": "$( [ "$DEPS_VERIFIED" = "true" ] && echo "passed" || echo "failed" )"
+              },
+              "cache-restored": {
+                "actual": "$CACHE_VERIFIED",
+                "expected": "true",
+                "status": "$( [ "$CACHE_VERIFIED" = "true" ] && echo "passed" || echo "failed" )"
+              }
+            }
           }
           EOF
 
