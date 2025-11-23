@@ -45,7 +45,7 @@ jobs:
 
       - name: Run action with current settings
         id: setup
-        uses: ./
+        uses: ./.github/actions/test-fixture
         with:
           package-manager: ${{ inputs.package-manager || '' }}
           node-version: ${{ inputs.node-version || '' }}
@@ -243,7 +243,7 @@ jobs:
 
       - name: Run action with ${{ matrix.pm }}
         id: setup
-        uses: ./
+        uses: ./.github/actions/test-fixture
         with:
           package-manager: ${{ matrix.pm }}
           install-deps: true
@@ -298,7 +298,7 @@ jobs:
 
       - name: First run (cache miss expected)
         id: setup1
-        uses: ./
+        uses: ./.github/actions/test-fixture
         with:
           install-deps: true
 
@@ -307,7 +307,7 @@ jobs:
 
       - name: Second run (cache hit expected)
         id: setup2
-        uses: ./
+        uses: ./.github/actions/test-fixture
         with:
           install-deps: true
 

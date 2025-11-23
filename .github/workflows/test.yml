@@ -465,7 +465,7 @@ jobs:
 
       - name: First run (cache miss)
         id: setup1
-        uses: ./
+        uses: ./.github/actions/test-fixture
 
       - name: Display first run outputs
         run: |
@@ -493,7 +493,7 @@ jobs:
 
       - name: Second run (cache hit expected)
         id: setup2
-        uses: ./
+        uses: ./.github/actions/test-fixture
 
       - name: Display second run outputs
         run: |
