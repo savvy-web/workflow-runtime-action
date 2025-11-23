@@ -115,6 +115,12 @@ outputs:
   cache-hit:
     description: Cache status
     value: ${{ steps.setup.outputs.cache-hit }}
+  lockfiles:
+    description: Detected lockfiles
+    value: ${{ steps.setup.outputs.lockfiles }}
+  cache-paths:
+    description: Cache paths
+    value: ${{ steps.setup.outputs.cache-paths }}
 
 runs:
   using: composite
@@ -199,6 +205,8 @@ runs:
         check_value "biome-enabled" "${{ steps.setup.outputs.biome-enabled }}" "${{ inputs.expected-biome-enabled }}"
         check_value "turbo-enabled" "${{ steps.setup.outputs.turbo-enabled }}" "${{ inputs.expected-turbo-enabled }}"
         check_value "cache-hit" "${{ steps.setup.outputs.cache-hit }}" "${{ inputs.expected-cache-hit }}"
+        check_value "lockfiles" "${{ steps.setup.outputs.lockfiles }}" ""
+        check_value "cache-paths" "${{ steps.setup.outputs.cache-paths }}" ""
 
         echo "" >> $GITHUB_STEP_SUMMARY
 

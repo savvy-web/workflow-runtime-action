@@ -346,10 +346,17 @@ export async function restoreCache(packageManagers: PackageManager | PackageMana
 		if (lockFiles.length === 0) {
 			core.warning(`No lock files found for ${pmList}, skipping cache`);
 			core.endGroup();
+			setOutput("lockfiles", "");
+			setOutput("cache-paths", "");
 			return undefined;
 		}
 
 		core.info(`Found lock files: ${lockFiles.join(", ")}`);
+		core.info(`Cache paths (${config.cachePaths.length} total): ${config.cachePaths.join(", ")}`);
+
+		// Set outputs for observability
+		setOutput("lockfiles", lockFiles.join(","));
+		setOutput("cache-paths", config.cachePaths.join(","));
 
 		// Generate cache keys
 		const primaryKey = await generateCacheKey(pmArray, lockFiles);
@@ -419,9 +426,12 @@ export async function saveCache(): Promise<void> {
 		const packageManagers = packageManagersJson ? (JSON.parse(packageManagersJson) as PackageManager[]) : [];
 
 		const pmList = packageManagers.length > 0 ? packageManagers.join(", ") : "unknown";
-		core.info(`Saving cache for: ${pmList}`);
+		core.info(`Package managers: ${pmList}`);
 		core.info(`Cache key: ${primaryKey}`);
-		core.info(`Cache paths (${cachePaths.length} total): ${cachePaths.join(", ")}`);
+		core.info(`Cache paths (${cachePaths.length} total):`);
+		for (const path of cachePaths) {
+			core.info(`  - ${path}`);
+		}
 
 		// Save the cache
 		const cacheId = await cache.saveCache(cachePaths, primaryKey);

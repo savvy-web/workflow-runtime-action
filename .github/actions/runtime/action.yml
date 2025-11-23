@@ -68,6 +68,10 @@ outputs:
     description: "Whether Turbo configuration was detected (true | false)"
   cache-hit:
     description: "Whether dependencies were restored from cache (true | partial | false | n/a)"
+  lockfiles:
+    description: "Comma-separated list of detected lockfiles used for cache key generation (e.g., 'pnpm-lock.yaml,deno.lock')"
+  cache-paths:
+    description: "Comma-separated list of cache paths being cached/restored (e.g., '/home/runner/.cache/deno,**/node_modules')"
 
 runs:
   using: "node24"

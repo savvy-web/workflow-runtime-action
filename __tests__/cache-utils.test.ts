@@ -100,6 +100,8 @@ describe("restoreCache", () => {
 				"npm-linux-x64-abc123def456",
 				["npm-linux-x64-"],
 			);
+			expect(core.setOutput).toHaveBeenCalledWith("lockfiles", "package-lock.json");
+			expect(core.setOutput).toHaveBeenCalledWith("cache-paths", "/home/user/.npm,**/node_modules");
 		});
 
 		it("should use default paths when detection fails", async () => {
@@ -128,6 +130,8 @@ describe("restoreCache", () => {
 			const result = await restoreCache("npm");
 
 			expect(core.warning).toHaveBeenCalledWith("No lock files found for npm, skipping cache");
+			expect(core.setOutput).toHaveBeenCalledWith("lockfiles", "");
+			expect(core.setOutput).toHaveBeenCalledWith("cache-paths", "");
 			expect(result).toBeUndefined();
 		});
 	});
@@ -322,6 +326,8 @@ describe("restoreCache", () => {
 			expect(cache.restoreCache).toHaveBeenCalledWith(["/home/user/.cache/deno"], "deno-linux-x64-abc123def456", [
 				"deno-linux-x64-",
 			]);
+			expect(core.setOutput).toHaveBeenCalledWith("lockfiles", "deno.lock");
+			expect(core.setOutput).toHaveBeenCalledWith("cache-paths", "/home/user/.cache/deno");
 		});
 
 		it("should use default paths when detection fails", async () => {

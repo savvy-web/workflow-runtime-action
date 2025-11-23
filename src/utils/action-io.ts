@@ -31,6 +31,8 @@ const VALID_OUTPUTS: Set<string> = new Set([
 	"biome-enabled",
 	"turbo-enabled",
 	"cache-hit",
+	"lockfiles",
+	"cache-paths",
 ] as const);
 
 /**
@@ -62,7 +64,9 @@ export type ActionOutput =
 	| "biome-version"
 	| "biome-enabled"
 	| "turbo-enabled"
-	| "cache-hit";
+	| "cache-hit"
+	| "lockfiles"
+	| "cache-paths";
 
 /**
  * Get action input with validation
