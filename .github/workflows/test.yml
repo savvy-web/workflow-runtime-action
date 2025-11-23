@@ -594,6 +594,7 @@ jobs:
           merge-multiple: true
 
       - name: Generate aggregated summary
+        shell: bash
         run: |
           echo "## 🧪 Test Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -601,6 +602,8 @@ jobs:
           TOTAL=0
           PASSED=0
           FAILED=0
+          SKIPPED=0
+          PARSE_ERRORS=()
 
           # Create directory if it doesn't exist
           mkdir -p all-results
@@ -614,13 +617,21 @@ jobs:
           # Process all JSON result files
           for file in all-results/*.json; do
             if [ -f "$file" ]; then
+              # Try to validate JSON first
+              if ! jq empty "$file" 2>/dev/null; then
+                SKIPPED=$((SKIPPED + 1))
+                PARSE_ERRORS+=("$(basename "$file")")
+                echo "⚠️ Skipping malformed JSON: $(basename "$file")" >&2
+                continue
+              fi
+
               TOTAL=$((TOTAL + 1))
 
-              # Extract test info
-              name=$(jq -r '.name // "Unknown"' "$file")
-              title=$(jq -r '.title // "Unknown"' "$file")
-              fixture=$(jq -r '.fixture // "Unknown"' "$file")
-              passed=$(jq -r '.passed // "false"' "$file")
+              # Extract test info (with error handling)
+              name=$(jq -r '.name // "Unknown"' "$file" 2>/dev/null || echo "Unknown")
+              title=$(jq -r '.title // "Unknown"' "$file" 2>/dev/null || echo "Unknown")
+              fixture=$(jq -r '.fixture // "Unknown"' "$file" 2>/dev/null || echo "Unknown")
+              passed=$(jq -r '.passed // "false"' "$file" 2>/dev/null || echo "false")
 
               # Count passes/fails
               if [ "$passed" == "true" ]; then
@@ -648,16 +659,17 @@ jobs:
               echo "**Fixture:** \`$fixture\`" >> $GITHUB_STEP_SUMMARY
               echo "" >> $GITHUB_STEP_SUMMARY
 
-              # Parse and display results
-              results=$(jq -r '.results // {}' "$file")
+              # Parse and display results (with error handling)
+              results=$(jq -r '.results // {}' "$file" 2>/dev/null || echo "{}")
               if [ "$results" != "{}" ]; then
                 echo "**Results:**" >> $GITHUB_STEP_SUMMARY
                 echo "" >> $GITHUB_STEP_SUMMARY
                 echo "| Output | Actual | Expected | Status |" >> $GITHUB_STEP_SUMMARY
                 echo "|--------|--------|----------|--------|" >> $GITHUB_STEP_SUMMARY
 
-                # Iterate through each result
-                jq -r '.results | to_entries | .[] | "\(.key)|\(.value.actual)|\(.value.expected)|\(.value.status)"' "$file" | while IFS='|' read -r key actual expected status; do
+                # Iterate through each result (with error handling)
+                if jq -e '.results' "$file" >/dev/null 2>&1; then
+                  jq -r '.results | to_entries | .[] | "\(.key)|\(.value.actual)|\(.value.expected)|\(.value.status)"' "$file" 2>/dev/null | while IFS='|' read -r key actual expected status; do
                   # Format status with emoji
                   case "$status" in
                     passed) status_icon="✅" ;;
@@ -672,14 +684,15 @@ jobs:
                   fi
 
                   echo "| \`$key\` | \`$actual\` | \`$expected\` | $status_icon |" >> $GITHUB_STEP_SUMMARY
-                done
+                  done
+                fi
               fi
 
-              # Show additional verification info if present
-              lockfile_verified=$(jq -r '.lockfile_verified // "n/a"' "$file")
-              no_modules_verified=$(jq -r '.no_modules_verified // "n/a"' "$file")
-              deps_verified=$(jq -r '.deps_verified // "n/a"' "$file")
-              cache_verified=$(jq -r '.cache_verified // "n/a"' "$file")
+              # Show additional verification info if present (with error handling)
+              lockfile_verified=$(jq -r '.lockfile_verified // "n/a"' "$file" 2>/dev/null || echo "n/a")
+              no_modules_verified=$(jq -r '.no_modules_verified // "n/a"' "$file" 2>/dev/null || echo "n/a")
+              deps_verified=$(jq -r '.deps_verified // "n/a"' "$file" 2>/dev/null || echo "n/a")
+              cache_verified=$(jq -r '.cache_verified // "n/a"' "$file" 2>/dev/null || echo "n/a")
 
               if [ "$lockfile_verified" != "n/a" ] || [ "$no_modules_verified" != "n/a" ] || [ "$deps_verified" != "n/a" ] || [ "$cache_verified" != "n/a" ]; then
                 echo "" >> $GITHUB_STEP_SUMMARY
@@ -690,13 +703,18 @@ jobs:
                 [ "$cache_verified" != "n/a" ] && echo "- Cache verified: $cache_verified" >> $GITHUB_STEP_SUMMARY
               fi
 
-              # Add raw JSON section
+              # Add raw JSON section (with error handling)
               echo "" >> $GITHUB_STEP_SUMMARY
               echo "<details>" >> $GITHUB_STEP_SUMMARY
               echo "<summary>Raw Test Data (JSON)</summary>" >> $GITHUB_STEP_SUMMARY
               echo "" >> $GITHUB_STEP_SUMMARY
               echo "\`\`\`json" >> $GITHUB_STEP_SUMMARY
-              jq '.' "$file" >> $GITHUB_STEP_SUMMARY
+              if jq '.' "$file" >> $GITHUB_STEP_SUMMARY 2>/dev/null; then
+                :  # Success, do nothing
+              else
+                echo "Error: Could not format JSON" >> $GITHUB_STEP_SUMMARY
+                cat "$file" >> $GITHUB_STEP_SUMMARY
+              fi
               echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
               echo "</details>" >> $GITHUB_STEP_SUMMARY
 
@@ -709,13 +727,36 @@ jobs:
           echo "---" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
+          # Report parse errors if any
+          if [ ${#PARSE_ERRORS[@]} -gt 0 ]; then
+            echo "### ⚠️ Parse Errors" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "The following test result files could not be parsed (likely due to job failures):" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            for error_file in "${PARSE_ERRORS[@]}"; do
+              echo "- \`$error_file\`" >> $GITHUB_STEP_SUMMARY
+            done
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "---" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+
           # Final summary
-          if [ $FAILED -eq 0 ]; then
+          if [ $FAILED -eq 0 ] && [ $SKIPPED -eq 0 ]; then
             echo "### ✅ All $TOTAL tests passed!" >> $GITHUB_STEP_SUMMARY
             exit 0
+          elif [ $TOTAL -eq 0 ]; then
+            echo "### ⚠️ No valid test results" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Skipped:** $SKIPPED (malformed JSON)" >> $GITHUB_STEP_SUMMARY
+            exit 1
           else
             echo "### ❌ $FAILED of $TOTAL tests failed" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "**Passed:** $PASSED / **Failed:** $FAILED / **Total:** $TOTAL" >> $GITHUB_STEP_SUMMARY
+            if [ $SKIPPED -gt 0 ]; then
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "⚠️ **Skipped:** $SKIPPED test(s) with malformed JSON" >> $GITHUB_STEP_SUMMARY
+            fi
             exit 1
           fi
