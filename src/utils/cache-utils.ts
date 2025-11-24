@@ -201,7 +201,8 @@ async function getCacheConfig(packageManager: PackageManager): Promise<CacheConf
 			lockFilePatterns = ["**/pnpm-lock.yaml", "**/pnpm-workspace.yaml", "**/.pnpmfile.cjs"];
 			break;
 		case "yarn":
-			lockFilePatterns = ["**/yarn.lock"];
+			// Yarn Classic uses yarn.lock, Yarn Berry (PnP) uses .pnp.cjs and .yarn/install-state.gz
+			lockFilePatterns = ["**/yarn.lock", "**/.pnp.cjs", "**/.yarn/install-state.gz"];
 			break;
 		case "bun":
 			lockFilePatterns = ["**/bun.lock"];

@@ -212,7 +212,10 @@ describe("restoreCache", () => {
 		it("should find yarn.lock files", async () => {
 			await restoreCache("yarn", { node: "24.11.0" }, "10.20.0");
 
-			expect(glob.create).toHaveBeenCalledWith("**/yarn.lock", expect.any(Object));
+			expect(glob.create).toHaveBeenCalledWith(
+				"**/yarn.lock\n**/.pnp.cjs\n**/.yarn/install-state.gz",
+				expect.any(Object),
+			);
 		});
 
 		it("should fallback to yarn cache dir for Yarn Classic", async () => {
