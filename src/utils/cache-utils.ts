@@ -260,12 +260,49 @@ async function hashFiles(files: string[]): Promise<string> {
 }
 
 /**
- * Gets combined cache configuration for multiple package managers
+ * Gets tool cache paths for specific runtimes
+ *
+ * @param runtimeVersions - Runtime versions to get cache paths for
+ * @returns Array of tool cache paths
+ */
+function getToolCachePaths(runtimeVersions: RuntimeVersions): string[] {
+	const paths: string[] = [];
+	const plat = platform();
+
+	// Tool cache is at /opt/hostedtoolcache on Linux/macOS, C:\hostedtoolcache on Windows
+	const toolCacheBase = plat === "win32" ? "C:\\hostedtoolcache" : "/opt/hostedtoolcache";
+
+	// Add tool cache paths for each runtime being used
+	if (runtimeVersions.node) {
+		paths.push(`${toolCacheBase}/node/${runtimeVersions.node}`);
+		// Also cache the x64/arm64 subdirectories
+		paths.push(`${toolCacheBase}/node/${runtimeVersions.node}/*`);
+	}
+
+	if (runtimeVersions.bun) {
+		paths.push(`${toolCacheBase}/bun/${runtimeVersions.bun}`);
+		paths.push(`${toolCacheBase}/bun/${runtimeVersions.bun}/*`);
+	}
+
+	if (runtimeVersions.deno) {
+		paths.push(`${toolCacheBase}/deno/${runtimeVersions.deno}`);
+		paths.push(`${toolCacheBase}/deno/${runtimeVersions.deno}/*`);
+	}
+
+	return paths;
+}
+
+/**
+ * Gets combined cache configuration for multiple package managers and runtimes
  *
  * @param packageManagers - Array of package managers to get combined config for
+ * @param runtimeVersions - Runtime versions to include tool cache paths for
  * @returns Combined cache configuration with deduplicated paths
  */
-async function getCombinedCacheConfig(packageManagers: PackageManager[]): Promise<CacheConfig> {
+async function getCombinedCacheConfig(
+	packageManagers: PackageManager[],
+	runtimeVersions: RuntimeVersions,
+): Promise<CacheConfig> {
 	// Use Sets for deduplication
 	const cachePathsSet = new Set<string>();
 	const lockFilePatternsSet = new Set<string>();
@@ -283,6 +320,16 @@ async function getCombinedCacheConfig(packageManagers: PackageManager[]): Promis
 		for (const pattern of config.lockFilePatterns) {
 			lockFilePatternsSet.add(pattern);
 		}
+	}
+
+	// Add tool cache paths for runtimes
+	const toolCachePaths = getToolCachePaths(runtimeVersions);
+	for (const path of toolCachePaths) {
+		cachePathsSet.add(path);
+	}
+
+	if (toolCachePaths.length > 0) {
+		core.info(`Tool cache paths: ${toolCachePaths.join(", ")}`);
 	}
 
 	// Convert Sets back to arrays
@@ -409,7 +456,7 @@ export async function restoreCache(
 	core.startGroup(formatCache("Restoring", pmList));
 
 	try {
-		const config = await getCombinedCacheConfig(pmArray);
+		const config = await getCombinedCacheConfig(pmArray, runtimeVersions);
 
 		// Find lock files
 		const lockFiles = await findLockFiles(config.lockFilePatterns);

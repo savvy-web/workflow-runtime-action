@@ -101,12 +101,20 @@ describe("restoreCache", () => {
 
 			expect(exec.exec).toHaveBeenCalledWith("npm", ["config", "get", "cache"], expect.any(Object));
 			expect(cache.restoreCache).toHaveBeenCalledWith(
-				["/home/user/.npm", "**/node_modules"],
+				[
+					"/home/user/.npm",
+					"**/node_modules",
+					"/opt/hostedtoolcache/node/24.11.0",
+					"/opt/hostedtoolcache/node/24.11.0/*",
+				],
 				"linux-abc123def456-abc123def456",
 				["linux-abc123def456-"],
 			);
 			expect(core.setOutput).toHaveBeenCalledWith("lockfiles", "package-lock.json");
-			expect(core.setOutput).toHaveBeenCalledWith("cache-paths", "/home/user/.npm,**/node_modules");
+			expect(core.setOutput).toHaveBeenCalledWith(
+				"cache-paths",
+				"/home/user/.npm,**/node_modules,/opt/hostedtoolcache/node/24.11.0,/opt/hostedtoolcache/node/24.11.0/*",
+			);
 		});
 
 		it("should use default paths when detection fails", async () => {
@@ -116,7 +124,12 @@ describe("restoreCache", () => {
 			await restoreCache("npm", { node: "24.11.0" }, "10.20.0");
 
 			expect(cache.restoreCache).toHaveBeenCalledWith(
-				["~/AppData/Local/npm-cache", "**/node_modules"],
+				[
+					"~/AppData/Local/npm-cache",
+					"**/node_modules",
+					"C:\\hostedtoolcache/node/24.11.0",
+					"C:\\hostedtoolcache/node/24.11.0/*",
+				],
 				"win32-abc123def456-abc123def456",
 				["win32-abc123def456-"],
 			);
@@ -149,7 +162,12 @@ describe("restoreCache", () => {
 
 			expect(exec.exec).toHaveBeenCalledWith("pnpm", ["store", "path"], expect.any(Object));
 			expect(cache.restoreCache).toHaveBeenCalledWith(
-				["/home/user/.local/share/pnpm/store", "**/node_modules"],
+				[
+					"/home/user/.local/share/pnpm/store",
+					"**/node_modules",
+					"/opt/hostedtoolcache/node/24.11.0",
+					"/opt/hostedtoolcache/node/24.11.0/*",
+				],
 				"linux-abc123def456-abc123def456",
 				["linux-abc123def456-"],
 			);
@@ -162,7 +180,12 @@ describe("restoreCache", () => {
 			await restoreCache("pnpm", { node: "24.11.0" }, "10.20.0");
 
 			expect(cache.restoreCache).toHaveBeenCalledWith(
-				["~/AppData/Local/pnpm/store", "**/node_modules"],
+				[
+					"~/AppData/Local/pnpm/store",
+					"**/node_modules",
+					"C:\\hostedtoolcache/node/24.11.0",
+					"C:\\hostedtoolcache/node/24.11.0/*",
+				],
 				"win32-abc123def456-abc123def456",
 				["win32-abc123def456-"],
 			);
@@ -190,6 +213,8 @@ describe("restoreCache", () => {
 					"**/.yarn/cache",
 					"**/.yarn/unplugged",
 					"**/.yarn/install-state.gz",
+					"/opt/hostedtoolcache/node/24.11.0",
+					"/opt/hostedtoolcache/node/24.11.0/*",
 				],
 				"linux-abc123def456-abc123def456",
 				["linux-abc123def456-"],
@@ -203,7 +228,12 @@ describe("restoreCache", () => {
 			await restoreCache("yarn", { node: "24.11.0" }, "10.20.0");
 
 			expect(cache.restoreCache).toHaveBeenCalledWith(
-				expect.arrayContaining(["~/AppData/Local/Yarn/Cache", "~/AppData/Local/Yarn/Berry/cache"]),
+				expect.arrayContaining([
+					"~/AppData/Local/Yarn/Cache",
+					"~/AppData/Local/Yarn/Berry/cache",
+					"C:\\hostedtoolcache/node/24.11.0",
+					"C:\\hostedtoolcache/node/24.11.0/*",
+				]),
 				"win32-abc123def456-abc123def456",
 				["win32-abc123def456-"],
 			);
@@ -281,7 +311,12 @@ describe("restoreCache", () => {
 
 			expect(exec.exec).toHaveBeenCalledWith("bun", ["pm", "cache"], expect.any(Object));
 			expect(cache.restoreCache).toHaveBeenCalledWith(
-				["/home/user/.bun/install/cache", "**/node_modules"],
+				[
+					"/home/user/.bun/install/cache",
+					"**/node_modules",
+					"/opt/hostedtoolcache/bun/1.3.3",
+					"/opt/hostedtoolcache/bun/1.3.3/*",
+				],
 				"linux-abc123def456-abc123def456",
 				["linux-abc123def456-"],
 			);
@@ -294,7 +329,12 @@ describe("restoreCache", () => {
 			await restoreCache("bun", { bun: "1.3.3" }, "1.3.3");
 
 			expect(cache.restoreCache).toHaveBeenCalledWith(
-				["~/AppData/Local/bun/install/cache", "**/node_modules"],
+				[
+					"~/AppData/Local/bun/install/cache",
+					"**/node_modules",
+					"C:\\hostedtoolcache/bun/1.3.3",
+					"C:\\hostedtoolcache/bun/1.3.3/*",
+				],
 				"win32-abc123def456-abc123def456",
 				["win32-abc123def456-"],
 			);
@@ -333,11 +373,16 @@ describe("restoreCache", () => {
 			await restoreCache("deno", { deno: "2.1.0" }, "2.1.0");
 
 			expect(exec.exec).toHaveBeenCalledWith("deno", ["info", "--json"], expect.any(Object));
-			expect(cache.restoreCache).toHaveBeenCalledWith(["/home/user/.cache/deno"], "linux-abc123def456-abc123def456", [
-				"linux-abc123def456-",
-			]);
+			expect(cache.restoreCache).toHaveBeenCalledWith(
+				["/home/user/.cache/deno", "/opt/hostedtoolcache/deno/2.1.0", "/opt/hostedtoolcache/deno/2.1.0/*"],
+				"linux-abc123def456-abc123def456",
+				["linux-abc123def456-"],
+			);
 			expect(core.setOutput).toHaveBeenCalledWith("lockfiles", "deno.lock");
-			expect(core.setOutput).toHaveBeenCalledWith("cache-paths", "/home/user/.cache/deno");
+			expect(core.setOutput).toHaveBeenCalledWith(
+				"cache-paths",
+				"/home/user/.cache/deno,/opt/hostedtoolcache/deno/2.1.0,/opt/hostedtoolcache/deno/2.1.0/*",
+			);
 		});
 
 		it("should use default paths when detection fails", async () => {
@@ -346,9 +391,11 @@ describe("restoreCache", () => {
 
 			await restoreCache("deno", { deno: "2.1.0" }, "2.1.0");
 
-			expect(cache.restoreCache).toHaveBeenCalledWith(["~/AppData/Local/deno"], "win32-abc123def456-abc123def456", [
-				"win32-abc123def456-",
-			]);
+			expect(cache.restoreCache).toHaveBeenCalledWith(
+				["~/AppData/Local/deno", "C:\\hostedtoolcache/deno/2.1.0", "C:\\hostedtoolcache/deno/2.1.0/*"],
+				"win32-abc123def456-abc123def456",
+				["win32-abc123def456-"],
+			);
 		});
 
 		it("should find deno.lock files", async () => {
@@ -370,10 +417,12 @@ describe("restoreCache", () => {
 
 			await restoreCache("deno", { deno: "2.1.0" }, "2.1.0");
 
-			// Should fallback to default paths
-			expect(cache.restoreCache).toHaveBeenCalledWith(["~/.cache/deno"], "linux-abc123def456-abc123def456", [
-				"linux-abc123def456-",
-			]);
+			// Should fallback to default paths and include tool cache
+			expect(cache.restoreCache).toHaveBeenCalledWith(
+				["~/.cache/deno", "/opt/hostedtoolcache/deno/2.1.0", "/opt/hostedtoolcache/deno/2.1.0/*"],
+				"linux-abc123def456-abc123def456",
+				["linux-abc123def456-"],
+			);
 		});
 	});
 
@@ -742,6 +791,10 @@ describe("multi-package manager support", () => {
 
 			// Should include deno cache path
 			expect(cachePaths).toContain("/home/user/.cache/deno");
+
+			// Should include tool cache paths for both runtimes
+			expect(cachePaths).toContain("/opt/hostedtoolcache/node/24.11.0");
+			expect(cachePaths).toContain("/opt/hostedtoolcache/deno/2.1.0");
 
 			// Should include node_modules for pnpm (but only once)
 			const nodeModulesCount = cachePaths.filter((p: string) => p === "**/node_modules").length;

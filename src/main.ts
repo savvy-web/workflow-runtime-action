@@ -410,7 +410,17 @@ async function main(): Promise<void> {
 		// Save package manager to state for post action
 		core.saveState("PACKAGE_MANAGER", config.packageManager);
 
-		// 2. Install all detected runtimes
+		// 2. Restore cache before installing runtimes (always run to generate cache key state for post action)
+		// This allows us to restore both dependencies AND runtime installations from cache
+		await restoreCache(
+			activePackageManagers,
+			config.runtimeVersions,
+			config.packageManagerVersion,
+			config.cacheHash || undefined,
+		);
+
+		// 3. Install all detected runtimes
+		// If cache was restored, runtimes may already be in tool cache and installation will be skipped
 		const installedVersions: RuntimeVersions = {};
 
 		for (const runtime of config.runtimes) {
@@ -438,7 +448,7 @@ async function main(): Promise<void> {
 			}
 		}
 
-		// 3. Setup package manager
+		// 4. Setup package manager
 		if (config.packageManager === "npm") {
 			// npm comes with Node.js but may need version update
 			await setupNpm(config.packageManagerVersion);
@@ -447,14 +457,6 @@ async function main(): Promise<void> {
 			await setupPackageManager(config.packageManager, config.packageManagerVersion);
 		}
 		// bun and deno are their own package managers, no setup needed
-
-		// 4. Restore cache (always run to generate cache key state for post action)
-		await restoreCache(
-			activePackageManagers,
-			installedVersions,
-			config.packageManagerVersion,
-			config.cacheHash || undefined,
-		);
 
 		// 5. Install dependencies using the primary package manager
 		if (config.installDeps) {
