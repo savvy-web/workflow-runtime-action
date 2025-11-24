@@ -99,7 +99,7 @@ jobs:
           try:
               # Get outputs from GitHub Actions
               passed = "${{ steps.test.outputs.test-passed }}" or "false"
-              results_str = r'''${{ toJson(steps.test.outputs.test-results) }}''' or "{}"
+              results_str = r'''${{ steps.test.outputs.test-results }}''' or "{}"
 
               # Parse results JSON - ensure it's always a dict
               results = json.loads(results_str)
@@ -274,7 +274,7 @@ jobs:
           try:
               # Get outputs from GitHub Actions
               passed = "${{ steps.test.outputs.test-passed }}" or "false"
-              results_str = r'''${{ toJson(steps.test.outputs.test-results) }}''' or "{}"
+              results_str = r'''${{ steps.test.outputs.test-results }}''' or "{}"
               lockfile_verified = "${{ steps.verify-lockfile.outputs.lockfile-verified || 'n/a' }}"
 
               # Parse results JSON - ensure it's always a dict
@@ -470,7 +470,7 @@ jobs:
           try:
               # Get outputs from GitHub Actions
               passed = "${{ steps.test.outputs.test-passed }}" or "false"
-              results_str = r'''${{ toJson(steps.test.outputs.test-results) }}''' or "{}"
+              results_str = r'''${{ steps.test.outputs.test-results }}''' or "{}"
               lockfile_verified = "${{ steps.verify-lockfile.outputs.lockfile-verified || 'n/a' }}"
 
               # Parse results JSON - ensure it's always a dict
@@ -649,7 +649,7 @@ jobs:
           try:
               # Get outputs from GitHub Actions
               passed = "${{ steps.test.outputs.test-passed }}" or "false"
-              results_str = r'''${{ toJson(steps.test.outputs.test-results) }}''' or "{}"
+              results_str = r'''${{ steps.test.outputs.test-results }}''' or "{}"
               lockfile_verified = "${{ steps.verify-lockfile.outputs.lockfile-verified || 'n/a' }}"
               no_modules = "${{ steps.verify-no-modules.outputs.no-modules-verified || 'n/a' }}"
 
