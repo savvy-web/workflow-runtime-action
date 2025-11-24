@@ -139,20 +139,41 @@ runs:
   steps:
     # Step 1: Setup the test fixture
     - name: Setup fixture
-      shell: bash
+      shell: python
       run: |
-        # Remove repository config files (use conditional to avoid errors if files don't exist)
-        for file in package.json pnpm-workspace.yaml biome.jsonc turbo.json pnpm-lock.yaml deno.json deno.lock; do
-          [ -f "$file" ] && rm "$file" || true
-        done
+        import shutil
+        from pathlib import Path
+
+        # Remove repository config files
+        config_files = [
+            "package.json",
+            "pnpm-workspace.yaml",
+            "biome.jsonc",
+            "turbo.json",
+            "pnpm-lock.yaml",
+            "deno.json",
+            "deno.lock",
+        ]
+        for file in config_files:
+            path = Path(file)
+            if path.exists():
+                path.unlink()
 
         # Copy fixture files to current directory (including hidden files)
-        cp -r __fixtures__/${{ inputs.fixture }}/. .
+        fixture_dir = Path("__fixtures__") / "${{ inputs.fixture }}"
+        if fixture_dir.exists():
+            for item in fixture_dir.iterdir():
+                if item.is_file():
+                    shutil.copy2(item, item.name)
+                elif item.is_dir():
+                    shutil.copytree(item, item.name, dirs_exist_ok=True)
 
         # Remove __fixtures__ directory to prevent glob pattern interference
-        [ -d "__fixtures__" ] && rm -r "__fixtures__" || true
+        fixtures_dir = Path("__fixtures__")
+        if fixtures_dir.exists():
+            shutil.rmtree(fixtures_dir)
 
-        echo "✓ Fixture '${{ inputs.fixture }}' prepared"
+        print("✓ Fixture '${{ inputs.fixture }}' prepared")
 
     # Step 2: Run the runtime setup action (single run mode)
     - name: Setup runtime
@@ -191,20 +212,33 @@ runs:
       id: verify-deps
       if: inputs.test-cache == 'true'
       continue-on-error: true
-      shell: bash
+      shell: python
       run: |
+        import os
+        import sys
+        from pathlib import Path
+
+        github_output = Path(os.environ["GITHUB_OUTPUT"])
+
         # Check for common dependency marker (lodash is in cache-test fixture)
-        if [ ! -d "node_modules/lodash" ]; then
-          echo "deps-verified=false" >> $GITHUB_OUTPUT
-          exit 1
-        fi
-        echo "deps-verified=true" >> $GITHUB_OUTPUT
+        if not Path("node_modules/lodash").is_dir():
+            github_output.write_text("deps-verified=false\n", mode="a")
+            sys.exit(1)
+
+        github_output.write_text("deps-verified=true\n", mode="a")
 
     # Step 2c: Clear node_modules for second run
     - name: Clear node_modules for second run
       if: inputs.test-cache == 'true'
-      shell: bash
-      run: rm -rf node_modules
+      shell: python
+      run: |
+        import shutil
+        from pathlib import Path
+
+        # Remove node_modules directory
+        node_modules = Path("node_modules")
+        if node_modules.exists():
+            shutil.rmtree(node_modules)
 
     # Step 2d: Second run for cache testing (cache hit expected)
     - name: Second run (cache hit expected)
@@ -227,135 +261,123 @@ runs:
       id: verify-cache
       if: inputs.test-cache == 'true'
       continue-on-error: true
-      shell: bash
+      shell: python
       run: |
+        import os
+        import sys
+        from pathlib import Path
+
+        github_output = Path(os.environ["GITHUB_OUTPUT"])
+        cache_hit = "${{ steps.setup2.outputs.cache-hit }}"
+
         # Check cache hit status
-        if [ "${{ steps.setup2.outputs.cache-hit }}" != "true" ]; then
-          echo "cache-verified=false" >> $GITHUB_OUTPUT
-          exit 1
-        fi
+        if cache_hit != "true":
+            github_output.write_text("cache-verified=false\n", mode="a")
+            sys.exit(1)
 
         # Check dependencies were restored
-        if [ ! -d "node_modules/lodash" ]; then
-          echo "cache-verified=false" >> $GITHUB_OUTPUT
-          exit 1
-        fi
+        if not Path("node_modules/lodash").is_dir():
+            github_output.write_text("cache-verified=false\n", mode="a")
+            sys.exit(1)
 
-        echo "cache-verified=true" >> $GITHUB_OUTPUT
+        github_output.write_text("cache-verified=true\n", mode="a")
 
     # Step 3: Verify outputs
     - name: Verify outputs
       id: verify
-      shell: bash
+      shell: python
       run: |
-        # Error trapping for debugging
-        set -euo pipefail
+        import json
+        import os
+        import sys
+        import traceback
+        from pathlib import Path
 
-        error_handler() {
-          local line=$1
-          local command=$2
-          local code=$3
-          echo "::error::Script failed at line $line with exit code $code"
-          echo "::error::Failed command: $command"
-          echo "ERROR_LINE=$line" >> $GITHUB_OUTPUT
-          echo "ERROR_COMMAND=$command" >> $GITHUB_OUTPUT
-          echo "ERROR_CODE=$code" >> $GITHUB_OUTPUT
-          echo "test-passed=false" >> $GITHUB_OUTPUT
-          echo "test-results={\"error\":\"Script failed at line $line: $command (exit $code)\"}" >> $GITHUB_OUTPUT
-          # Exit 0 so step succeeds and outputs are available
-          exit 0
-        }
+        try:
+            github_output = Path(os.environ["GITHUB_OUTPUT"])
+            failed = False
+            results = {}
+            test_cache = "${{ inputs.test-cache }}"
 
-        trap 'error_handler $LINENO "$BASH_COMMAND" $?' ERR
+            def check_value(key: str, actual: str, expected: str) -> None:
+                global failed
+                # Skip if no actual value
+                if not actual:
+                    return
 
-        FAILED=0
-        RESULTS_JSON="{"
-        TEST_CACHE="${{ inputs.test-cache }}"
+                # Determine status
+                if expected:
+                    if actual == expected:
+                        status = "passed"
+                    else:
+                        status = "failed"
+                        failed = True
+                else:
+                    status = "info"
 
-        # Helper function to check and report a value
-        check_value() {
-          local key="$1"
-          local actual="$2"
-          local expected="$3"
-          local status="skipped"
+                # Add to results
+                results[key] = {
+                    "actual": actual,
+                    "expected": expected,
+                    "status": status,
+                }
 
-          # Skip if no actual value
-          if [ -z "$actual" ]; then
-            return
-          fi
+            # Check outputs based on mode
+            if test_cache == "true":
+                # Cache test mode - use first run outputs for standard checks
+                check_value("node-version", "${{ steps.setup1.outputs.node-version }}", "${{ inputs.expected-node-version }}")
+                check_value("node-enabled", "${{ steps.setup1.outputs.node-enabled }}", "${{ inputs.expected-node-enabled }}")
+                check_value("bun-version", "${{ steps.setup1.outputs.bun-version }}", "${{ inputs.expected-bun-version }}")
+                check_value("bun-enabled", "${{ steps.setup1.outputs.bun-enabled }}", "${{ inputs.expected-bun-enabled }}")
+                check_value("deno-version", "${{ steps.setup1.outputs.deno-version }}", "${{ inputs.expected-deno-version }}")
+                check_value("deno-enabled", "${{ steps.setup1.outputs.deno-enabled }}", "${{ inputs.expected-deno-enabled }}")
+                check_value("package-manager", "${{ steps.setup1.outputs.package-manager }}", "${{ inputs.expected-package-manager }}")
+                check_value("package-manager-version", "${{ steps.setup1.outputs.package-manager-version }}", "${{ inputs.expected-package-manager-version }}")
+                check_value("biome-version", "${{ steps.setup1.outputs.biome-version }}", "${{ inputs.expected-biome-version }}")
+                check_value("biome-enabled", "${{ steps.setup1.outputs.biome-enabled }}", "${{ inputs.expected-biome-enabled }}")
+                check_value("turbo-enabled", "${{ steps.setup1.outputs.turbo-enabled }}", "${{ inputs.expected-turbo-enabled }}")
+                check_value("lockfiles", "${{ steps.setup1.outputs.lockfiles }}", "")
+                check_value("cache-paths", "${{ steps.setup1.outputs.cache-paths }}", "")
 
-          # Determine status
-          if [ -n "$expected" ]; then
-            if [ "$actual" = "$expected" ]; then
-              status="passed"
-            else
-              status="failed"
-              FAILED=1
-            fi
-          else
-            status="info"
-          fi
+                # Cache-specific checks
+                check_value("first-run-cache-hit", "${{ steps.setup1.outputs.cache-hit }}", "false")
+                check_value("second-run-cache-hit", "${{ steps.setup2.outputs.cache-hit }}", "true")
+                check_value("dependencies-installed", "${{ steps.verify-deps.outputs.deps-verified || 'false' }}", "true")
+                check_value("cache-restored", "${{ steps.verify-cache.outputs.cache-verified || 'false' }}", "true")
+            else:
+                # Standard test mode - use setup outputs
+                check_value("node-version", "${{ steps.setup.outputs.node-version }}", "${{ inputs.expected-node-version }}")
+                check_value("node-enabled", "${{ steps.setup.outputs.node-enabled }}", "${{ inputs.expected-node-enabled }}")
+                check_value("bun-version", "${{ steps.setup.outputs.bun-version }}", "${{ inputs.expected-bun-version }}")
+                check_value("bun-enabled", "${{ steps.setup.outputs.bun-enabled }}", "${{ inputs.expected-bun-enabled }}")
+                check_value("deno-version", "${{ steps.setup.outputs.deno-version }}", "${{ inputs.expected-deno-version }}")
+                check_value("deno-enabled", "${{ steps.setup.outputs.deno-enabled }}", "${{ inputs.expected-deno-enabled }}")
+                check_value("package-manager", "${{ steps.setup.outputs.package-manager }}", "${{ inputs.expected-package-manager }}")
+                check_value("package-manager-version", "${{ steps.setup.outputs.package-manager-version }}", "${{ inputs.expected-package-manager-version }}")
+                check_value("biome-version", "${{ steps.setup.outputs.biome-version }}", "${{ inputs.expected-biome-version }}")
+                check_value("biome-enabled", "${{ steps.setup.outputs.biome-enabled }}", "${{ inputs.expected-biome-enabled }}")
+                check_value("turbo-enabled", "${{ steps.setup.outputs.turbo-enabled }}", "${{ inputs.expected-turbo-enabled }}")
+                check_value("cache-hit", "${{ steps.setup.outputs.cache-hit }}", "${{ inputs.expected-cache-hit }}")
+                check_value("lockfiles", "${{ steps.setup.outputs.lockfiles }}", "")
+                check_value("cache-paths", "${{ steps.setup.outputs.cache-paths }}", "")
 
-          # Add to JSON (escape quotes in values)
-          actual_escaped=$(echo "$actual" | sed 's/"/\\"/g')
-          expected_escaped=$(echo "$expected" | sed 's/"/\\"/g')
+            # Set outputs
+            test_passed = "true" if not failed else "false"
+            results_json = json.dumps(results)
 
-          if [ "$RESULTS_JSON" != "{" ]; then
-            RESULTS_JSON="$RESULTS_JSON,"
-          fi
-          RESULTS_JSON="$RESULTS_JSON\"$key\":{\"actual\":\"$actual_escaped\",\"expected\":\"$expected_escaped\",\"status\":\"$status\"}"
-        }
+            github_output.write_text(f"test-passed={test_passed}\n", mode="a")
+            github_output.write_text(f"test-results={results_json}\n", mode="a")
 
-        # Check outputs based on mode
-        if [ "$TEST_CACHE" = "true" ]; then
-          # Cache test mode - use first run outputs for standard checks
-          check_value "node-version" "${{ steps.setup1.outputs.node-version }}" "${{ inputs.expected-node-version }}"
-          check_value "node-enabled" "${{ steps.setup1.outputs.node-enabled }}" "${{ inputs.expected-node-enabled }}"
-          check_value "bun-version" "${{ steps.setup1.outputs.bun-version }}" "${{ inputs.expected-bun-version }}"
-          check_value "bun-enabled" "${{ steps.setup1.outputs.bun-enabled }}" "${{ inputs.expected-bun-enabled }}"
-          check_value "deno-version" "${{ steps.setup1.outputs.deno-version }}" "${{ inputs.expected-deno-version }}"
-          check_value "deno-enabled" "${{ steps.setup1.outputs.deno-enabled }}" "${{ inputs.expected-deno-enabled }}"
-          check_value "package-manager" "${{ steps.setup1.outputs.package-manager }}" "${{ inputs.expected-package-manager }}"
-          check_value "package-manager-version" "${{ steps.setup1.outputs.package-manager-version }}" "${{ inputs.expected-package-manager-version }}"
-          check_value "biome-version" "${{ steps.setup1.outputs.biome-version }}" "${{ inputs.expected-biome-version }}"
-          check_value "biome-enabled" "${{ steps.setup1.outputs.biome-enabled }}" "${{ inputs.expected-biome-enabled }}"
-          check_value "turbo-enabled" "${{ steps.setup1.outputs.turbo-enabled }}" "${{ inputs.expected-turbo-enabled }}"
-          check_value "lockfiles" "${{ steps.setup1.outputs.lockfiles }}" ""
-          check_value "cache-paths" "${{ steps.setup1.outputs.cache-paths }}" ""
+        except Exception as e:
+            # Error handling - write error outputs
+            error_msg = f"Script failed: {str(e)}"
+            print(f"::error::{error_msg}")
+            traceback.print_exc()
 
-          # Cache-specific checks
-          check_value "first-run-cache-hit" "${{ steps.setup1.outputs.cache-hit }}" "false"
-          check_value "second-run-cache-hit" "${{ steps.setup2.outputs.cache-hit }}" "true"
-          check_value "dependencies-installed" "${{ steps.verify-deps.outputs.deps-verified || 'false' }}" "true"
-          check_value "cache-restored" "${{ steps.verify-cache.outputs.cache-verified || 'false' }}" "true"
-        else
-          # Standard test mode - use setup outputs
-          check_value "node-version" "${{ steps.setup.outputs.node-version }}" "${{ inputs.expected-node-version }}"
-          check_value "node-enabled" "${{ steps.setup.outputs.node-enabled }}" "${{ inputs.expected-node-enabled }}"
-          check_value "bun-version" "${{ steps.setup.outputs.bun-version }}" "${{ inputs.expected-bun-version }}"
-          check_value "bun-enabled" "${{ steps.setup.outputs.bun-enabled }}" "${{ inputs.expected-bun-enabled }}"
-          check_value "deno-version" "${{ steps.setup.outputs.deno-version }}" "${{ inputs.expected-deno-version }}"
-          check_value "deno-enabled" "${{ steps.setup.outputs.deno-enabled }}" "${{ inputs.expected-deno-enabled }}"
-          check_value "package-manager" "${{ steps.setup.outputs.package-manager }}" "${{ inputs.expected-package-manager }}"
-          check_value "package-manager-version" "${{ steps.setup.outputs.package-manager-version }}" "${{ inputs.expected-package-manager-version }}"
-          check_value "biome-version" "${{ steps.setup.outputs.biome-version }}" "${{ inputs.expected-biome-version }}"
-          check_value "biome-enabled" "${{ steps.setup.outputs.biome-enabled }}" "${{ inputs.expected-biome-enabled }}"
-          check_value "turbo-enabled" "${{ steps.setup.outputs.turbo-enabled }}" "${{ inputs.expected-turbo-enabled }}"
-          check_value "cache-hit" "${{ steps.setup.outputs.cache-hit }}" "${{ inputs.expected-cache-hit }}"
-          check_value "lockfiles" "${{ steps.setup.outputs.lockfiles }}" ""
-          check_value "cache-paths" "${{ steps.setup.outputs.cache-paths }}" ""
-        fi
-
-        RESULTS_JSON="$RESULTS_JSON}"
-
-        # Set outputs
-        if [ $FAILED -eq 0 ]; then
-          echo "test-passed=true" >> $GITHUB_OUTPUT
-        else
-          echo "test-passed=false" >> $GITHUB_OUTPUT
-        fi
-
-        echo "test-results=$RESULTS_JSON" >> $GITHUB_OUTPUT
+            github_output = Path(os.environ["GITHUB_OUTPUT"])
+            github_output.write_text("test-passed=false\n", mode="a")
+            error_json = json.dumps({"error": error_msg})
+            github_output.write_text(f"test-results={error_json}\n", mode="a")
 
         # Always exit 0 - don't fail the job
-        exit 0
+        sys.exit(0)

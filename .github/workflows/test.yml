@@ -9,8 +9,8 @@ on:
       - "dist/**"
       - "action.yml"
       - "__fixtures__/**"
-      - "./.github/actions/runtime/**"
-      - "./.github/actions/test-fixture/**"
+      - ".github/actions/runtime/**"
+      - ".github/actions/test-fixture/**"
       - ".github/workflows/test.yml"
   pull_request:
     paths:
@@ -18,8 +18,8 @@ on:
       - "dist/**"
       - "action.yml"
       - "__fixtures__/**"
-      - "./.github/actions/runtime/**"
-      - "./.github/actions/test-fixture/**"
+      - ".github/actions/runtime/**"
+      - ".github/actions/test-fixture/**"
       - ".github/workflows/test.yml"
 
 jobs:
@@ -90,60 +90,54 @@ jobs:
 
       - name: Save test results
         if: always()
-        shell: bash
+        shell: python
         run: |
-          # Error trapping for debugging
-          set -euo pipefail
+          import json
+          import os
+          from pathlib import Path
 
-          error_handler() {
-            echo "::error::Failed to save test results at line $1: $2 (exit code $3)"
-            echo "::error::Test outputs - passed: '${{ steps.test.outputs.test-passed }}', results: '${{ steps.test.outputs.test-results }}'"
-            # Create error JSON file so we still have something to upload
-            mkdir -p test-results
-            jq -n \
-              --arg name "${{ matrix.name }}" \
-              --arg title "${{ matrix.title }}" \
-              --arg fixture "${{ matrix.fixture }}" \
-              --arg error "Failed to save test results at line $1: $2 (exit code $3)" \
-              '{
-                name: $name,
-                title: $title,
-                fixture: $fixture,
-                passed: false,
-                error: $error,
-                results: {}
-              }' > "test-results/${{ matrix.name }}.json" 2>/dev/null || echo '{"name":"error","passed":false}' > "test-results/${{ matrix.name }}.json"
-            exit 0
-          }
+          try:
+              # Get outputs from GitHub Actions
+              passed = "${{ steps.test.outputs.test-passed }}" or "false"
+              results_str = r'''${{ toJson(steps.test.outputs.test-results) }}''' or "{}"
 
-          trap 'error_handler $LINENO "$BASH_COMMAND" $?' ERR
+              # Parse results JSON
+              results = json.loads(results_str)
 
-          mkdir -p test-results
+              # Build final JSON
+              output = {
+                  "name": "${{ matrix.name }}",
+                  "title": "${{ matrix.title }}",
+                  "fixture": "${{ matrix.fixture }}",
+                  "passed": passed == "true",
+                  "results": results
+              }
 
-          # Set defaults for missing outputs
-          PASSED="${{ steps.test.outputs.test-passed }}"
-          RESULTS="${{ steps.test.outputs.test-results }}"
-          PASSED="${PASSED:-false}"
-          RESULTS="${RESULTS:-{}}"
+              # Write to file
+              Path("test-results").mkdir(exist_ok=True)
+              output_file = Path("test-results") / "${{ matrix.name }}.json"
+              output_file.write_text(json.dumps(output, indent=2))
 
-          # Use jq to build JSON properly (handles escaping automatically)
-          jq -n \
-            --arg name "${{ matrix.name }}" \
-            --arg title "${{ matrix.title }}" \
-            --arg fixture "${{ matrix.fixture }}" \
-            --argjson passed "$PASSED" \
-            --argjson results "$RESULTS" \
-            '{
-              name: $name,
-              title: $title,
-              fixture: $fixture,
-              passed: $passed,
-              results: $results
-            }' > "test-results/${{ matrix.name }}.json"
+          except Exception as e:
+              # Error handling - create error JSON
+              print(f"::error::Failed to save test results: {e}")
+              print(f"::error::Test outputs - passed: '${{ steps.test.outputs.test-passed }}', results: '${{ toJson(steps.test.outputs.test-results) }}'")
+
+              Path("test-results").mkdir(exist_ok=True)
+              error_output = {
+                  "name": "${{ matrix.name }}",
+                  "title": "${{ matrix.title }}",
+                  "fixture": "${{ matrix.fixture }}",
+                  "passed": False,
+                  "error": str(e),
+                  "results": {}
+              }
+              output_file = Path("test-results") / "${{ matrix.name }}.json"
+              output_file.write_text(json.dumps(error_output, indent=2))
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: test-results-node-${{ matrix.os }}-${{ strategy.job-index }}
           path: test-results/
@@ -151,27 +145,31 @@ jobs:
 
       - name: Fail job if test failed
         if: always() && (steps.test.outputs.test-passed == 'false' || steps.test.outputs.test-passed == '')
-        shell: bash
+        shell: python
         run: |
-          echo "::group::Test Failure Details"
-          echo "Test Step Outcome: ${{ steps.test.outcome }}"
-          echo "Test Step Conclusion: ${{ steps.test.conclusion }}"
-          echo "Test Passed Output: '${{ steps.test.outputs.test-passed }}'"
-          echo "Test Results Output: '${{ steps.test.outputs.test-results }}'"
-          echo "::endgroup::"
+          import sys
+
+          print("::group::Test Failure Details")
+          print("Test Step Outcome: ${{ steps.test.outcome }}")
+          print("Test Step Conclusion: ${{ steps.test.conclusion }}")
+          print("Test Passed Output: '${{ steps.test.outputs.test-passed }}'")
+          print("Test Results Output: '${{ toJson(steps.test.outputs.test-results) }}'")
+          print("::endgroup::")
 
           # Determine failure reason
-          if [ "${{ steps.test.outcome }}" = "failure" ]; then
-            echo "::error::Test fixture step failed - check logs above for details"
-          elif [ "${{ steps.test.outputs.test-passed }}" = "false" ]; then
-            echo "::error::Tests ran but failed - check test results above"
-          elif [ -z "${{ steps.test.outputs.test-passed }}" ]; then
-            echo "::error::Test fixture did not complete - no test-passed output set"
-          else
-            echo "::error::Unknown test failure - check logs above"
-          fi
+          outcome = "${{ steps.test.outcome }}"
+          test_passed = "${{ steps.test.outputs.test-passed }}"
 
-          exit 1
+          if outcome == "failure":
+              print("::error::Test fixture step failed - check logs above for details")
+          elif test_passed == "false":
+              print("::error::Tests ran but failed - check test results above")
+          elif not test_passed:
+              print("::error::Test fixture did not complete - no test-passed output set")
+          else:
+              print("::error::Unknown test failure - check logs above")
+
+          sys.exit(1)
 
   # ============================================================================
   # Bun Tests
@@ -234,72 +232,73 @@ jobs:
         id: verify-lockfile
         if: matrix.verify-lockfile != ''
         continue-on-error: true
-        shell: bash
+        shell: python
         run: |
-          if [ ! -f "${{ matrix.verify-lockfile }}" ]; then
-            echo "lockfile-verified=false" >> $GITHUB_OUTPUT
-            exit 1
-          fi
-          echo "lockfile-verified=true" >> $GITHUB_OUTPUT
+          import os
+          import sys
+          from pathlib import Path
+
+          lockfile = "${{ matrix.verify-lockfile }}"
+          github_output = Path(os.environ["GITHUB_OUTPUT"])
+
+          if not Path(lockfile).is_file():
+              github_output.write_text("lockfile-verified=false\n", mode="a")
+              sys.exit(1)
+
+          github_output.write_text("lockfile-verified=true\n", mode="a")
 
       - name: Save test results
         if: always()
-        shell: bash
+        shell: python
         run: |
-          # Error trapping for debugging
-          set -euo pipefail
+          import json
+          import os
+          from pathlib import Path
 
-          error_handler() {
-            echo "::error::Failed to save test results at line $1: $2 (exit code $3)"
-            echo "::error::Test outputs - passed: '${{ steps.test.outputs.test-passed }}', results: '${{ steps.test.outputs.test-results }}'"
-            # Create error JSON file so we still have something to upload
-            mkdir -p test-results
-            jq -n \
-              --arg name "${{ matrix.name }}" \
-              --arg title "${{ matrix.title }}" \
-              --arg fixture "${{ matrix.fixture }}" \
-              --arg error "Failed to save test results at line $1: $2 (exit code $3)" \
-              '{
-                name: $name,
-                title: $title,
-                fixture: $fixture,
-                passed: false,
-                error: $error,
-                results: {}
-              }' > "test-results/${{ matrix.name }}.json" 2>/dev/null || echo '{"name":"error","passed":false}' > "test-results/${{ matrix.name }}.json"
-            exit 0
-          }
+          try:
+              # Get outputs from GitHub Actions
+              passed = "${{ steps.test.outputs.test-passed }}" or "false"
+              results_str = r'''${{ toJson(steps.test.outputs.test-results) }}''' or "{}"
+              lockfile_verified = "${{ steps.verify-lockfile.outputs.lockfile-verified || 'n/a' }}"
 
-          trap 'error_handler $LINENO "$BASH_COMMAND" $?' ERR
+              # Parse results JSON
+              results = json.loads(results_str)
 
-          mkdir -p test-results
+              # Build final JSON
+              output = {
+                  "name": "${{ matrix.name }}",
+                  "title": "${{ matrix.title }}",
+                  "fixture": "${{ matrix.fixture }}",
+                  "passed": passed == "true",
+                  "lockfile_verified": lockfile_verified,
+                  "results": results
+              }
 
-          # Set defaults for missing outputs
-          PASSED="${{ steps.test.outputs.test-passed }}"
-          RESULTS="${{ steps.test.outputs.test-results }}"
-          PASSED="${PASSED:-false}"
-          RESULTS="${RESULTS:-{}}"
+              # Write to file
+              Path("test-results").mkdir(exist_ok=True)
+              output_file = Path("test-results") / "${{ matrix.name }}.json"
+              output_file.write_text(json.dumps(output, indent=2))
 
-          # Use jq to build JSON properly (handles escaping automatically)
-          jq -n \
-            --arg name "${{ matrix.name }}" \
-            --arg title "${{ matrix.title }}" \
-            --arg fixture "${{ matrix.fixture }}" \
-            --argjson passed "$PASSED" \
-            --arg lockfile_verified "${{ steps.verify-lockfile.outputs.lockfile-verified || 'n/a' }}" \
-            --argjson results "$RESULTS" \
-            '{
-              name: $name,
-              title: $title,
-              fixture: $fixture,
-              passed: $passed,
-              lockfile_verified: $lockfile_verified,
-              results: $results
-            }' > "test-results/${{ matrix.name }}.json"
+          except Exception as e:
+              # Error handling - create error JSON
+              print(f"::error::Failed to save test results: {e}")
+              print(f"::error::Test outputs - passed: '${{ steps.test.outputs.test-passed }}', results: '${{ toJson(steps.test.outputs.test-results) }}'")
+
+              Path("test-results").mkdir(exist_ok=True)
+              error_output = {
+                  "name": "${{ matrix.name }}",
+                  "title": "${{ matrix.title }}",
+                  "fixture": "${{ matrix.fixture }}",
+                  "passed": False,
+                  "error": str(e),
+                  "results": {}
+              }
+              output_file = Path("test-results") / "${{ matrix.name }}.json"
+              output_file.write_text(json.dumps(error_output, indent=2))
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: test-results-bun-${{ matrix.os }}-${{ strategy.job-index }}
           path: test-results/
@@ -307,27 +306,31 @@ jobs:
 
       - name: Fail job if test failed
         if: always() && (steps.test.outputs.test-passed == 'false' || steps.test.outputs.test-passed == '')
-        shell: bash
+        shell: python
         run: |
-          echo "::group::Test Failure Details"
-          echo "Test Step Outcome: ${{ steps.test.outcome }}"
-          echo "Test Step Conclusion: ${{ steps.test.conclusion }}"
-          echo "Test Passed Output: '${{ steps.test.outputs.test-passed }}'"
-          echo "Test Results Output: '${{ steps.test.outputs.test-results }}'"
-          echo "::endgroup::"
+          import sys
+
+          print("::group::Test Failure Details")
+          print("Test Step Outcome: ${{ steps.test.outcome }}")
+          print("Test Step Conclusion: ${{ steps.test.conclusion }}")
+          print("Test Passed Output: '${{ steps.test.outputs.test-passed }}'")
+          print("Test Results Output: '${{ toJson(steps.test.outputs.test-results) }}'")
+          print("::endgroup::")
 
           # Determine failure reason
-          if [ "${{ steps.test.outcome }}" = "failure" ]; then
-            echo "::error::Test fixture step failed - check logs above for details"
-          elif [ "${{ steps.test.outputs.test-passed }}" = "false" ]; then
-            echo "::error::Tests ran but failed - check test results above"
-          elif [ -z "${{ steps.test.outputs.test-passed }}" ]; then
-            echo "::error::Test fixture did not complete - no test-passed output set"
-          else
-            echo "::error::Unknown test failure - check logs above"
-          fi
+          outcome = "${{ steps.test.outcome }}"
+          test_passed = "${{ steps.test.outputs.test-passed }}"
 
-          exit 1
+          if outcome == "failure":
+              print("::error::Test fixture step failed - check logs above for details")
+          elif test_passed == "false":
+              print("::error::Tests ran but failed - check test results above")
+          elif not test_passed:
+              print("::error::Test fixture did not complete - no test-passed output set")
+          else:
+              print("::error::Unknown test failure - check logs above")
+
+          sys.exit(1)
 
   # ============================================================================
   # Deno Tests
@@ -410,72 +413,73 @@ jobs:
         id: verify-lockfile
         if: matrix.verify-lockfile != ''
         continue-on-error: true
-        shell: bash
+        shell: python
         run: |
-          if [ ! -f "${{ matrix.verify-lockfile }}" ]; then
-            echo "lockfile-verified=false" >> $GITHUB_OUTPUT
-            exit 1
-          fi
-          echo "lockfile-verified=true" >> $GITHUB_OUTPUT
+          import os
+          import sys
+          from pathlib import Path
+
+          lockfile = "${{ matrix.verify-lockfile }}"
+          github_output = Path(os.environ["GITHUB_OUTPUT"])
+
+          if not Path(lockfile).is_file():
+              github_output.write_text("lockfile-verified=false\n", mode="a")
+              sys.exit(1)
+
+          github_output.write_text("lockfile-verified=true\n", mode="a")
 
       - name: Save test results
         if: always()
-        shell: bash
+        shell: python
         run: |
-          # Error trapping for debugging
-          set -euo pipefail
+          import json
+          import os
+          from pathlib import Path
 
-          error_handler() {
-            echo "::error::Failed to save test results at line $1: $2 (exit code $3)"
-            echo "::error::Test outputs - passed: '${{ steps.test.outputs.test-passed }}', results: '${{ steps.test.outputs.test-results }}'"
-            # Create error JSON file so we still have something to upload
-            mkdir -p test-results
-            jq -n \
-              --arg name "${{ matrix.name }}" \
-              --arg title "${{ matrix.title }}" \
-              --arg fixture "${{ matrix.fixture }}" \
-              --arg error "Failed to save test results at line $1: $2 (exit code $3)" \
-              '{
-                name: $name,
-                title: $title,
-                fixture: $fixture,
-                passed: false,
-                error: $error,
-                results: {}
-              }' > "test-results/${{ matrix.name }}.json" 2>/dev/null || echo '{"name":"error","passed":false}' > "test-results/${{ matrix.name }}.json"
-            exit 0
-          }
+          try:
+              # Get outputs from GitHub Actions
+              passed = "${{ steps.test.outputs.test-passed }}" or "false"
+              results_str = r'''${{ toJson(steps.test.outputs.test-results) }}''' or "{}"
+              lockfile_verified = "${{ steps.verify-lockfile.outputs.lockfile-verified || 'n/a' }}"
 
-          trap 'error_handler $LINENO "$BASH_COMMAND" $?' ERR
+              # Parse results JSON
+              results = json.loads(results_str)
 
-          mkdir -p test-results
+              # Build final JSON
+              output = {
+                  "name": "${{ matrix.name }}",
+                  "title": "${{ matrix.title }}",
+                  "fixture": "${{ matrix.fixture }}",
+                  "passed": passed == "true",
+                  "lockfile_verified": lockfile_verified,
+                  "results": results
+              }
 
-          # Set defaults for missing outputs
-          PASSED="${{ steps.test.outputs.test-passed }}"
-          RESULTS="${{ steps.test.outputs.test-results }}"
-          PASSED="${PASSED:-false}"
-          RESULTS="${RESULTS:-{}}"
+              # Write to file
+              Path("test-results").mkdir(exist_ok=True)
+              output_file = Path("test-results") / "${{ matrix.name }}.json"
+              output_file.write_text(json.dumps(output, indent=2))
 
-          # Use jq to build JSON properly (handles escaping automatically)
-          jq -n \
-            --arg name "${{ matrix.name }}" \
-            --arg title "${{ matrix.title }}" \
-            --arg fixture "${{ matrix.fixture }}" \
-            --argjson passed "$PASSED" \
-            --arg lockfile_verified "${{ steps.verify-lockfile.outputs.lockfile-verified || 'n/a' }}" \
-            --argjson results "$RESULTS" \
-            '{
-              name: $name,
-              title: $title,
-              fixture: $fixture,
-              passed: $passed,
-              lockfile_verified: $lockfile_verified,
-              results: $results
-            }' > "test-results/${{ matrix.name }}.json"
+          except Exception as e:
+              # Error handling - create error JSON
+              print(f"::error::Failed to save test results: {e}")
+              print(f"::error::Test outputs - passed: '${{ steps.test.outputs.test-passed }}', results: '${{ toJson(steps.test.outputs.test-results) }}'")
+
+              Path("test-results").mkdir(exist_ok=True)
+              error_output = {
+                  "name": "${{ matrix.name }}",
+                  "title": "${{ matrix.title }}",
+                  "fixture": "${{ matrix.fixture }}",
+                  "passed": False,
+                  "error": str(e),
+                  "results": {}
+              }
+              output_file = Path("test-results") / "${{ matrix.name }}.json"
+              output_file.write_text(json.dumps(error_output, indent=2))
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: test-results-deno-${{ matrix.os }}-${{ strategy.job-index }}
           path: test-results/
@@ -483,27 +487,31 @@ jobs:
 
       - name: Fail job if test failed
         if: always() && (steps.test.outputs.test-passed == 'false' || steps.test.outputs.test-passed == '')
-        shell: bash
+        shell: python
         run: |
-          echo "::group::Test Failure Details"
-          echo "Test Step Outcome: ${{ steps.test.outcome }}"
-          echo "Test Step Conclusion: ${{ steps.test.conclusion }}"
-          echo "Test Passed Output: '${{ steps.test.outputs.test-passed }}'"
-          echo "Test Results Output: '${{ steps.test.outputs.test-results }}'"
-          echo "::endgroup::"
+          import sys
+
+          print("::group::Test Failure Details")
+          print("Test Step Outcome: ${{ steps.test.outcome }}")
+          print("Test Step Conclusion: ${{ steps.test.conclusion }}")
+          print("Test Passed Output: '${{ steps.test.outputs.test-passed }}'")
+          print("Test Results Output: '${{ toJson(steps.test.outputs.test-results) }}'")
+          print("::endgroup::")
 
           # Determine failure reason
-          if [ "${{ steps.test.outcome }}" = "failure" ]; then
-            echo "::error::Test fixture step failed - check logs above for details"
-          elif [ "${{ steps.test.outputs.test-passed }}" = "false" ]; then
-            echo "::error::Tests ran but failed - check test results above"
-          elif [ -z "${{ steps.test.outputs.test-passed }}" ]; then
-            echo "::error::Test fixture did not complete - no test-passed output set"
-          else
-            echo "::error::Unknown test failure - check logs above"
-          fi
+          outcome = "${{ steps.test.outcome }}"
+          test_passed = "${{ steps.test.outputs.test-passed }}"
 
-          exit 1
+          if outcome == "failure":
+              print("::error::Test fixture step failed - check logs above for details")
+          elif test_passed == "false":
+              print("::error::Tests ran but failed - check test results above")
+          elif not test_passed:
+              print("::error::Test fixture did not complete - no test-passed output set")
+          else:
+              print("::error::Unknown test failure - check logs above")
+
+          sys.exit(1)
 
   # ============================================================================
   # Feature Tests
@@ -570,87 +578,84 @@ jobs:
         id: verify-no-modules
         if: matrix.verify-no-node-modules == 'true'
         continue-on-error: true
-        shell: bash
+        shell: python
         run: |
-          if [ -d "node_modules" ]; then
-            echo "no-modules-verified=false" >> $GITHUB_OUTPUT
-            exit 1
-          fi
-          echo "no-modules-verified=true" >> $GITHUB_OUTPUT
+          import os
+          import sys
+          from pathlib import Path
+
+          github_output = Path(os.environ["GITHUB_OUTPUT"])
+
+          if Path("node_modules").is_dir():
+              github_output.write_text("no-modules-verified=false\n", mode="a")
+              sys.exit(1)
+
+          github_output.write_text("no-modules-verified=true\n", mode="a")
 
       - name: Save test results
         if: always()
-        shell: bash
+        shell: python
         run: |
-          # Error trapping for debugging
-          set -euo pipefail
+          import json
+          import os
+          from pathlib import Path
 
-          error_handler() {
-            echo "::error::Failed to save test results at line $1: $2 (exit code $3)"
-            echo "::error::Test outputs - passed: '${{ steps.test.outputs.test-passed }}', results: '${{ steps.test.outputs.test-results }}'"
-            # Create error JSON file so we still have something to upload
-            mkdir -p test-results
-            jq -n \
-              --arg name "${{ matrix.name }}" \
-              --arg title "${{ matrix.title }}" \
-              --arg fixture "${{ matrix.fixture }}" \
-              --arg error "Failed to save test results at line $1: $2 (exit code $3)" \
-              '{
-                name: $name,
-                title: $title,
-                fixture: $fixture,
-                passed: false,
-                error: $error,
-                results: {}
-              }' > "test-results/${{ matrix.name }}.json" 2>/dev/null || echo '{"name":"error","passed":false}' > "test-results/${{ matrix.name }}.json"
-            exit 0
-          }
+          try:
+              # Get outputs from GitHub Actions
+              passed = "${{ steps.test.outputs.test-passed }}" or "false"
+              results_str = r'''${{ toJson(steps.test.outputs.test-results) }}''' or "{}"
+              no_modules = "${{ steps.verify-no-modules.outputs.no-modules-verified || 'n/a' }}"
 
-          trap 'error_handler $LINENO "$BASH_COMMAND" $?' ERR
+              # Parse results JSON
+              results = json.loads(results_str)
 
-          mkdir -p test-results
+              # Check no_modules for overall pass/fail
+              if no_modules != "n/a" and no_modules != "true":
+                  passed = "false"
 
-          # Set defaults for missing outputs
-          PASSED="${{ steps.test.outputs.test-passed }}"
-          RESULTS="${{ steps.test.outputs.test-results }}"
-          NO_MODULES="${{ steps.verify-no-modules.outputs.no-modules-verified || 'n/a' }}"
-          PASSED="${PASSED:-false}"
-          RESULTS="${RESULTS:-{}}"
+              # Add no_modules_verified to results if it was checked
+              if no_modules != "n/a":
+                  status = "passed" if no_modules == "true" else "failed"
+                  results["no-node-modules"] = {
+                      "actual": no_modules,
+                      "expected": "true",
+                      "status": status
+                  }
 
-          # If we have no_modules verification, we need to check it for overall pass/fail
-          if [ "$NO_MODULES" != "n/a" ] && [ "$NO_MODULES" != "true" ]; then
-            PASSED="false"
-          fi
+              # Build final JSON
+              output = {
+                  "name": "${{ matrix.name }}",
+                  "title": "${{ matrix.title }}",
+                  "fixture": "${{ matrix.fixture }}",
+                  "passed": passed == "true",
+                  "results": results
+              }
 
-          # Add no_modules_verified to results if it was checked
-          if [ "$NO_MODULES" != "n/a" ]; then
-            # Use jq to add the no-node-modules field to results
-            STATUS=$([ "$NO_MODULES" = "true" ] && echo "passed" || echo "failed")
-            RESULTS=$(echo "$RESULTS" | jq \
-              --arg actual "$NO_MODULES" \
-              --arg expected "true" \
-              --arg status "$STATUS" \
-              '. + {"no-node-modules": {actual: $actual, expected: $expected, status: $status}}')
-          fi
+              # Write to file
+              Path("test-results").mkdir(exist_ok=True)
+              output_file = Path("test-results") / "${{ matrix.name }}.json"
+              output_file.write_text(json.dumps(output, indent=2))
 
-          # Use jq to build final JSON properly (handles escaping automatically)
-          jq -n \
-            --arg name "${{ matrix.name }}" \
-            --arg title "${{ matrix.title }}" \
-            --arg fixture "${{ matrix.fixture }}" \
-            --argjson passed "$PASSED" \
-            --argjson results "$RESULTS" \
-            '{
-              name: $name,
-              title: $title,
-              fixture: $fixture,
-              passed: $passed,
-              results: $results
-            }' > "test-results/${{ matrix.name }}.json"
+          except Exception as e:
+              # Error handling - create error JSON
+              print(f"::error::Failed to save test results: {e}")
+              print(f"::error::Test outputs - passed: '${{ steps.test.outputs.test-passed }}', results: '${{ toJson(steps.test.outputs.test-results) }}'")
+
+              Path("test-results").mkdir(exist_ok=True)
+              error_output = {
+                  "name": "${{ matrix.name }}",
+                  "title": "${{ matrix.title }}",
+                  "fixture": "${{ matrix.fixture }}",
+                  "passed": False,
+                  "error": str(e),
+                  "results": {}
+              }
+              output_file = Path("test-results") / "${{ matrix.name }}.json"
+              output_file.write_text(json.dumps(error_output, indent=2))
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: test-results-features-${{ matrix.os }}-${{ strategy.job-index }}
           path: test-results/
@@ -658,27 +663,31 @@ jobs:
 
       - name: Fail job if test failed
         if: always() && (steps.test.outputs.test-passed == 'false' || steps.test.outputs.test-passed == '')
-        shell: bash
+        shell: python
         run: |
-          echo "::group::Test Failure Details"
-          echo "Test Step Outcome: ${{ steps.test.outcome }}"
-          echo "Test Step Conclusion: ${{ steps.test.conclusion }}"
-          echo "Test Passed Output: '${{ steps.test.outputs.test-passed }}'"
-          echo "Test Results Output: '${{ steps.test.outputs.test-results }}'"
-          echo "::endgroup::"
+          import sys
+
+          print("::group::Test Failure Details")
+          print("Test Step Outcome: ${{ steps.test.outcome }}")
+          print("Test Step Conclusion: ${{ steps.test.conclusion }}")
+          print("Test Passed Output: '${{ steps.test.outputs.test-passed }}'")
+          print("Test Results Output: '${{ toJson(steps.test.outputs.test-results) }}'")
+          print("::endgroup::")
 
           # Determine failure reason
-          if [ "${{ steps.test.outcome }}" = "failure" ]; then
-            echo "::error::Test fixture step failed - check logs above for details"
-          elif [ "${{ steps.test.outputs.test-passed }}" = "false" ]; then
-            echo "::error::Tests ran but failed - check test results above"
-          elif [ -z "${{ steps.test.outputs.test-passed }}" ]; then
-            echo "::error::Test fixture did not complete - no test-passed output set"
-          else
-            echo "::error::Unknown test failure - check logs above"
-          fi
+          outcome = "${{ steps.test.outcome }}"
+          test_passed = "${{ steps.test.outputs.test-passed }}"
 
-          exit 1
+          if outcome == "failure":
+              print("::error::Test fixture step failed - check logs above for details")
+          elif test_passed == "false":
+              print("::error::Tests ran but failed - check test results above")
+          elif not test_passed:
+              print("::error::Test fixture did not complete - no test-passed output set")
+          else:
+              print("::error::Unknown test failure - check logs above")
+
+          sys.exit(1)
 
   # ============================================================================
   # Test Summary
@@ -691,197 +700,167 @@ jobs:
     steps:
       - name: Download all test results
         continue-on-error: true
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           pattern: test-results-*
           path: all-results
           merge-multiple: true
 
       - name: Generate aggregated summary
-        shell: bash
+        shell: python
         run: |
-          echo "## 🧪 Test Results" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+          import json
+          import os
+          import sys
+          from pathlib import Path
 
-          TOTAL=0
-          PASSED=0
-          FAILED=0
-          SKIPPED=0
-          PARSE_ERRORS=()
+          # Get summary file path
+          summary_file = Path(os.environ["GITHUB_STEP_SUMMARY"])
 
-          # Create directory if it doesn't exist
-          mkdir -p all-results
+          # Initialize counters
+          total = 0
+          passed = 0
+          failed = 0
+          skipped = 0
+          parse_errors = []
+
+          # Write header
+          summary_file.write_text("## 🧪 Test Results\n\n")
+
+          # Create results directory if it doesn't exist
+          results_dir = Path("all-results")
+          results_dir.mkdir(exist_ok=True)
 
           # Check if there are any test results
-          if [ ! "$(ls -A all-results/*.json 2>/dev/null)" ]; then
-            echo "⚠️ No test results found - all test jobs may have failed before uploading results." >> $GITHUB_STEP_SUMMARY
-            exit 1
-          fi
+          result_files = list(results_dir.glob("*.json"))
+          if not result_files:
+              summary_file.write_text("⚠️ No test results found - all test jobs may have failed before uploading results.\n", mode="a")
+              sys.exit(1)
 
           # Process all JSON result files
-          for file in all-results/*.json; do
-            if [ -f "$file" ]; then
-              # Try to validate JSON first
-              if ! jq empty "$file" 2>/dev/null; then
-                SKIPPED=$((SKIPPED + 1))
-                PARSE_ERRORS+=("$(basename "$file")")
-                echo "⚠️ Skipping malformed JSON: $(basename "$file")" >&2
-                continue
-              fi
+          for file_path in sorted(result_files):
+              try:
+                  # Try to parse JSON
+                  data = json.loads(file_path.read_text())
 
-              TOTAL=$((TOTAL + 1))
+                  total += 1
 
-              # Extract test info (with error handling)
-              name=$(jq -r '.name // "Unknown"' "$file" 2>/dev/null || echo "Unknown")
-              title=$(jq -r '.title // "Unknown"' "$file" 2>/dev/null || echo "Unknown")
-              fixture=$(jq -r '.fixture // "Unknown"' "$file" 2>/dev/null || echo "Unknown")
-              passed=$(jq -r '.passed // "false"' "$file" 2>/dev/null || echo "false")
+                  # Extract test info
+                  name = data.get("name", "Unknown")
+                  title = data.get("title", "Unknown")
+                  fixture = data.get("fixture", "Unknown")
+                  test_passed = data.get("passed", False)
 
-              # Count passes/fails
-              if [ "$passed" == "true" ]; then
-                PASSED=$((PASSED + 1))
-                status="✅"
-              else
-                FAILED=$((FAILED + 1))
-                status="❌"
-              fi
+                  # Count passes/fails
+                  if test_passed:
+                      passed += 1
+                      status = "✅"
+                  else:
+                      failed += 1
+                      status = "❌"
 
-              # Show test with title
-              echo "### $status $title" >> $GITHUB_STEP_SUMMARY
-              echo "" >> $GITHUB_STEP_SUMMARY
+                  # Write test header
+                  summary_file.write_text(f"### {status} {title}\n\n", mode="a")
 
-              # Add expandable details
-              echo "<details>" >> $GITHUB_STEP_SUMMARY
-              if [ "$passed" == "true" ]; then
-                echo "<summary>$name</summary>" >> $GITHUB_STEP_SUMMARY
-              else
-                echo "<summary>$name (failed)</summary>" >> $GITHUB_STEP_SUMMARY
-              fi
-              echo "" >> $GITHUB_STEP_SUMMARY
+                  # Add expandable details
+                  summary_content = "<details>\n"
+                  if test_passed:
+                      summary_content += f"<summary>{name}</summary>\n"
+                  else:
+                      summary_content += f"<summary>{name} (failed)</summary>\n"
+                  summary_content += "\n"
 
-              # Show test metadata
-              echo "**Fixture:** \`$fixture\`" >> $GITHUB_STEP_SUMMARY
-              echo "" >> $GITHUB_STEP_SUMMARY
+                  # Show test metadata
+                  summary_content += f"**Fixture:** `{fixture}`\n\n"
 
-              # Parse and display results (with error handling)
-              results=$(jq -r '.results // {}' "$file" 2>/dev/null || echo "{}")
-              if [ "$results" != "{}" ]; then
-                echo "**Results:**" >> $GITHUB_STEP_SUMMARY
-                echo "" >> $GITHUB_STEP_SUMMARY
-                echo "| Output | Actual | Expected | Status |" >> $GITHUB_STEP_SUMMARY
-                echo "|--------|--------|----------|--------|" >> $GITHUB_STEP_SUMMARY
+                  # Parse and display results
+                  results = data.get("results", {})
+                  if results:
+                      summary_content += "**Results:**\n\n"
+                      summary_content += "| Output | Actual | Expected | Status |\n"
+                      summary_content += "|--------|--------|----------|--------|\n"
 
-                # Iterate through each result (with error handling)
-                if jq -e '.results' "$file" >/dev/null 2>&1; then
-                  jq -r '.results | to_entries | .[] | "\(.key)|\(.value.actual)|\(.value.expected)|\(.value.status)"' "$file" 2>/dev/null | while IFS='|' read -r key actual expected status; do
-                  # Format status with emoji
-                  case "$status" in
-                    passed) status_icon="✅" ;;
-                    failed) status_icon="❌" ;;
-                    info) status_icon="ℹ️" ;;
-                    *) status_icon="—" ;;
-                  esac
+                      for key, value in results.items():
+                          actual = value.get("actual", "")
+                          expected = value.get("expected", "")
+                          result_status = value.get("status", "")
 
-                  # Handle empty expected
-                  if [ -z "$expected" ]; then
-                    expected="—"
-                  fi
+                          # Format status with emoji
+                          status_icons = {"passed": "✅", "failed": "❌", "info": "ℹ️"}
+                          status_icon = status_icons.get(result_status, "—")
 
-                  echo "| \`$key\` | \`$actual\` | \`$expected\` | $status_icon |" >> $GITHUB_STEP_SUMMARY
-                  done
-                fi
-              fi
+                          # Handle empty expected
+                          expected_display = expected if expected else "—"
 
-              # Show additional verification info if present (with error handling)
-              lockfile_verified=$(jq -r '.lockfile_verified // "n/a"' "$file" 2>/dev/null || echo "n/a")
-              no_modules_verified=$(jq -r '.no_modules_verified // "n/a"' "$file" 2>/dev/null || echo "n/a")
-              deps_verified=$(jq -r '.deps_verified // "n/a"' "$file" 2>/dev/null || echo "n/a")
-              cache_verified=$(jq -r '.cache_verified // "n/a"' "$file" 2>/dev/null || echo "n/a")
+                          summary_content += f"| `{key}` | `{actual}` | `{expected_display}` | {status_icon} |\n"
 
-              if [ "$lockfile_verified" != "n/a" ] || [ "$no_modules_verified" != "n/a" ] || [ "$deps_verified" != "n/a" ] || [ "$cache_verified" != "n/a" ]; then
-                echo "" >> $GITHUB_STEP_SUMMARY
-                echo "**Additional Verifications:**" >> $GITHUB_STEP_SUMMARY
-                [ "$lockfile_verified" != "n/a" ] && echo "- Lockfile verified: $lockfile_verified" >> $GITHUB_STEP_SUMMARY
-                [ "$no_modules_verified" != "n/a" ] && echo "- No modules verified: $no_modules_verified" >> $GITHUB_STEP_SUMMARY
-                [ "$deps_verified" != "n/a" ] && echo "- Dependencies verified: $deps_verified" >> $GITHUB_STEP_SUMMARY
-                [ "$cache_verified" != "n/a" ] && echo "- Cache verified: $cache_verified" >> $GITHUB_STEP_SUMMARY
-              fi
+                  # Show additional verification info if present
+                  lockfile_verified = data.get("lockfile_verified", "n/a")
+                  no_modules_verified = data.get("no_modules_verified", "n/a")
+                  deps_verified = data.get("deps_verified", "n/a")
+                  cache_verified = data.get("cache_verified", "n/a")
 
-              # Add raw JSON section (with error handling)
-              echo "" >> $GITHUB_STEP_SUMMARY
-              echo "<details>" >> $GITHUB_STEP_SUMMARY
-              echo "<summary>Raw Test Data (JSON)</summary>" >> $GITHUB_STEP_SUMMARY
-              echo "" >> $GITHUB_STEP_SUMMARY
-              echo "\`\`\`json" >> $GITHUB_STEP_SUMMARY
-              if jq '.' "$file" >> $GITHUB_STEP_SUMMARY 2>/dev/null; then
-                :  # Success, do nothing
-              else
-                echo "Error: Could not format JSON" >> $GITHUB_STEP_SUMMARY
-                cat "$file" >> $GITHUB_STEP_SUMMARY
-              fi
-              echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-              echo "</details>" >> $GITHUB_STEP_SUMMARY
+                  if any(v != "n/a" for v in [lockfile_verified, no_modules_verified, deps_verified, cache_verified]):
+                      summary_content += "\n**Additional Verifications:**\n"
+                      if lockfile_verified != "n/a":
+                          summary_content += f"- Lockfile verified: {lockfile_verified}\n"
+                      if no_modules_verified != "n/a":
+                          summary_content += f"- No modules verified: {no_modules_verified}\n"
+                      if deps_verified != "n/a":
+                          summary_content += f"- Dependencies verified: {deps_verified}\n"
+                      if cache_verified != "n/a":
+                          summary_content += f"- Cache verified: {cache_verified}\n"
 
-              echo "" >> $GITHUB_STEP_SUMMARY
-              echo "</details>" >> $GITHUB_STEP_SUMMARY
-              echo "" >> $GITHUB_STEP_SUMMARY
-            fi
-          done
+                  # Add raw JSON section
+                  summary_content += "\n<details>\n"
+                  summary_content += "<summary>Raw Test Data (JSON)</summary>\n\n"
+                  summary_content += "```json\n"
+                  summary_content += json.dumps(data, indent=2)
+                  summary_content += "\n```\n"
+                  summary_content += "</details>\n\n"
+                  summary_content += "</details>\n\n"
 
-          echo "---" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+                  summary_file.write_text(summary_content, mode="a")
+
+              except json.JSONDecodeError:
+                  skipped += 1
+                  parse_errors.append(file_path.name)
+                  print(f"⚠️ Skipping malformed JSON: {file_path.name}", file=sys.stderr)
+
+          # Add separator
+          summary_file.write_text("---\n\n", mode="a")
 
           # Report parse errors if any
-          if [ ${#PARSE_ERRORS[@]} -gt 0 ]; then
-            echo "### ⚠️ Parse Errors" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "The following test result files could not be parsed (likely due to job failures):" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            for error_file in "${PARSE_ERRORS[@]}"; do
-              echo "- \`$error_file\`" >> $GITHUB_STEP_SUMMARY
-            done
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "---" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-          fi
+          if parse_errors:
+              error_summary = "### ⚠️ Parse Errors\n\n"
+              error_summary += "The following test result files could not be parsed (likely due to job failures):\n\n"
+              for error_file in parse_errors:
+                  error_summary += f"- `{error_file}`\n"
+              error_summary += "\n---\n\n"
+              summary_file.write_text(error_summary, mode="a")
 
-          # Final summary - report what we found, don't fail on test failures
-          # Only fail if we have NO data at all to report
-          if [ $TOTAL -eq 0 ] && [ $SKIPPED -eq 0 ]; then
-            echo "### ⚠️ No test results found" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "This usually means all test jobs failed before uploading results." >> $GITHUB_STEP_SUMMARY
-            exit 1
-          elif [ $TOTAL -eq 0 ]; then
-            echo "### ⚠️ No valid test results" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**Skipped:** $SKIPPED (malformed JSON)" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "All test result files were malformed. Check individual job logs for details." >> $GITHUB_STEP_SUMMARY
-            # Don't fail - we still generated a report with the parse errors
-            exit 0
-          elif [ $FAILED -eq 0 ] && [ $SKIPPED -eq 0 ]; then
-            echo "### ✅ All $TOTAL tests passed!" >> $GITHUB_STEP_SUMMARY
-            exit 0
-          elif [ $FAILED -eq 0 ]; then
-            echo "### ✅ All $TOTAL valid tests passed" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**Passed:** $PASSED / **Total:** $TOTAL" >> $GITHUB_STEP_SUMMARY
-            if [ $SKIPPED -gt 0 ]; then
-              echo "" >> $GITHUB_STEP_SUMMARY
-              echo "⚠️ **Skipped:** $SKIPPED test(s) with malformed JSON - check job logs for details" >> $GITHUB_STEP_SUMMARY
-            fi
-            # Don't fail - tests that could be parsed all passed
-            exit 0
-          else
-            echo "### ❌ $FAILED of $TOTAL tests failed" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**Passed:** $PASSED / **Failed:** $FAILED / **Total:** $TOTAL" >> $GITHUB_STEP_SUMMARY
-            if [ $SKIPPED -gt 0 ]; then
-              echo "" >> $GITHUB_STEP_SUMMARY
-              echo "⚠️ **Skipped:** $SKIPPED test(s) with malformed JSON - check job logs for details" >> $GITHUB_STEP_SUMMARY
-            fi
-            # Don't fail - we successfully generated a report showing what failed
-            # Individual test job failures will cause the workflow to fail anyway
-            exit 0
-          fi
+          # Final summary
+          if total == 0 and skipped == 0:
+              summary_file.write_text("### ⚠️ No test results found\n\n", mode="a")
+              summary_file.write_text("This usually means all test jobs failed before uploading results.\n", mode="a")
+              sys.exit(1)
+          elif total == 0:
+              summary_file.write_text("### ⚠️ No valid test results\n\n", mode="a")
+              summary_file.write_text(f"**Skipped:** {skipped} (malformed JSON)\n\n", mode="a")
+              summary_file.write_text("All test result files were malformed. Check individual job logs for details.\n", mode="a")
+              sys.exit(0)
+          elif failed == 0 and skipped == 0:
+              summary_file.write_text(f"### ✅ All {total} tests passed!\n", mode="a")
+              sys.exit(0)
+          elif failed == 0:
+              summary_file.write_text(f"### ✅ All {total} valid tests passed\n\n", mode="a")
+              summary_file.write_text(f"**Passed:** {passed} / **Total:** {total}\n", mode="a")
+              if skipped > 0:
+                  summary_file.write_text(f"\n⚠️ **Skipped:** {skipped} test(s) with malformed JSON - check job logs for details\n", mode="a")
+              sys.exit(0)
+          else:
+              summary_file.write_text(f"### ❌ {failed} of {total} tests failed\n\n", mode="a")
+              summary_file.write_text(f"**Passed:** {passed} / **Failed:** {failed} / **Total:** {total}\n", mode="a")
+              if skipped > 0:
+                  summary_file.write_text(f"\n⚠️ **Skipped:** {skipped} test(s) with malformed JSON - check job logs for details\n", mode="a")
+              sys.exit(0)
