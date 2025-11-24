@@ -101,8 +101,10 @@ jobs:
               passed = "${{ steps.test.outputs.test-passed }}" or "false"
               results_str = r'''${{ toJson(steps.test.outputs.test-results) }}''' or "{}"
 
-              # Parse results JSON
+              # Parse results JSON - ensure it's always a dict
               results = json.loads(results_str)
+              if not isinstance(results, dict):
+                  results = {}
 
               # Build final JSON
               output = {
@@ -262,8 +264,10 @@ jobs:
               results_str = r'''${{ toJson(steps.test.outputs.test-results) }}''' or "{}"
               lockfile_verified = "${{ steps.verify-lockfile.outputs.lockfile-verified || 'n/a' }}"
 
-              # Parse results JSON
+              # Parse results JSON - ensure it's always a dict
               results = json.loads(results_str)
+              if not isinstance(results, dict):
+                  results = {}
 
               # Build final JSON
               output = {
@@ -444,8 +448,10 @@ jobs:
               results_str = r'''${{ toJson(steps.test.outputs.test-results) }}''' or "{}"
               lockfile_verified = "${{ steps.verify-lockfile.outputs.lockfile-verified || 'n/a' }}"
 
-              # Parse results JSON
+              # Parse results JSON - ensure it's always a dict
               results = json.loads(results_str)
+              if not isinstance(results, dict):
+                  results = {}
 
               # Build final JSON
               output = {
@@ -609,8 +615,10 @@ jobs:
               results_str = r'''${{ toJson(steps.test.outputs.test-results) }}''' or "{}"
               no_modules = "${{ steps.verify-no-modules.outputs.no-modules-verified || 'n/a' }}"
 
-              # Parse results JSON
+              # Parse results JSON - ensure it's always a dict
               results = json.loads(results_str)
+              if not isinstance(results, dict):
+                  results = {}
 
               # Check no_modules for overall pass/fail
               if no_modules != "n/a" and no_modules != "true":
