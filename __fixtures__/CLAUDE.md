@@ -2,11 +2,16 @@
 
 Test fixtures for integration testing with GitHub Actions workflows.
 
-**See also:** [Root CLAUDE.md](../CLAUDE.md) | [**tests**/CLAUDE.md](../__tests__/CLAUDE.md) for unit testing | [.github/workflows/CLAUDE.md](../.github/workflows/CLAUDE.md) for workflow testing patterns.
+**See also:** [Root CLAUDE.md](../CLAUDE.md) |
+[**tests**/CLAUDE.md](../__tests__/CLAUDE.md) for unit testing |
+[.github/workflows/CLAUDE.md](../.github/workflows/CLAUDE.md) for workflow
+testing patterns.
 
 ## Overview
 
-This directory contains isolated test project setups for integration testing. Each fixture is a complete, self-contained project configuration used to test the runtime action with different package managers, runtimes, and features.
+This directory contains isolated test project setups for integration testing.
+Each fixture is a complete, self-contained project configuration used to test
+the runtime action with different package managers, runtimes, and features.
 
 **For testing approach and workflow patterns, see [.github/workflows/CLAUDE.md](../.github/workflows/CLAUDE.md).**
 
@@ -75,12 +80,20 @@ deno-minimal/
 
 ## How Fixtures Are Used
 
-Fixtures are used by the [setup-fixture](../.github/actions/setup-fixture/action.yml) composite action:
+Fixtures are used by the
+[test-fixture](../.github/actions/test-fixture/action.yml) composite action,
+which is a unified helper that handles setup, execution, and verification in a
+single action:
 
-1. **Remove repository config** - Deletes conflicting files (package.json, lockfiles, etc.)
-2. **Copy fixture files** - Copies all files from the fixture directory to the repository root
-3. **Run action** - The runtime action runs with the fixture configuration
-4. **Verify outputs** - The [verify-setup](../.github/actions/verify-setup/action.yml) action validates results
+1. **Setup fixture** (Python script):
+   * Cleans workspace by removing all files except `.github`, `.git`, and
+     `__fixtures__`
+   * Copies all files from the fixture directory to the repository root
+   * Removes `__fixtures__` directory to prevent glob pattern interference
+2. **Run runtime action** - Executes the action with fixture configuration
+   (supports cache testing with dual runs)
+3. **Verify outputs** (Python script) - Compares actual vs expected outputs
+   and reports results
 
 **See [.github/workflows/CLAUDE.md](../.github/workflows/CLAUDE.md) for detailed testing patterns.**
 
@@ -238,6 +251,7 @@ Before committing a fixture, verify:
 ## Related Documentation
 
 * [Root CLAUDE.md](../CLAUDE.md) - Repository overview
-* [.github/workflows/CLAUDE.md](../.github/workflows/CLAUDE.md) - Workflow testing patterns ⭐
+* [.github/workflows/CLAUDE.md](../.github/workflows/CLAUDE.md) - Testing
+  workflow patterns
 * [**tests**/CLAUDE.md](../__tests__/CLAUDE.md) - Unit testing
 * [src/CLAUDE.md](../src/CLAUDE.md) - Source code architecture

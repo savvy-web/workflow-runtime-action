@@ -147,8 +147,8 @@ pnpm lint:fix
 # Build the action (REQUIRED before commit!)
 pnpm build
 
-# Commit both source and dist
-git add src/ dist/
+# Commit both source and dist (including .github/actions/runtime/)
+git add src/ dist/ .github/actions/runtime/
 git commit -m "feat: add new feature"
 ```
 
@@ -178,8 +178,8 @@ This repository uses modular documentation organized by directory:
 ├── __fixtures__/            # Integration test fixtures → See __fixtures__/CLAUDE.md
 ├── .github/
 │   ├── actions/            # Reusable composite actions
-│   │   ├── setup-fixture/  # Fixture setup action
-│   │   └── verify-setup/   # Output verification action
+│   │   ├── test-fixture/   # Unified test helper (setup, run, verify)
+│   │   └── runtime/        # Local copy of action for testing
 │   └── workflows/          # GitHub Actions workflows → See .github/workflows/CLAUDE.md
 ├── action.yml               # Action definition
 ├── package.json             # Dependencies and scripts
@@ -189,26 +189,82 @@ This repository uses modular documentation organized by directory:
 
 ## Action Inputs
 
-All inputs are **optional**:
+All inputs are **optional**. If not provided, values are auto-detected from
+`package.json` or configuration files:
 
-* **`biome-version`** - Biome version to install (e.g., `2.3.6`, `latest`). If not provided, auto-detected from biome.jsonc/biome.json. Leave empty to skip Biome installation.
-* **`install-deps`** - Whether to install dependencies (default: `true`)
-* **`turbo-token`** - Turbo remote cache token (optional, for Vercel Remote Cache)
+### Runtime Inputs
+
+* **`node-version`** - Node.js version to install (e.g., `24.10.0`). If not
+  provided, reads from `package.json` `devEngines.runtime`.
+* **`bun-version`** - Bun version to install (e.g., `1.3.3`). If not
+  provided, reads from `package.json` `devEngines.runtime`.
+* **`deno-version`** - Deno version to install (e.g., `2.5.6`). If not
+  provided, reads from `package.json` `devEngines.runtime`.
+
+### Package Manager Inputs
+
+* **`package-manager`** - Package manager name (`npm` | `pnpm` | `yarn` |
+  `bun` | `deno`). If not provided, reads from `package.json`
+  `devEngines.packageManager`.
+* **`package-manager-version`** - Package manager version (e.g., `10.20.0`).
+  If not provided, reads from `package.json` `devEngines.packageManager`.
+
+### Feature Inputs
+
+* **`biome-version`** - Biome version to install (e.g., `2.3.6`). If not
+  provided, auto-detects from `biome.jsonc` or `biome.json` `$schema` field.
+  Leave empty to skip Biome installation.
+* **`install-deps`** - Whether to install dependencies (`true` | `false`).
+  Default: `true`. Set to `false` to skip dependency installation.
+
+### Turbo Remote Cache Inputs
+
+* **`turbo-token`** - Turbo remote cache token (optional, for Vercel Remote
+  Cache)
 * **`turbo-team`** - Turbo team slug (optional, for Vercel Remote Cache)
 
-**Note:** Runtime versions and package manager configuration are read from `package.json` and cannot be overridden via inputs.
+### Testing Inputs
+
+* **`cache-hash`** - Optional cache hash for testing cache behavior. Use
+  `github.job-github.run_id` to ensure unique cache per job/run. **Only use
+  this for testing!**
 
 ## Action Outputs
 
-* **`runtime`** - Installed runtimes (e.g., `"node"`, `"bun"`, `"node,deno"`)
-* **`node-version`** - Installed Node.js version (e.g., `"24.11.0"` or empty if not installed)
-* **`bun-version`** - Installed Bun version (e.g., `"1.3.3"` or empty if not installed)
-* **`deno-version`** - Installed Deno version (e.g., `"1.3.3"` or empty if not installed)
-* **`package-manager`** - Package manager from package.json (e.g., `"pnpm"`, `"yarn"`, `"npm"`, `"bun"`)
-* **`package-manager-version`** - Package manager version from package.json (e.g., `"10.20.0"`)
-* **`turbo-enabled`** - Whether Turbo was detected (`"true"` | `"false"`)
+### Runtime Outputs
+
+* **`node-version`** - Installed Node.js version (e.g., `"24.10.0"`) or empty
+  if not installed
+* **`node-enabled`** - Whether Node.js was installed (`"true"` | `"false"`)
+* **`bun-version`** - Installed Bun version (e.g., `"1.3.3"`) or empty if not
+  installed
+* **`bun-enabled`** - Whether Bun was installed (`"true"` | `"false"`)
+* **`deno-version`** - Installed Deno version (e.g., `"2.5.6"`) or empty if
+  not installed
+* **`deno-enabled`** - Whether Deno was installed (`"true"` | `"false"`)
+
+### Package Manager Outputs
+
+* **`package-manager`** - Package manager name (`npm` | `pnpm` | `yarn` |
+  `bun` | `deno`)
+* **`package-manager-version`** - Package manager version (e.g., `"10.20.0"`)
+
+### Feature Outputs
+
+* **`biome-version`** - Installed Biome version (e.g., `"2.3.6"`) or empty if
+  not installed
 * **`biome-enabled`** - Whether Biome was installed (`"true"` | `"false"`)
-* **`cache-hit`** - Cache status (`"true"` | `"partial"` | `"false"` | `"n/a"`)
+* **`turbo-enabled`** - Whether Turbo configuration was detected (`"true"` |
+  `"false"`)
+
+### Cache Outputs
+
+* **`cache-hit`** - Whether dependencies were restored from cache (`"true"` |
+  `"partial"` | `"false"` | `"n/a"`)
+* **`lockfiles`** - Comma-separated list of detected lockfiles used for cache
+  key generation (e.g., `"pnpm-lock.yaml,deno.lock"`)
+* **`cache-paths`** - Comma-separated list of cache paths being
+  cached/restored (e.g., `"/home/runner/.cache/deno,**/node_modules"`)
 
 ## Code Quality Standards
 
@@ -247,7 +303,7 @@ pnpm test              # Run unit tests with coverage
 pnpm test --watch      # Run tests in watch mode
 
 # Building
-pnpm build             # Build action with @vercel/ncc
+pnpm build             # Build action with @vercel/ncc (see Build Process below)
 
 # Release
 pnpm changeset         # Create changeset for release
@@ -270,6 +326,89 @@ Uses Changesets for versioning:
    - uses: savvy-web/workflow-runtime-action@v1
    - uses: savvy-web/workflow-runtime-action@v1.2.3
    ```
+
+## Build Process
+
+The build process is handled by `lib/scripts/build.ts` and does the following:
+
+### What Gets Built
+
+1. **Compile TypeScript to JavaScript** - Uses `@vercel/ncc` to bundle three entry
+   points:
+   * `src/pre.ts` → `dist/pre.js` (pre-action hook)
+   * `src/main.ts` → `dist/main.js` (main action logic)
+   * `src/post.ts` → `dist/post.js` (post-action hook)
+
+2. **Bundle Configuration:**
+   * **Minification:** Enabled for smaller bundle size
+   * **Target:** ES2022
+   * **Externals:** None (everything bundled into standalone files)
+   * **Source maps:** Generated for debugging
+
+3. **Create Module Markers:**
+   * Creates `dist/package.json` with `{ "type": "module" }` to mark files as ES
+     modules
+
+### Local Testing Copy
+
+The build script automatically creates a **local copy** of the action at
+`.github/actions/runtime/` for testing:
+
+1. **Copies Files:**
+   * `action.yml` (with pre script removed)
+   * `dist/main.js`
+   * `dist/post.js`
+   * `dist/package.json`
+
+2. **Omits Pre-Action Hook:**
+   * The `pre.js` file is intentionally **not copied**
+   * The `pre:` line is **removed from action.yml**
+   * This prevents the pre-action from running during tests (the pre-action
+     creates cache keys, which would interfere with testing)
+
+3. **Used By Test Fixtures:**
+   * The `test-fixture` action uses `.github/actions/runtime` instead of the
+     root action
+   * This allows tests to run the action without the pre-hook side effects
+
+### Build Output Structure
+
+```text
+dist/                           # Production build (committed)
+├── pre.js                      # Pre-action bundle
+├── pre.js.map                  # Source map
+├── main.js                     # Main action bundle
+├── main.js.map                 # Source map
+├── post.js                     # Post-action bundle
+├── post.js.map                 # Source map
+└── package.json                # Module marker
+
+.github/actions/runtime/        # Local testing copy (committed)
+├── action.yml                  # Action definition (no pre script)
+└── dist/
+    ├── main.js                 # Main action bundle
+    ├── post.js                 # Post-action bundle
+    └── package.json            # Module marker
+```
+
+### Key Points
+
+1. **Always commit both directories** - Both `dist/` and
+   `.github/actions/runtime/` must be committed to git
+2. **Build before committing** - Run `pnpm build` after any source changes
+3. **Pre-hook is intentional** - The runtime copy excludes the pre-hook by
+   design for testing
+4. **Clean builds** - The build script cleans both directories before building
+
+### Build Script Location
+
+The build script is at `lib/scripts/build.ts` and is invoked via:
+
+```bash
+pnpm build
+```
+
+This runs `tsx lib/scripts/build.ts` which performs the complete build process.
 
 ## Common Issues and Solutions
 

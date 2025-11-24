@@ -2,54 +2,57 @@
 
 GitHub Actions workflow testing strategy and reusable composite actions.
 
-**See also:** [Root CLAUDE.md](../../CLAUDE.md) | [**fixtures**/CLAUDE.md](../../__fixtures__/CLAUDE.md) for available test fixtures.
+**See also:** [Root CLAUDE.md](../../CLAUDE.md) |
+[**fixtures**/CLAUDE.md](../../__fixtures__/CLAUDE.md) for available test
+fixtures.
 
 ## Overview
 
-This directory contains GitHub Actions workflows for testing the runtime action using a **matrix-based testing approach** with **reusable composite actions** for setup and verification.
+This directory contains GitHub Actions workflows for testing the runtime action
+using a **matrix-based testing approach** with a **unified test-fixture
+composite action** that handles setup, execution, and verification.
 
 ## Test Workflows
 
 ### [test.yml](test.yml)
 
-Main test workflow that runs on push and pull requests. Includes comprehensive test coverage:
+Main test workflow that runs on push and pull requests. Includes comprehensive
+test coverage:
 
-* **test-node** - Node.js runtime tests (npm, pnpm, yarn)
-* **test-bun** - Bun runtime tests (auto-detect from devEngines, explicit version, lockfile)
-* **test-deno** - Deno runtime tests (auto-detect from devEngines, explicit version, lockfile)
-* **test-features** - Feature tests (Biome auto-detect, Turbo detection, skip dependencies)
-* **test-cache** - Cache effectiveness testing (cache miss → cache hit)
+* **test-node-create-cache** - Node.js tests creating dependency cache
+* **test-node-restore-cache** - Node.js tests restoring from cache
+* **test-explicit-inputs** - Tests with explicit runtime version inputs and
+  feature detection
 * **summary** - Aggregates test results and reports overall status
 
 ## Reusable Composite Actions
 
 ### [test-fixture](../actions/test-fixture/action.yml)
 
-Complete test workflow that sets up a fixture, runs the runtime action, and verifies outputs - all in one action.
+Complete test workflow that sets up a fixture, runs the runtime action, and
+verifies outputs - all in one action.
 
-**Purpose:** Simplify testing by combining fixture setup, action execution, and output validation into a single reusable action.
+**Purpose:** Simplify testing by combining fixture setup, action execution,
+and output validation into a single reusable action.
 
 **How it works:**
 
-1. **Remove conflicting files** - Deletes repository config files that would interfere with tests:
-   * `package.json`, `pnpm-workspace.yaml`
-   * `biome.jsonc`, `turbo.json`
-   * Lock files: `pnpm-lock.yaml`, `deno.lock`
+1. **Setup fixture** (Python script):
+   * Cleans workspace by removing all files except `.github`, `.git`, and
+     `__fixtures__`
+   * Copies all files from the fixture directory to the repository root
+   * Removes `__fixtures__` directory to prevent glob pattern interference
 
-2. **Copy fixture files** - Copies all files from the specified fixture directory (including hidden files):
+2. **Run runtime action** - Executes the runtime setup action with provided
+   inputs (supports cache testing mode with dual runs)
 
-   ```bash
-   cp -r __fixtures__/${{ inputs.fixture }}/. .
-   ```
-
-3. **Run runtime action** - Executes the runtime setup action with provided inputs
-
-4. **Validate outputs** - Compares actual vs expected values and generates summary:
+3. **Verify outputs** (Python script) - Compares actual vs expected values and
+   generates summary:
    * ✅ Value matches expectation
    * ✔️ Value reported (no expectation to validate)
    * ❌ Value doesn't match expectation
 
-5. **Fail if mismatches** - Exits with error if any validation fails
+4. **Fail if mismatches** - Exits with error if any validation fails
 
 **Inputs:**
 
@@ -152,43 +155,50 @@ test-node:
 Every test follows this pattern:
 
 1. **Checkout** - Check out the repository
-2. **Test fixture** - Use `test-fixture` action to setup environment, run action, and verify outputs
+2. **Test fixture** - Use `test-fixture` action to setup environment, run
+   action, and verify outputs
 3. **Test runtime** - Run commands to verify runtime is working (optional)
 4. **Additional verification** - Custom verification steps (optional)
 
 ## Test Scenarios
 
-### Node.js Tests
+### Node.js Cache Tests
 
-* **NPM** - Default npm package manager from devEngines
-* **PNPM** - Auto-detected from devEngines `packageManager` field
-* **Yarn** - Auto-detected from devEngines `packageManager` field
+Tests are split into two jobs that share cache state:
 
-### Bun Tests
+* **Create Cache** (`test-node-create-cache`) - Tests npm, pnpm, yarn, and
+  multi-runtime on all platforms (Ubuntu, macOS, Windows). First run creates
+  dependency cache.
+* **Restore Cache** (`test-node-restore-cache`) - Same tests but restores from
+  cache created in previous job. Validates cache effectiveness.
 
-* **Auto-detect** - Detect Bun from `package.json` `packageManager` field
-* **Explicit Version** - Install specific Bun version
-* **Lockfile** - Verify `bun.lock` handling
+### Explicit Inputs Tests
 
-### Deno Tests
+Tests explicit runtime version inputs and feature detection
+(`test-explicit-inputs`):
 
-* **Auto-detect** - Detect Deno from `deno.json`
-* **package.json** - Detect Deno from `package.json` `packageManager` field
-* **Explicit Version** - Install specific Deno version
-* **Lockfile** - Verify `deno.lock` handling
+* **Node.js + Biome** - Biome auto-detected from `biome.jsonc`
+* **Node.js + Turbo** - Turbo detection with explicit Biome installation
+* **Bun + Biome** - Bun runtime with Biome auto-detection
+* **Bun + Turbo** - Bun runtime with Turbo and explicit Biome
+* **Deno + Biome** - Deno runtime with Biome auto-detection
+* **Deno + Turbo** - Deno runtime with Turbo and explicit Biome
 
-### Feature Tests
+All explicit input tests run on all platforms (Ubuntu, macOS, Windows).
 
-* **Biome Auto-detect** - Detect Biome version from `biome.jsonc` `$schema`
-* **Biome Explicit Version** - Install specific Biome version
-* **Turbo Detection** - Detect Turborepo from `turbo.json`
-* **Skip Dependencies** - Verify `install-deps: false` skips dependency installation
+### Cache Testing Mode
 
-### Cache Test
+The `test-fixture` action supports a special cache testing mode via the
+`test-cache: "true"` input:
 
-* **First run** - Cache miss, installs dependencies
-* **Second run** - Cache hit, restores from cache
-* **Verification** - Ensures dependencies restored correctly
+1. **First run** - Installs dependencies, saves to cache
+2. **Verify dependencies** - Checks that dependencies were installed
+3. **Clear node_modules** - Removes installed dependencies
+4. **Second run** - Should restore from cache
+5. **Verify cache** - Checks that cache was restored correctly
+
+This mode is used internally by the action and can be enabled for custom
+tests that need to validate cache effectiveness.
 
 ## Adding New Tests
 
@@ -271,10 +281,10 @@ Then reference it in the workflow:
 
 | Error | Cause | Solution |
 | ----- | ----- | -------- |
-| `Fixture 'X' not found` | Fixture doesn't exist | Create fixture in `__fixtures__/` |
-| `Expected X but got Y` | Output mismatch | Check action logic or update expected value |
-| `Command not found` | Runtime not installed | Check runtime installation in action |
-| `Permission denied` | File permissions issue | Check fixture file permissions |
+| `Fixture 'X' not found` | Fixture doesn't exist | Create in `__fixtures__/` |
+| `Expected X but got Y` | Output mismatch | Check action or update expected |
+| `Command not found` | Runtime not installed | Check runtime installation |
+| `Permission denied` | File permissions | Check fixture permissions |
 
 ### Local Testing with act
 
@@ -296,14 +306,124 @@ act -j test-node -v
 
 ## Matrix Strategy Best Practices
 
-1. **Use fail-fast: false** - Continue testing other matrix entries even if one fails
+1. **Use fail-fast: false** - Continue testing other matrix entries even if one
+   fails
 2. **Use descriptive names** - Make matrix entry names clear and specific
 3. **Group related tests** - Keep similar tests in the same matrix job
-4. **Use conditional steps** - Use `if` conditions for optional verification steps
+4. **Use conditional steps** - Use `if` conditions for optional verification
+   steps
 5. **Provide clear titles** - Use emojis and descriptive titles for summaries
 6. **Validate outputs** - Always verify action outputs match expectations
 7. **Test edge cases** - Include tests for unusual configurations
 8. **Keep fixtures simple** - Minimal configuration needed for the test
+
+## Action Development Best Practices
+
+Based on lessons learned building the `test-fixture` action:
+
+### Use Python for Complex Operations
+
+**Why:** Python provides a more robust standard library compared to Bash,
+especially for:
+
+* **JSON handling** - Native `json` module for parsing/generating complex JSON
+  structures
+* **File operations** - `pathlib` and `shutil` for cross-platform file
+  operations
+* **Error handling** - Structured exception handling with traceback support
+* **String manipulation** - Better escaping and formatting for GitHub Actions
+  outputs
+
+**Example from test-fixture:**
+
+```yaml
+- name: Setup fixture
+  shell: python
+  run: |
+    import json
+    import os
+    from pathlib import Path
+
+    # Complex JSON generation
+    output = {"test": "data", "nested": {"key": "value"}}
+    with open(Path(os.environ["GITHUB_OUTPUT"]), "a") as f:
+        f.write(f"results={json.dumps(output)}\n")
+```
+
+### Always Trap and Report Errors
+
+**Critical:** Never swallow errors! Always capture full error details including
+tracebacks.
+
+**Why this matters:**
+
+* Debugging GitHub Actions runs is hard - you can't SSH in or attach a debugger
+* Swallowed errors make it impossible to diagnose issues
+* Users need to see the full context of what went wrong
+
+**Best Practice Pattern:**
+
+```python
+import sys
+import traceback
+from pathlib import Path
+
+try:
+    # Your action logic here
+    result = do_something()
+
+    # Write success outputs
+    with open(Path(os.environ["GITHUB_OUTPUT"]), "a") as f:
+        f.write(f"success=true\n")
+        f.write(f"result={result}\n")
+
+except Exception as e:
+    # 1. Print error with GitHub Actions annotation
+    error_msg = f"Action failed: {str(e)}"
+    print(f"::error::{error_msg}")
+
+    # 2. Print full traceback to logs
+    traceback.print_exc()
+
+    # 3. Write error to outputs for programmatic access
+    with open(Path(os.environ["GITHUB_OUTPUT"]), "a") as f:
+        f.write("success=false\n")
+        # Escape special characters for GitHub Actions
+        escaped_error = str(e).replace("\n", " ").replace("'", "''")
+        f.write(f"error={escaped_error}\n")
+
+    # 4. Exit with error code (or sys.exit(0) if you want to continue)
+    sys.exit(1)
+```
+
+**Key elements:**
+
+1. **GitHub Actions annotation** - `::error::` makes errors visible in UI
+2. **Full traceback** - `traceback.print_exc()` shows where error occurred
+3. **Structured outputs** - Write errors to `GITHUB_OUTPUT` for downstream
+   steps
+4. **Proper escaping** - Escape newlines and quotes for GitHub Actions output
+   format
+
+### Error Handling in test-fixture
+
+The `test-fixture` action demonstrates this pattern throughout:
+
+* **Setup step** - Catches file operation errors, reports to `setup-error`
+  output
+* **Verification step** - Catches validation errors, reports to `test-results`
+  output
+* **Always provides context** - Every error includes what was being attempted
+
+**Result:** When tests fail, developers can immediately see:
+
+* What step failed
+* The exact error message
+* Full Python traceback
+* Structured error data in JSON outputs
+
+This approach transformed debugging from "why did this fail?" to "here's exactly
+what went wrong and where."
 
 ## Test Summary Job
 
@@ -344,5 +464,6 @@ summary:
 * [Root CLAUDE.md](../../CLAUDE.md) - Repository overview
 * [**fixtures**/CLAUDE.md](../../__fixtures__/CLAUDE.md) - Available test fixtures
 * [**tests**/CLAUDE.md](../../__tests__/CLAUDE.md) - Unit testing
-* [GitHub Actions Documentation](https://docs.github.com/en/actions) - GitHub Actions reference
+* [GitHub Actions Documentation](https://docs.github.com/en/actions) - GitHub
+  Actions reference
 * [nektos/act](https://github.com/nektos/act) - Run GitHub Actions locally
