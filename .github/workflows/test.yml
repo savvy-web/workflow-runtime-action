@@ -121,11 +121,14 @@ jobs:
           cache-hash: ${{ matrix.pm }}-${{ matrix.os }}-${{ github.run_id }}
           expected-node-version: ${{ matrix.expected-node-version || '' }}
           expected-node-enabled: ${{ matrix.expected-node-enabled || '' }}
+          expected-bun-version: ${{ matrix.expected-bun-version || '' }}
           expected-bun-enabled: ${{ matrix.expected-bun-enabled || '' }}
+          expected-deno-version: ${{ matrix.expected-deno-version || '' }}
           expected-deno-enabled: ${{ matrix.expected-deno-enabled || '' }}
           expected-package-manager: ${{ matrix.expected-package-manager || '' }}
           expected-package-manager-version: ${{ matrix.expected-package-manager-version || '' }}
           expected-biome-enabled: ${{ matrix.expected-biome-enabled || '' }}
+          expected-turbo-enabled: ${{ matrix.expected-turbo-enabled || '' }}
           expected-cache-hit: ${{ matrix.expected-cache-hit || '' }}
 
       - name: Test runtime
@@ -274,7 +277,9 @@ jobs:
             expected-package-manager: pnpm
             expected-package-manager-version: "10.20.0"
             expected-deno-enabled: "false"
+            expected-deno-version: "2.5.6"
             expected-bun-enabled: "false"
+            expected-bun-version: "1.3.3"
             expected-biome-enabled: "false"
             expected-turbo-enabled: "false"
             test-command: "node --version && pnpm --version"
@@ -329,11 +334,14 @@ jobs:
           cache-hash: ${{ matrix.pm }}-${{ matrix.os }}-${{ github.run_id }}
           expected-node-version: ${{ matrix.expected-node-version || '' }}
           expected-node-enabled: ${{ matrix.expected-node-enabled || '' }}
+          expected-bun-version: ${{ matrix.expected-bun-version || '' }}
           expected-bun-enabled: ${{ matrix.expected-bun-enabled || '' }}
+          expected-deno-version: ${{ matrix.expected-deno-version || '' }}
           expected-deno-enabled: ${{ matrix.expected-deno-enabled || '' }}
           expected-package-manager: ${{ matrix.expected-package-manager || '' }}
           expected-package-manager-version: ${{ matrix.expected-package-manager-version || '' }}
           expected-biome-enabled: ${{ matrix.expected-biome-enabled || '' }}
+          expected-turbo-enabled: ${{ matrix.expected-turbo-enabled || '' }}
           expected-cache-hit: ${{ matrix.expected-cache-hit || '' }}
 
       - name: Test runtime
