@@ -31,76 +31,110 @@ jobs:
   # Node.js Tests
   # ============================================================================
   test-node:
-    name: node | ${{ matrix.name }} | ${{ matrix.os }}
+    name: node | ${{ matrix.pm }} | ${{ matrix.test-type }} | ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
         pm: [npm, pnpm, yarn]
+        test-type: [no-deps, with-cache]
         include:
+          # NPM - no deps (creates cache)
           - pm: npm
-            name: npm
+            test-type: no-deps
             fixture: node-npm
-            test-cache: "true"
+            install-deps: "false"
+            expected-cache-hit: "false"
             expected-node-enabled: "true"
             expected-node-version: "20.11.0"
             expected-package-manager: npm
             expected-package-manager-version: "11.6.0"
             expected-deno-enabled: "false"
-            expected-deno-version: ""
             expected-bun-enabled: "false"
-            expected-bun-version: ""
             expected-biome-enabled: "false"
-            expected-biome-version: ""
-            expected-first-run-cache-hit: "false"
-            expected-second-run-cache-hit: "true"
-            expected-dependencies-installed: "true"
-            expected-cache-restored: "true"
             test-command: "node --version && npm --version"
-            title: "📦 NPM Test Results"
+            title: "📦 NPM (Create Cache)"
 
+          # NPM - with cache (restores cache)
+          - pm: npm
+            test-type: with-cache
+            fixture: node-npm
+            install-deps: "true"
+            expected-cache-hit: "true"
+            expected-node-enabled: "true"
+            expected-node-version: "20.11.0"
+            expected-package-manager: npm
+            expected-package-manager-version: "11.6.0"
+            expected-deno-enabled: "false"
+            expected-bun-enabled: "false"
+            expected-biome-enabled: "false"
+            test-command: "node --version && npm --version"
+            title: "📦 NPM (Restore Cache)"
+
+          # PNPM - no deps (creates cache)
           - pm: pnpm
-            name: pnpm
+            test-type: no-deps
             fixture: node-pnpm
-            test-cache: "true"
+            install-deps: "false"
+            expected-cache-hit: "false"
             expected-node-enabled: "true"
             expected-node-version: "20.11.0"
             expected-package-manager: pnpm
             expected-package-manager-version: "10.20.0"
             expected-deno-enabled: "false"
-            expected-deno-version: ""
             expected-bun-enabled: "false"
-            expected-bun-version: ""
             expected-biome-enabled: "false"
-            expected-biome-version: ""
-            expected-first-run-cache-hit: "false"
-            expected-second-run-cache-hit: "true"
-            expected-dependencies-installed: "true"
-            expected-cache-restored: "true"
             test-command: "node --version && pnpm --version"
-            title: "📦 PNPM Test Results"
+            title: "📦 PNPM (Create Cache)"
 
+          # PNPM - with cache (restores cache)
+          - pm: pnpm
+            test-type: with-cache
+            fixture: node-pnpm
+            install-deps: "true"
+            expected-cache-hit: "true"
+            expected-node-enabled: "true"
+            expected-node-version: "20.11.0"
+            expected-package-manager: pnpm
+            expected-package-manager-version: "10.20.0"
+            expected-deno-enabled: "false"
+            expected-bun-enabled: "false"
+            expected-biome-enabled: "false"
+            test-command: "node --version && pnpm --version"
+            title: "📦 PNPM (Restore Cache)"
+
+          # Yarn - no deps (creates cache)
           - pm: yarn
-            name: yarn
+            test-type: no-deps
             fixture: node-yarn
-            test-cache: "true"
+            install-deps: "false"
+            expected-cache-hit: "false"
             expected-node-enabled: "true"
             expected-node-version: "20.11.0"
             expected-package-manager: yarn
             expected-package-manager-version: "4.0.0"
             expected-deno-enabled: "false"
-            expected-deno-version: ""
             expected-bun-enabled: "false"
-            expected-bun-version: ""
             expected-biome-enabled: "false"
-            expected-biome-version: ""
-            expected-first-run-cache-hit: "false"
-            expected-second-run-cache-hit: "true"
-            expected-dependencies-installed: "true"
-            expected-cache-restored: "true"
             test-command: "node --version && yarn --version"
-            title: "📦 Yarn Test Results"
+            title: "📦 Yarn (Create Cache)"
+
+          # Yarn - with cache (restores cache)
+          - pm: yarn
+            test-type: with-cache
+            fixture: node-yarn
+            install-deps: "true"
+            expected-cache-hit: "true"
+            expected-node-enabled: "true"
+            expected-node-version: "20.11.0"
+            expected-package-manager: yarn
+            expected-package-manager-version: "4.0.0"
+            expected-deno-enabled: "false"
+            expected-bun-enabled: "false"
+            expected-biome-enabled: "false"
+            test-command: "node --version && yarn --version"
+            title: "📦 Yarn (Restore Cache)"
 
     steps:
       - name: Checkout
@@ -113,23 +147,15 @@ jobs:
         with:
           fixture: ${{ matrix.fixture }}
           title: ${{ matrix.title }}
-          package-manager: ${{ matrix.package-manager || '' }}
-          install-deps: "true"
-          test-cache: ${{ matrix.test-cache || 'false' }}
+          install-deps: ${{ matrix.install-deps }}
           expected-node-version: ${{ matrix.expected-node-version || '' }}
           expected-node-enabled: ${{ matrix.expected-node-enabled || '' }}
-          expected-bun-version: ${{ matrix.expected-bun-version || '' }}
           expected-bun-enabled: ${{ matrix.expected-bun-enabled || '' }}
-          expected-deno-version: ${{ matrix.expected-deno-version || '' }}
           expected-deno-enabled: ${{ matrix.expected-deno-enabled || '' }}
           expected-package-manager: ${{ matrix.expected-package-manager || '' }}
           expected-package-manager-version: ${{ matrix.expected-package-manager-version || '' }}
-          expected-biome-version: ${{ matrix.expected-biome-version || '' }}
           expected-biome-enabled: ${{ matrix.expected-biome-enabled || '' }}
-          expected-first-run-cache-hit: ${{ matrix.expected-first-run-cache-hit || '' }}
-          expected-second-run-cache-hit: ${{ matrix.expected-second-run-cache-hit || '' }}
-          expected-dependencies-installed: ${{ matrix.expected-dependencies-installed || '' }}
-          expected-cache-restored: ${{ matrix.expected-cache-restored || '' }}
+          expected-cache-hit: ${{ matrix.expected-cache-hit || '' }}
 
       - name: Test runtime
         if: matrix.test-command != ''
@@ -159,10 +185,11 @@ jobs:
               error = results.get("error", "") if isinstance(results, dict) else ""
 
               # Build final JSON
+              test_name = "${{ matrix.pm }}-${{ matrix.test-type }}"
               output = {
-                  "name": "${{ matrix.name }}-${{ matrix.os }}",
+                  "name": f"{test_name}-${{ matrix.os }}",
                   "os": "${{ matrix.os }}",
-                  "test_name": "${{ matrix.name }}",
+                  "test_name": test_name,
                   "title": "${{ matrix.title }}",
                   "fixture": "${{ matrix.fixture }}",
                   "passed": passed == "true" if not error else False,
@@ -174,7 +201,7 @@ jobs:
 
               # Write to file (slugify name to avoid spaces in filenames)
               Path("test-results").mkdir(exist_ok=True)
-              safe_name = "${{ matrix.name }}".replace(" ", "-").lower()
+              safe_name = test_name.replace(" ", "-").lower()
               output_file = Path("test-results") / f"{safe_name}-${{ matrix.os }}.json"
               output_file.write_text(json.dumps(output, indent=2))
 
@@ -184,10 +211,11 @@ jobs:
               traceback.print_exc()
 
               Path("test-results").mkdir(exist_ok=True)
+              test_name = "${{ matrix.pm }}-${{ matrix.test-type }}"
               error_output = {
-                  "name": "${{ matrix.name }}-${{ matrix.os }}",
+                  "name": f"{test_name}-${{ matrix.os }}",
                   "os": "${{ matrix.os }}",
-                  "test_name": "${{ matrix.name }}",
+                  "test_name": test_name,
                   "title": "${{ matrix.title }}",
                   "fixture": "${{ matrix.fixture }}",
                   "passed": False,
@@ -196,7 +224,7 @@ jobs:
                   "no_modules_verified": "n/a",
                   "error": str(e)
               }
-              safe_name = "${{ matrix.name }}".replace(" ", "-").lower()
+              safe_name = test_name.replace(" ", "-").lower()
               output_file = Path("test-results") / f"{safe_name}-${{ matrix.os }}.json"
               output_file.write_text(json.dumps(error_output, indent=2))
 
@@ -236,582 +264,12 @@ jobs:
           sys.exit(1)
 
   # ============================================================================
-  # Bun Tests
-  # ============================================================================
-  test-bun:
-    name: Bun - ${{ matrix.name }} (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        include:
-          - name: From devEngines
-            fixture: bun-minimal
-            expected-bun-enabled: "true"
-            expected-package-manager: bun
-            test-command: "bun --version && bun run index.ts"
-            title: "🚀 Bun from devEngines Test Results"
-
-          - name: Explicit Version
-            fixture: bun-minimal
-            package-manager: bun
-            package-manager-version: "1.3.3"
-            bun-version: "1.3.3"
-            expected-bun-enabled: "true"
-            expected-bun-version: "1.3.3"
-            test-command: "bun --version && bun run test.js"
-            title: "🎯 Bun Explicit Version Test Results"
-
-          - name: Lockfile
-            fixture: bun-lockfile
-            test-command: "bun --version"
-            verify-lockfile: bun.lock
-            title: "🔒 Bun Lockfile Test Results"
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Test fixture
-        id: test
-        continue-on-error: true
-        uses: ./.github/actions/test-fixture
-        with:
-          fixture: ${{ matrix.fixture }}
-          title: ${{ matrix.title }}
-          package-manager: ${{ matrix.package-manager || '' }}
-          bun-version: ${{ matrix.bun-version || '' }}
-          install-deps: "true"
-          expected-bun-enabled: ${{ matrix.expected-bun-enabled || '' }}
-          expected-bun-version: ${{ matrix.expected-bun-version || '' }}
-          expected-package-manager: ${{ matrix.expected-package-manager || '' }}
-
-      - name: Test runtime
-        if: matrix.test-command != ''
-        continue-on-error: true
-        run: ${{ matrix.test-command }}
-
-      - name: Verify lockfile
-        id: verify-lockfile
-        if: matrix.verify-lockfile != ''
-        continue-on-error: true
-        shell: python
-        run: |
-          import os
-          import sys
-          from pathlib import Path
-
-          lockfile = "${{ matrix.verify-lockfile }}"
-          github_output = Path(os.environ["GITHUB_OUTPUT"])
-
-          if not Path(lockfile).is_file():
-              with open(github_output, "a") as f:
-                  f.write("lockfile-verified=false\n")
-              sys.exit(1)
-
-          with open(github_output, "a") as f:
-              f.write("lockfile-verified=true\n")
-
-      - name: Save test results
-        if: always()
-        shell: python
-        run: |
-          import json
-          import os
-          import traceback
-          from pathlib import Path
-
-          try:
-              # Get outputs from GitHub Actions
-              passed = "${{ steps.test.outputs.test-passed }}" or "false"
-              results_str = r'''${{ steps.test.outputs.test-results }}''' or "{}"
-              lockfile_verified = "${{ steps.verify-lockfile.outputs.lockfile-verified || 'n/a' }}"
-
-              # Parse results JSON - ensure it's always a dict
-              results = json.loads(results_str)
-              if not isinstance(results, dict):
-                  results = {}
-
-              # Extract error from results if present
-              error = results.get("error", "") if isinstance(results, dict) else ""
-
-              # Build final JSON
-              output = {
-                  "name": "${{ matrix.name }}-${{ matrix.os }}",
-                  "os": "${{ matrix.os }}",
-                  "test_name": "${{ matrix.name }}",
-                  "title": "${{ matrix.title }}",
-                  "fixture": "${{ matrix.fixture }}",
-                  "passed": passed == "true" if not error else False,
-                  "results": results if not error else {},
-                  "lockfile_verified": lockfile_verified,
-                  "no_modules_verified": "n/a",
-                  "error": error
-              }
-
-              # Write to file (slugify name to avoid spaces in filenames)
-              Path("test-results").mkdir(exist_ok=True)
-              safe_name = "${{ matrix.name }}".replace(" ", "-").lower()
-              output_file = Path("test-results") / f"{safe_name}-${{ matrix.os }}.json"
-              output_file.write_text(json.dumps(output, indent=2))
-
-          except Exception as e:
-              # Error handling - create error JSON
-              print(f"::error::Failed to save test results: {e}")
-              traceback.print_exc()
-
-              Path("test-results").mkdir(exist_ok=True)
-              error_output = {
-                  "name": "${{ matrix.name }}-${{ matrix.os }}",
-                  "os": "${{ matrix.os }}",
-                  "test_name": "${{ matrix.name }}",
-                  "title": "${{ matrix.title }}",
-                  "fixture": "${{ matrix.fixture }}",
-                  "passed": False,
-                  "results": {},
-                  "lockfile_verified": "n/a",
-                  "no_modules_verified": "n/a",
-                  "error": str(e)
-              }
-              safe_name = "${{ matrix.name }}".replace(" ", "-").lower()
-              output_file = Path("test-results") / f"{safe_name}-${{ matrix.os }}.json"
-              output_file.write_text(json.dumps(error_output, indent=2))
-
-      - name: Upload test results
-        if: always()
-        uses: actions/upload-artifact@v5
-        with:
-          name: test-results-bun-${{ matrix.os }}-${{ strategy.job-index }}
-          path: test-results/
-          retention-days: 1
-
-      - name: Fail job if test failed
-        if: always() && (steps.test.outputs.test-passed == 'false' || steps.test.outputs.test-passed == '')
-        shell: python
-        run: |
-          import sys
-
-          print("::group::Test Failure Details")
-          print("Test Step Outcome: ${{ steps.test.outcome }}")
-          print("Test Step Conclusion: ${{ steps.test.conclusion }}")
-          print("Test Passed Output: '${{ steps.test.outputs.test-passed }}'")
-          print("::endgroup::")
-
-          # Determine failure reason
-          outcome = "${{ steps.test.outcome }}"
-          test_passed = "${{ steps.test.outputs.test-passed }}"
-
-          if outcome == "failure":
-              print("::error::Test fixture step failed - check logs above for details")
-          elif test_passed == "false":
-              print("::error::Tests ran but failed - check test results above")
-          elif not test_passed:
-              print("::error::Test fixture did not complete - no test-passed output set")
-          else:
-              print("::error::Unknown test failure - check logs above")
-
-          sys.exit(1)
-
-  # ============================================================================
-  # Deno Tests
-  # ============================================================================
-  test-deno:
-    name: Deno - ${{ matrix.name }} (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        include:
-          - name: Explicit Input
-            fixture: deno-minimal
-            deno-version: "1.3.3"
-            package-manager: deno
-            package-manager-version: "1.3.3"
-            expected-deno-enabled: "true"
-            expected-package-manager: deno
-            expected-package-manager-version: "1.3.3"
-            expected-deno-version: "1.3.3"
-            test-command: "deno --version && deno run main.ts"
-            title: "🦕 Deno Explicit Input Test Results"
-
-          - name: From devEngines
-            fixture: deno-lockfile
-            expected-deno-enabled: "true"
-            expected-package-manager: npm
-            expected-deno-version: "2.5.6"
-            test-command: "deno run app.ts"
-            title: "📦 Deno from devEngines Test Results"
-
-          - name: Explicit Version
-            fixture: deno-minimal
-            package-manager: deno
-            package-manager-version: "1.3.3"
-            deno-version: "1.3.3"
-            expected-deno-enabled: "true"
-            expected-deno-version: "1.3.3"
-            expected-package-manager: deno
-            test-command: "deno --version && deno run test.ts"
-            title: "🎯 Deno Explicit Version Test Results"
-
-          - name: Lockfile
-            fixture: deno-lockfile
-            package-manager: deno
-            package-manager-version: "2.5.6"
-            deno-version: "2.5.6"
-            test-command: "deno run main.ts"
-            verify-lockfile: deno.lock
-            expected-deno-enabled: "true"
-            expected-deno-version: "2.5.6"
-            expected-package-manager: deno
-            title: "🔒 Deno Lockfile Test Results"
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Test fixture
-        id: test
-        continue-on-error: true
-        uses: ./.github/actions/test-fixture
-        with:
-          fixture: ${{ matrix.fixture }}
-          title: ${{ matrix.title }}
-          package-manager: ${{ matrix.package-manager || '' }}
-          deno-version: ${{ matrix.deno-version || '' }}
-          install-deps: "true"
-          expected-deno-enabled: ${{ matrix.expected-deno-enabled || '' }}
-          expected-deno-version: ${{ matrix.expected-deno-version || '' }}
-          expected-package-manager: ${{ matrix.expected-package-manager || '' }}
-
-      - name: Test runtime
-        if: matrix.test-command != ''
-        continue-on-error: true
-        run: ${{ matrix.test-command }}
-
-      - name: Verify lockfile
-        id: verify-lockfile
-        if: matrix.verify-lockfile != ''
-        continue-on-error: true
-        shell: python
-        run: |
-          import os
-          import sys
-          from pathlib import Path
-
-          lockfile = "${{ matrix.verify-lockfile }}"
-          github_output = Path(os.environ["GITHUB_OUTPUT"])
-
-          if not Path(lockfile).is_file():
-              with open(github_output, "a") as f:
-                  f.write("lockfile-verified=false\n")
-              sys.exit(1)
-
-          with open(github_output, "a") as f:
-              f.write("lockfile-verified=true\n")
-
-      - name: Save test results
-        if: always()
-        shell: python
-        run: |
-          import json
-          import os
-          import traceback
-          from pathlib import Path
-
-          try:
-              # Get outputs from GitHub Actions
-              passed = "${{ steps.test.outputs.test-passed }}" or "false"
-              results_str = r'''${{ steps.test.outputs.test-results }}''' or "{}"
-              lockfile_verified = "${{ steps.verify-lockfile.outputs.lockfile-verified || 'n/a' }}"
-
-              # Parse results JSON - ensure it's always a dict
-              results = json.loads(results_str)
-              if not isinstance(results, dict):
-                  results = {}
-
-              # Extract error from results if present
-              error = results.get("error", "") if isinstance(results, dict) else ""
-
-              # Build final JSON
-              output = {
-                  "name": "${{ matrix.name }}-${{ matrix.os }}",
-                  "os": "${{ matrix.os }}",
-                  "test_name": "${{ matrix.name }}",
-                  "title": "${{ matrix.title }}",
-                  "fixture": "${{ matrix.fixture }}",
-                  "passed": passed == "true" if not error else False,
-                  "results": results if not error else {},
-                  "lockfile_verified": lockfile_verified,
-                  "no_modules_verified": "n/a",
-                  "error": error
-              }
-
-              # Write to file (slugify name to avoid spaces in filenames)
-              Path("test-results").mkdir(exist_ok=True)
-              safe_name = "${{ matrix.name }}".replace(" ", "-").lower()
-              output_file = Path("test-results") / f"{safe_name}-${{ matrix.os }}.json"
-              output_file.write_text(json.dumps(output, indent=2))
-
-          except Exception as e:
-              # Error handling - create error JSON
-              print(f"::error::Failed to save test results: {e}")
-              traceback.print_exc()
-
-              Path("test-results").mkdir(exist_ok=True)
-              error_output = {
-                  "name": "${{ matrix.name }}-${{ matrix.os }}",
-                  "os": "${{ matrix.os }}",
-                  "test_name": "${{ matrix.name }}",
-                  "title": "${{ matrix.title }}",
-                  "fixture": "${{ matrix.fixture }}",
-                  "passed": False,
-                  "results": {},
-                  "lockfile_verified": "n/a",
-                  "no_modules_verified": "n/a",
-                  "error": str(e)
-              }
-              safe_name = "${{ matrix.name }}".replace(" ", "-").lower()
-              output_file = Path("test-results") / f"{safe_name}-${{ matrix.os }}.json"
-              output_file.write_text(json.dumps(error_output, indent=2))
-
-      - name: Upload test results
-        if: always()
-        uses: actions/upload-artifact@v5
-        with:
-          name: test-results-deno-${{ matrix.os }}-${{ strategy.job-index }}
-          path: test-results/
-          retention-days: 1
-
-      - name: Fail job if test failed
-        if: always() && (steps.test.outputs.test-passed == 'false' || steps.test.outputs.test-passed == '')
-        shell: python
-        run: |
-          import sys
-
-          print("::group::Test Failure Details")
-          print("Test Step Outcome: ${{ steps.test.outcome }}")
-          print("Test Step Conclusion: ${{ steps.test.conclusion }}")
-          print("Test Passed Output: '${{ steps.test.outputs.test-passed }}'")
-          print("::endgroup::")
-
-          # Determine failure reason
-          outcome = "${{ steps.test.outcome }}"
-          test_passed = "${{ steps.test.outputs.test-passed }}"
-
-          if outcome == "failure":
-              print("::error::Test fixture step failed - check logs above for details")
-          elif test_passed == "false":
-              print("::error::Tests ran but failed - check test results above")
-          elif not test_passed:
-              print("::error::Test fixture did not complete - no test-passed output set")
-          else:
-              print("::error::Unknown test failure - check logs above")
-
-          sys.exit(1)
-
-  # ============================================================================
-  # Feature Tests
-  # ============================================================================
-  test-features:
-    name: Features - ${{ matrix.name }} (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        include:
-          - name: Biome from Config
-            fixture: biome-auto
-            expected-biome-enabled: "true"
-            expected-biome-version: "2.3.6"
-            test-command: "biome --version"
-            title: "🧬 Biome from Config Test Results"
-
-          - name: Biome Explicit Version
-            fixture: node-npm
-            biome-version: "2.3.6"
-            expected-biome-enabled: "true"
-            expected-biome-version: "2.3.6"
-            test-command: "biome --version"
-            title: "🎯 Biome Explicit Version Test Results"
-
-          - name: Turbo Detection
-            fixture: turbo-monorepo
-            expected-turbo-enabled: "true"
-            test-command: "echo 'Turbo detected'"
-            title: "⚡ Turbo Detection Test Results"
-
-          - name: Skip Dependencies
-            fixture: cache-test
-            install-deps: "false"
-            test-command: "node --version && npm --version"
-            verify-no-node-modules: "true"
-            title: "🚫 Skip Dependencies Test Results"
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Test fixture
-        id: test
-        continue-on-error: true
-        uses: ./.github/actions/test-fixture
-        with:
-          fixture: ${{ matrix.fixture }}
-          title: ${{ matrix.title }}
-          biome-version: ${{ matrix.biome-version || '' }}
-          install-deps: ${{ matrix.install-deps || 'true' }}
-          expected-biome-enabled: ${{ matrix.expected-biome-enabled || '' }}
-          expected-biome-version: ${{ matrix.expected-biome-version || '' }}
-          expected-turbo-enabled: ${{ matrix.expected-turbo-enabled || '' }}
-
-      - name: Test runtime
-        if: matrix.test-command != ''
-        continue-on-error: true
-        run: ${{ matrix.test-command }}
-
-      - name: Verify no node_modules
-        id: verify-no-modules
-        if: matrix.verify-no-node-modules == 'true'
-        continue-on-error: true
-        shell: python
-        run: |
-          import os
-          import sys
-          from pathlib import Path
-
-          github_output = Path(os.environ["GITHUB_OUTPUT"])
-
-          if Path("node_modules").is_dir():
-              with open(github_output, "a") as f:
-                  f.write("no-modules-verified=false\n")
-              sys.exit(1)
-
-          with open(github_output, "a") as f:
-              f.write("no-modules-verified=true\n")
-
-      - name: Save test results
-        if: always()
-        shell: python
-        run: |
-          import json
-          import os
-          import traceback
-          from pathlib import Path
-
-          try:
-              # Get outputs from GitHub Actions
-              passed = "${{ steps.test.outputs.test-passed }}" or "false"
-              results_str = r'''${{ steps.test.outputs.test-results }}''' or "{}"
-              lockfile_verified = "${{ steps.verify-lockfile.outputs.lockfile-verified || 'n/a' }}"
-              no_modules = "${{ steps.verify-no-modules.outputs.no-modules-verified || 'n/a' }}"
-
-              # Parse results JSON - ensure it's always a dict
-              results = json.loads(results_str)
-              if not isinstance(results, dict):
-                  results = {}
-
-              # Check verifications for overall pass/fail
-              if no_modules != "n/a" and no_modules != "true":
-                  passed = "false"
-              if lockfile_verified != "n/a" and lockfile_verified != "true":
-                  passed = "false"
-
-              # Add no_modules_verified to results if it was checked
-              if no_modules != "n/a":
-                  status = "passed" if no_modules == "true" else "failed"
-                  results["no-node-modules"] = {
-                      "actual": no_modules,
-                      "expected": "true",
-                      "status": status
-                  }
-
-              # Build final JSON
-              output = {
-                  "name": "${{ matrix.name }}-${{ matrix.os }}",
-                  "os": "${{ matrix.os }}",
-                  "test_name": "${{ matrix.name }}",
-                  "title": "${{ matrix.title }}",
-                  "fixture": "${{ matrix.fixture }}",
-                  "passed": passed == "true",
-                  "results": results,
-                  "lockfile_verified": lockfile_verified,
-                  "no_modules_verified": no_modules,
-                  "error": ""
-              }
-
-              # Write to file (slugify name to avoid spaces in filenames)
-              Path("test-results").mkdir(exist_ok=True)
-              safe_name = "${{ matrix.name }}".replace(" ", "-").lower()
-              output_file = Path("test-results") / f"{safe_name}-${{ matrix.os }}.json"
-              output_file.write_text(json.dumps(output, indent=2))
-
-          except Exception as e:
-              # Error handling - create error JSON
-              print(f"::error::Failed to save test results: {e}")
-              traceback.print_exc()
-
-              Path("test-results").mkdir(exist_ok=True)
-              error_output = {
-                  "name": "${{ matrix.name }}-${{ matrix.os }}",
-                  "os": "${{ matrix.os }}",
-                  "test_name": "${{ matrix.name }}",
-                  "title": "${{ matrix.title }}",
-                  "fixture": "${{ matrix.fixture }}",
-                  "passed": False,
-                  "results": {},
-                  "lockfile_verified": "n/a",
-                  "no_modules_verified": "n/a",
-                  "error": str(e)
-              }
-              safe_name = "${{ matrix.name }}".replace(" ", "-").lower()
-              output_file = Path("test-results") / f"{safe_name}-${{ matrix.os }}.json"
-              output_file.write_text(json.dumps(error_output, indent=2))
-
-      - name: Upload test results
-        if: always()
-        uses: actions/upload-artifact@v5
-        with:
-          name: test-results-features-${{ matrix.os }}-${{ strategy.job-index }}
-          path: test-results/
-          retention-days: 1
-
-      - name: Fail job if test failed
-        if: always() && (steps.test.outputs.test-passed == 'false' || steps.test.outputs.test-passed == '')
-        shell: python
-        run: |
-          import sys
-
-          print("::group::Test Failure Details")
-          print("Test Step Outcome: ${{ steps.test.outcome }}")
-          print("Test Step Conclusion: ${{ steps.test.conclusion }}")
-          print("Test Passed Output: '${{ steps.test.outputs.test-passed }}'")
-          print("::endgroup::")
-
-          # Determine failure reason
-          outcome = "${{ steps.test.outcome }}"
-          test_passed = "${{ steps.test.outputs.test-passed }}"
-
-          if outcome == "failure":
-              print("::error::Test fixture step failed - check logs above for details")
-          elif test_passed == "false":
-              print("::error::Tests ran but failed - check test results above")
-          elif not test_passed:
-              print("::error::Test fixture did not complete - no test-passed output set")
-          else:
-              print("::error::Unknown test failure - check logs above")
-
-          sys.exit(1)
-
-  # ============================================================================
   # Test Summary
   # ============================================================================
   summary:
     name: Test Summary
     runs-on: ubuntu-latest
-    needs: [test-node, test-bun, test-deno, test-features]
+    needs: [test-node]
     if: always()
     steps:
       - name: Download all test results
