@@ -100,16 +100,19 @@ jobs:
             echo "::error::Test outputs - passed: '${{ steps.test.outputs.test-passed }}', results: '${{ steps.test.outputs.test-results }}'"
             # Create error JSON file so we still have something to upload
             mkdir -p test-results
-            cat > "test-results/${{ matrix.name }}.json" <<'ERROR_EOF'
-          {
-            "name": "${{ matrix.name }}",
-            "title": "${{ matrix.title }}",
-            "fixture": "${{ matrix.fixture }}",
-            "passed": false,
-            "error": "Failed to save test results at line $1: $2 (exit code $3)",
-            "results": {}
-          }
-          ERROR_EOF
+            jq -n \
+              --arg name "${{ matrix.name }}" \
+              --arg title "${{ matrix.title }}" \
+              --arg fixture "${{ matrix.fixture }}" \
+              --arg error "Failed to save test results at line $1: $2 (exit code $3)" \
+              '{
+                name: $name,
+                title: $title,
+                fixture: $fixture,
+                passed: false,
+                error: $error,
+                results: {}
+              }' > "test-results/${{ matrix.name }}.json" 2>/dev/null || echo '{"name":"error","passed":false}' > "test-results/${{ matrix.name }}.json"
             exit 0
           }
 
@@ -123,15 +126,20 @@ jobs:
           PASSED="${PASSED:-false}"
           RESULTS="${RESULTS:-{}}"
 
-          cat > "test-results/${{ matrix.name }}.json" <<EOF
-          {
-            "name": "${{ matrix.name }}",
-            "title": "${{ matrix.title }}",
-            "fixture": "${{ matrix.fixture }}",
-            "passed": $PASSED,
-            "results": $RESULTS
-          }
-          EOF
+          # Use jq to build JSON properly (handles escaping automatically)
+          jq -n \
+            --arg name "${{ matrix.name }}" \
+            --arg title "${{ matrix.title }}" \
+            --arg fixture "${{ matrix.fixture }}" \
+            --argjson passed "$PASSED" \
+            --argjson results "$RESULTS" \
+            '{
+              name: $name,
+              title: $title,
+              fixture: $fixture,
+              passed: $passed,
+              results: $results
+            }' > "test-results/${{ matrix.name }}.json"
 
       - name: Upload test results
         if: always()
@@ -246,16 +254,19 @@ jobs:
             echo "::error::Test outputs - passed: '${{ steps.test.outputs.test-passed }}', results: '${{ steps.test.outputs.test-results }}'"
             # Create error JSON file so we still have something to upload
             mkdir -p test-results
-            cat > "test-results/${{ matrix.name }}.json" <<'ERROR_EOF'
-          {
-            "name": "${{ matrix.name }}",
-            "title": "${{ matrix.title }}",
-            "fixture": "${{ matrix.fixture }}",
-            "passed": false,
-            "error": "Failed to save test results at line $1: $2 (exit code $3)",
-            "results": {}
-          }
-          ERROR_EOF
+            jq -n \
+              --arg name "${{ matrix.name }}" \
+              --arg title "${{ matrix.title }}" \
+              --arg fixture "${{ matrix.fixture }}" \
+              --arg error "Failed to save test results at line $1: $2 (exit code $3)" \
+              '{
+                name: $name,
+                title: $title,
+                fixture: $fixture,
+                passed: false,
+                error: $error,
+                results: {}
+              }' > "test-results/${{ matrix.name }}.json" 2>/dev/null || echo '{"name":"error","passed":false}' > "test-results/${{ matrix.name }}.json"
             exit 0
           }
 
@@ -269,16 +280,22 @@ jobs:
           PASSED="${PASSED:-false}"
           RESULTS="${RESULTS:-{}}"
 
-          cat > "test-results/${{ matrix.name }}.json" <<EOF
-          {
-            "name": "${{ matrix.name }}",
-            "title": "${{ matrix.title }}",
-            "fixture": "${{ matrix.fixture }}",
-            "passed": $PASSED,
-            "lockfile_verified": "${{ steps.verify-lockfile.outputs.lockfile-verified || 'n/a' }}",
-            "results": $RESULTS
-          }
-          EOF
+          # Use jq to build JSON properly (handles escaping automatically)
+          jq -n \
+            --arg name "${{ matrix.name }}" \
+            --arg title "${{ matrix.title }}" \
+            --arg fixture "${{ matrix.fixture }}" \
+            --argjson passed "$PASSED" \
+            --arg lockfile_verified "${{ steps.verify-lockfile.outputs.lockfile-verified || 'n/a' }}" \
+            --argjson results "$RESULTS" \
+            '{
+              name: $name,
+              title: $title,
+              fixture: $fixture,
+              passed: $passed,
+              lockfile_verified: $lockfile_verified,
+              results: $results
+            }' > "test-results/${{ matrix.name }}.json"
 
       - name: Upload test results
         if: always()
@@ -413,16 +430,19 @@ jobs:
             echo "::error::Test outputs - passed: '${{ steps.test.outputs.test-passed }}', results: '${{ steps.test.outputs.test-results }}'"
             # Create error JSON file so we still have something to upload
             mkdir -p test-results
-            cat > "test-results/${{ matrix.name }}.json" <<'ERROR_EOF'
-          {
-            "name": "${{ matrix.name }}",
-            "title": "${{ matrix.title }}",
-            "fixture": "${{ matrix.fixture }}",
-            "passed": false,
-            "error": "Failed to save test results at line $1: $2 (exit code $3)",
-            "results": {}
-          }
-          ERROR_EOF
+            jq -n \
+              --arg name "${{ matrix.name }}" \
+              --arg title "${{ matrix.title }}" \
+              --arg fixture "${{ matrix.fixture }}" \
+              --arg error "Failed to save test results at line $1: $2 (exit code $3)" \
+              '{
+                name: $name,
+                title: $title,
+                fixture: $fixture,
+                passed: false,
+                error: $error,
+                results: {}
+              }' > "test-results/${{ matrix.name }}.json" 2>/dev/null || echo '{"name":"error","passed":false}' > "test-results/${{ matrix.name }}.json"
             exit 0
           }
 
@@ -436,16 +456,22 @@ jobs:
           PASSED="${PASSED:-false}"
           RESULTS="${RESULTS:-{}}"
 
-          cat > "test-results/${{ matrix.name }}.json" <<EOF
-          {
-            "name": "${{ matrix.name }}",
-            "title": "${{ matrix.title }}",
-            "fixture": "${{ matrix.fixture }}",
-            "passed": $PASSED,
-            "lockfile_verified": "${{ steps.verify-lockfile.outputs.lockfile-verified || 'n/a' }}",
-            "results": $RESULTS
-          }
-          EOF
+          # Use jq to build JSON properly (handles escaping automatically)
+          jq -n \
+            --arg name "${{ matrix.name }}" \
+            --arg title "${{ matrix.title }}" \
+            --arg fixture "${{ matrix.fixture }}" \
+            --argjson passed "$PASSED" \
+            --arg lockfile_verified "${{ steps.verify-lockfile.outputs.lockfile-verified || 'n/a' }}" \
+            --argjson results "$RESULTS" \
+            '{
+              name: $name,
+              title: $title,
+              fixture: $fixture,
+              passed: $passed,
+              lockfile_verified: $lockfile_verified,
+              results: $results
+            }' > "test-results/${{ matrix.name }}.json"
 
       - name: Upload test results
         if: always()
@@ -564,16 +590,19 @@ jobs:
             echo "::error::Test outputs - passed: '${{ steps.test.outputs.test-passed }}', results: '${{ steps.test.outputs.test-results }}'"
             # Create error JSON file so we still have something to upload
             mkdir -p test-results
-            cat > "test-results/${{ matrix.name }}.json" <<'ERROR_EOF'
-          {
-            "name": "${{ matrix.name }}",
-            "title": "${{ matrix.title }}",
-            "fixture": "${{ matrix.fixture }}",
-            "passed": false,
-            "error": "Failed to save test results at line $1: $2 (exit code $3)",
-            "results": {}
-          }
-          ERROR_EOF
+            jq -n \
+              --arg name "${{ matrix.name }}" \
+              --arg title "${{ matrix.title }}" \
+              --arg fixture "${{ matrix.fixture }}" \
+              --arg error "Failed to save test results at line $1: $2 (exit code $3)" \
+              '{
+                name: $name,
+                title: $title,
+                fixture: $fixture,
+                passed: false,
+                error: $error,
+                results: {}
+              }' > "test-results/${{ matrix.name }}.json" 2>/dev/null || echo '{"name":"error","passed":false}' > "test-results/${{ matrix.name }}.json"
             exit 0
           }
 
@@ -595,23 +624,29 @@ jobs:
 
           # Add no_modules_verified to results if it was checked
           if [ "$NO_MODULES" != "n/a" ]; then
-            # Remove trailing } from RESULTS and add the new field
-            RESULTS="${RESULTS%\}}"
-            if [ "$RESULTS" != "{" ]; then
-              RESULTS="$RESULTS,"
-            fi
-            RESULTS="$RESULTS\"no-node-modules\":{\"actual\":\"$NO_MODULES\",\"expected\":\"true\",\"status\":\"$( [ "$NO_MODULES" = "true" ] && echo "passed" || echo "failed" )\"}"
+            # Use jq to add the no-node-modules field to results
+            STATUS=$([ "$NO_MODULES" = "true" ] && echo "passed" || echo "failed")
+            RESULTS=$(echo "$RESULTS" | jq \
+              --arg actual "$NO_MODULES" \
+              --arg expected "true" \
+              --arg status "$STATUS" \
+              '. + {"no-node-modules": {actual: $actual, expected: $expected, status: $status}}')
           fi
 
-          cat > "test-results/${{ matrix.name }}.json" <<EOF
-          {
-            "name": "${{ matrix.name }}",
-            "title": "${{ matrix.title }}",
-            "fixture": "${{ matrix.fixture }}",
-            "passed": $PASSED,
-            "results": $RESULTS
-          }
-          EOF
+          # Use jq to build final JSON properly (handles escaping automatically)
+          jq -n \
+            --arg name "${{ matrix.name }}" \
+            --arg title "${{ matrix.title }}" \
+            --arg fixture "${{ matrix.fixture }}" \
+            --argjson passed "$PASSED" \
+            --argjson results "$RESULTS" \
+            '{
+              name: $name,
+              title: $title,
+              fixture: $fixture,
+              passed: $passed,
+              results: $results
+            }' > "test-results/${{ matrix.name }}.json"
 
       - name: Upload test results
         if: always()
