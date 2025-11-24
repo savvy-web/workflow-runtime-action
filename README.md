@@ -119,7 +119,7 @@ All inputs are optional. The action uses auto-detection if not provided.
 ```yaml
 # Automatically detects Node.js version and pnpm from package.json
 - uses: savvy-web/workflow-runtime-action@v1
-- run: pnpm test
+- run: pnpm ci:test
 ```
 
 ### 🎭 Multi-Runtime Project
@@ -129,10 +129,10 @@ All inputs are optional. The action uses auto-detection if not provided.
 - uses: savvy-web/workflow-runtime-action@v1
 
 - name: Test with Node.js
-  run: npm test
+  run: npm ci:test
 
 - name: Test with Deno
-  run: deno test
+  run: deno ci:test
 ```
 
 ### 🛠️ Custom Dependency Installation
@@ -212,8 +212,17 @@ lockfile:
 * 🖥️ **Platform-specific** cache paths for each package manager
 * 🔄 **Restore keys** for partial cache hits
 * ⚡ **Automatic setup** - no configuration needed
+* 🦀 **Polyglot support** - Cache Rust, Python, Go dependencies alongside JavaScript
 
 Cache hit status is available in the `cache-hit` output.
+
+📚 **See [Caching Strategy Documentation](docs/CACHING.md)** for:
+
+* How cache keys are generated
+* Default lockfiles and cache paths for each package manager
+* Caching Rust/Cargo, Python, and Go dependencies
+* Advanced caching strategies for monorepos
+* Debugging cache issues
 
 ## 🔧 Troubleshooting
 

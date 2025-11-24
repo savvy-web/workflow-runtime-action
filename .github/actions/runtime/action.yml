@@ -43,7 +43,7 @@ inputs:
     required: false
     default: "true"
   cache-hash:
-    description: "Optional cache hash suffix for testing cache behavior. Example: '${{ github.job }}-${{ github.run_id }}'. Only use for testing - do not use in production!"
+    description: "Optional cache hash suffix for testing cache behavior. Example: 'test-job-12345'. Only use for testing - do not use in production!"
     required: false
     default: ""
   additional-lockfiles:

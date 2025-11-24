@@ -241,7 +241,7 @@ async function getCacheConfig(packageManager: PackageManager): Promise<CacheConf
 	let lockFilePatterns: string[];
 	switch (packageManager) {
 		case "npm":
-			lockFilePatterns = ["**/package-lock.json"];
+			lockFilePatterns = ["**/package-lock.json", "**/npm-shrinkwrap.json"];
 			break;
 		case "pnpm":
 			lockFilePatterns = ["**/pnpm-lock.yaml", "**/pnpm-workspace.yaml", "**/.pnpmfile.cjs"];
@@ -251,7 +251,8 @@ async function getCacheConfig(packageManager: PackageManager): Promise<CacheConf
 			lockFilePatterns = ["**/yarn.lock", "**/.pnp.cjs", "**/.yarn/install-state.gz"];
 			break;
 		case "bun":
-			lockFilePatterns = ["**/bun.lock"];
+			// Bun uses bun.lock (new style) and bun.lockb (older style)
+			lockFilePatterns = ["**/bun.lock", "**/bun.lockb"];
 			break;
 		case "deno":
 			lockFilePatterns = ["**/deno.lock"];
@@ -288,7 +289,7 @@ async function findLockFiles(patterns: string[]): Promise<string[]> {
  * Generates a hash from file contents
  *
  * @param files - Array of file paths to hash
- * @returns SHA256 hash of the combined file contents
+ * @returns Truncated SHA256 hash (8 chars) of the combined file contents
  */
 async function hashFiles(files: string[]): Promise<string> {
 	const hash = createHash("sha256");
@@ -302,7 +303,9 @@ async function hashFiles(files: string[]): Promise<string> {
 		}
 	}
 
-	return hash.digest("hex");
+	// Use first 8 characters for shorter, more readable cache keys
+	// 8 hex chars = 4.3 billion possibilities, collision risk is negligible for repo-scoped cache
+	return hash.digest("hex").substring(0, 8);
 }
 
 /**
@@ -400,9 +403,16 @@ async function getCombinedCacheConfig(
 		core.info(`Additional cache paths: ${additionalCachePaths.join(", ")}`);
 	}
 
-	// Convert Sets back to arrays
-	const cachePaths = Array.from(cachePathsSet);
-	const lockFilePatterns = Array.from(lockFilePatternsSet);
+	// Convert Sets back to arrays and sort for consistency
+	// Sort with absolute paths first, then glob patterns for better readability
+	const sortPathsWithAbsoluteFirst = (paths: string[]): string[] => {
+		const absolute = paths.filter((p) => !p.startsWith("*")).sort();
+		const globs = paths.filter((p) => p.startsWith("*")).sort();
+		return [...absolute, ...globs];
+	};
+
+	const cachePaths = sortPathsWithAbsoluteFirst(Array.from(cachePathsSet));
+	const lockFilePatterns = sortPathsWithAbsoluteFirst(Array.from(lockFilePatternsSet));
 
 	return {
 		cachePaths,
@@ -417,7 +427,7 @@ async function getCombinedCacheConfig(
  * @param packageManager - Package manager name
  * @param packageManagerVersion - Package manager version
  * @param cacheHash - Optional cache hash (for testing, typically github.run_id)
- * @returns Hash string
+ * @returns Truncated hash string (8 chars)
  */
 function generateVersionHash(
 	runtimeVersions: RuntimeVersions,
@@ -443,7 +453,9 @@ function generateVersionHash(
 	// Add package manager
 	hash.update(`${packageManager}:${packageManagerVersion}`);
 
-	return hash.digest("hex");
+	// Use first 8 characters for shorter, more readable cache keys
+	// 8 hex chars = 4.3 billion possibilities, collision risk is negligible for repo-scoped cache
+	return hash.digest("hex").substring(0, 8);
 }
 
 /**
