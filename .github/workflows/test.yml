@@ -31,7 +31,7 @@ jobs:
   # Node.js Tests
   # ============================================================================
   test-node:
-    name: Node.js | ${{ matrix.name }} | (${{ matrix.os }})
+    name: node | ${{ matrix.name }} | ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -45,6 +45,15 @@ jobs:
             expected-node-version: "20.11.0"
             expected-package-manager: npm
             expected-package-manager-version: "11.6.0"
+            expected-deno-enabled: "false"
+            expected-deno-version: ""
+            expected-bun-enabled: "false"
+            expected-bun-version: ""
+            expected-biome-enabled: "false"
+            expected-biome-version: ""
+            expected-first-run-cache-hit: "false"
+            expected-second-run-cache-hit: "true"
+            expected-dependencies-installed: "true"
             test-command: "node --version && npm --version"
             title: "📦 NPM Test Results"
 
@@ -52,7 +61,18 @@ jobs:
             fixture: node-pnpm
             test-cache: "true"
             expected-node-enabled: "true"
+            expected-node-version: "20.11.0"
             expected-package-manager: pnpm
+            expected-package-manager-version: "10.20.0"
+            expected-deno-enabled: "false"
+            expected-deno-version: ""
+            expected-bun-enabled: "false"
+            expected-bun-version: ""
+            expected-biome-enabled: "false"
+            expected-biome-version: ""
+            expected-first-run-cache-hit: "false"
+            expected-second-run-cache-hit: "true"
+            expected-dependencies-installed: "true"
             test-command: "node --version && pnpm --version"
             title: "📦 PNPM Test Results"
 
@@ -60,7 +80,18 @@ jobs:
             fixture: node-yarn
             test-cache: "true"
             expected-node-enabled: "true"
+            expected-node-version: "20.11.0"
             expected-package-manager: yarn
+            expected-package-manager-version: "4.0.0"
+            expected-deno-enabled: "false"
+            expected-deno-version: ""
+            expected-bun-enabled: "false"
+            expected-bun-version: ""
+            expected-biome-enabled: "false"
+            expected-biome-version: ""
+            expected-first-run-cache-hit: "false"
+            expected-second-run-cache-hit: "true"
+            expected-dependencies-installed: "true"
             test-command: "node --version && yarn --version"
             title: "📦 Yarn Test Results"
 
