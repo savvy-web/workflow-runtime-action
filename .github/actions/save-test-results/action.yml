@@ -1,0 +1,113 @@
+name: Save Test Results
+description: Save test results to JSON file for aggregation
+
+inputs:
+  test-passed:
+    description: Test passed output from test-fixture
+    required: true
+  test-results:
+    description: Test results JSON from test-fixture
+    required: true
+  test-name:
+    description: Test name for the results file
+    required: true
+  os:
+    description: Operating system
+    required: true
+  title:
+    description: Test title
+    required: true
+  fixture:
+    description: Fixture name
+    required: true
+  runtime:
+    description: Runtime name (optional, for explicit-inputs tests)
+    required: false
+  lockfile-verified:
+    description: Lockfile verification status
+    required: false
+    default: "n/a"
+  no-modules-verified:
+    description: No modules verification status
+    required: false
+    default: "n/a"
+
+runs:
+  using: composite
+  steps:
+    - name: Save test results
+      if: always()
+      shell: python
+      run: |
+        import json
+        import os
+        import traceback
+        from pathlib import Path
+
+        try:
+            # Get outputs from GitHub Actions
+            passed = "${{ inputs.test-passed }}" or "false"
+            results_str = r'''${{ inputs.test-results }}''' or "{}"
+
+            # Parse results JSON - ensure it's always a dict
+            results = json.loads(results_str)
+            if not isinstance(results, dict):
+                results = {}
+
+            # Extract error from results if present
+            error = results.get("error", "") if isinstance(results, dict) else ""
+
+            # Build final JSON
+            test_name = "${{ inputs.test-name }}"
+            output = {
+                "name": f"{test_name}-${{ inputs.os }}",
+                "os": "${{ inputs.os }}",
+                "test_name": test_name,
+                "title": "${{ inputs.title }}",
+                "fixture": "${{ inputs.fixture }}",
+                "passed": passed == "true" if not error else False,
+                "results": results if not error else {},
+                "lockfile_verified": "${{ inputs.lockfile-verified }}",
+                "no_modules_verified": "${{ inputs.no-modules-verified }}",
+                "error": error
+            }
+
+            # Add runtime if provided
+            runtime = "${{ inputs.runtime }}"
+            if runtime:
+                output["runtime"] = runtime
+
+            # Write to file (slugify name to avoid spaces in filenames)
+            Path("test-results").mkdir(exist_ok=True)
+            safe_name = test_name.replace(" ", "-").lower()
+            output_file = Path("test-results") / f"{safe_name}-${{ inputs.os }}.json"
+            output_file.write_text(json.dumps(output, indent=2))
+
+        except Exception as e:
+            # Error handling - create error JSON
+            print(f"::error::Failed to save test results: {e}")
+            traceback.print_exc()
+
+            Path("test-results").mkdir(exist_ok=True)
+            test_name = "${{ inputs.test-name }}"
+            error_output = {
+                "name": f"{test_name}-${{ inputs.os }}",
+                "os": "${{ inputs.os }}",
+                "test_name": test_name,
+                "title": "${{ inputs.title }}",
+                "fixture": "${{ inputs.fixture }}",
+                "passed": False,
+                "results": {},
+                "lockfile_verified": "${{ inputs.lockfile-verified }}",
+                "no_modules_verified": "${{ inputs.no-modules-verified }}",
+                "error": str(e)
+            }
+
+            # Add runtime if provided
+            runtime = "${{ inputs.runtime }}"
+            if runtime:
+                error_output["runtime"] = runtime
+
+            safe_name = test_name.replace(" ", "-").lower()
+            output_file = Path("test-results") / f"{safe_name}-${{ inputs.os }}.json"
+            output_file.write_text(json.dumps(error_output, indent=2))

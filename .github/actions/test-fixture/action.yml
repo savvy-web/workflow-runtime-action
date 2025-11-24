@@ -86,6 +86,12 @@ inputs:
   expected-cache-hit:
     description: Expected cache hit status
     required: false
+  expected-lockfiles:
+    description: Expected lockfiles (comma-separated patterns or regex)
+    required: false
+  expected-cache-paths:
+    description: Expected cache paths (comma-separated patterns or regex)
+    required: false
 
   # Cache testing expectations
   expected-first-run-cache-hit:
@@ -468,6 +474,33 @@ runs:
                     "status": status,
                 }
 
+            def check_contains(key: str, actual: str, expected: str) -> None:
+                global failed
+                # Skip if no actual value
+                if not actual:
+                    return
+
+                # Determine status - check if all expected patterns are in actual
+                if expected:
+                    # Split expected by comma and check each pattern
+                    expected_patterns = [p.strip() for p in expected.split(",")]
+                    missing_patterns = [p for p in expected_patterns if p not in actual]
+
+                    if not missing_patterns:
+                        status = "passed"
+                    else:
+                        status = "failed"
+                        failed = True
+                else:
+                    status = "info"
+
+                # Add to results
+                results[key] = {
+                    "actual": actual,
+                    "expected": expected,
+                    "status": status,
+                }
+
             # Check outputs based on mode
             if test_cache == "true":
                 # Cache test mode - use first run outputs for standard checks
@@ -482,8 +515,8 @@ runs:
                 check_value("biome-version", "${{ steps.setup1.outputs.biome-version }}", "${{ inputs.expected-biome-version }}")
                 check_value("biome-enabled", "${{ steps.setup1.outputs.biome-enabled }}", "${{ inputs.expected-biome-enabled }}")
                 check_value("turbo-enabled", "${{ steps.setup1.outputs.turbo-enabled }}", "${{ inputs.expected-turbo-enabled }}")
-                check_value("lockfiles", r"${{ steps.setup1.outputs.lockfiles }}", "")
-                check_value("cache-paths", r"${{ steps.setup1.outputs.cache-paths }}", "")
+                check_contains("lockfiles", r"${{ steps.setup1.outputs.lockfiles }}", "${{ inputs.expected-lockfiles }}")
+                check_contains("cache-paths", r"${{ steps.setup1.outputs.cache-paths }}", "${{ inputs.expected-cache-paths }}")
 
                 # Cache-specific checks
                 check_value("first-run-cache-hit", "${{ steps.setup1.outputs.cache-hit }}", "${{ inputs.expected-first-run-cache-hit }}")
@@ -504,8 +537,8 @@ runs:
                 check_value("biome-enabled", "${{ steps.setup.outputs.biome-enabled }}", "${{ inputs.expected-biome-enabled }}")
                 check_value("turbo-enabled", "${{ steps.setup.outputs.turbo-enabled }}", "${{ inputs.expected-turbo-enabled }}")
                 check_value("cache-hit", "${{ steps.setup.outputs.cache-hit }}", "${{ inputs.expected-cache-hit }}")
-                check_value("lockfiles", r"${{ steps.setup.outputs.lockfiles }}", "")
-                check_value("cache-paths", r"${{ steps.setup.outputs.cache-paths }}", "")
+                check_contains("lockfiles", r"${{ steps.setup.outputs.lockfiles }}", "${{ inputs.expected-lockfiles }}")
+                check_contains("cache-paths", r"${{ steps.setup.outputs.cache-paths }}", "${{ inputs.expected-cache-paths }}")
 
             # Set outputs
             test_passed = "true" if not failed else "false"

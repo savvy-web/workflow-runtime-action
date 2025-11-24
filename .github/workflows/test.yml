@@ -138,69 +138,14 @@ jobs:
 
       - name: Save test results
         if: always()
-        shell: python
-        run: |
-          import json
-          import os
-          import traceback
-          from pathlib import Path
-
-          try:
-              # Get outputs from GitHub Actions
-              passed = "${{ steps.test.outputs.test-passed }}" or "false"
-              results_str = r'''${{ steps.test.outputs.test-results }}''' or "{}"
-
-              # Parse results JSON - ensure it's always a dict
-              results = json.loads(results_str)
-              if not isinstance(results, dict):
-                  results = {}
-
-              # Extract error from results if present
-              error = results.get("error", "") if isinstance(results, dict) else ""
-
-              # Build final JSON
-              test_name = "${{ matrix.pm }}-create-cache"
-              output = {
-                  "name": f"{test_name}-${{ matrix.os }}",
-                  "os": "${{ matrix.os }}",
-                  "test_name": test_name,
-                  "title": "${{ matrix.title }}",
-                  "fixture": "${{ matrix.fixture }}",
-                  "passed": passed == "true" if not error else False,
-                  "results": results if not error else {},
-                  "lockfile_verified": "n/a",
-                  "no_modules_verified": "n/a",
-                  "error": error
-              }
-
-              # Write to file (slugify name to avoid spaces in filenames)
-              Path("test-results").mkdir(exist_ok=True)
-              safe_name = test_name.replace(" ", "-").lower()
-              output_file = Path("test-results") / f"{safe_name}-${{ matrix.os }}.json"
-              output_file.write_text(json.dumps(output, indent=2))
-
-          except Exception as e:
-              # Error handling - create error JSON
-              print(f"::error::Failed to save test results: {e}")
-              traceback.print_exc()
-
-              Path("test-results").mkdir(exist_ok=True)
-              test_name = "${{ matrix.pm }}-create-cache"
-              error_output = {
-                  "name": f"{test_name}-${{ matrix.os }}",
-                  "os": "${{ matrix.os }}",
-                  "test_name": test_name,
-                  "title": "${{ matrix.title }}",
-                  "fixture": "${{ matrix.fixture }}",
-                  "passed": False,
-                  "results": {},
-                  "lockfile_verified": "n/a",
-                  "no_modules_verified": "n/a",
-                  "error": str(e)
-              }
-              safe_name = test_name.replace(" ", "-").lower()
-              output_file = Path("test-results") / f"{safe_name}-${{ matrix.os }}.json"
-              output_file.write_text(json.dumps(error_output, indent=2))
+        uses: ./.github/actions/save-test-results
+        with:
+          test-passed: ${{ steps.test.outputs.test-passed }}
+          test-results: ${{ steps.test.outputs.test-results }}
+          test-name: ${{ matrix.pm }}-create-cache
+          os: ${{ matrix.os }}
+          title: ${{ matrix.title }}
+          fixture: ${{ matrix.fixture }}
 
       - name: Upload test results
         if: always()
@@ -211,31 +156,12 @@ jobs:
           retention-days: 1
 
       - name: Fail job if test failed
-        if: always() && (steps.test.outputs.test-passed == 'false' || steps.test.outputs.test-passed == '')
-        shell: python
-        run: |
-          import sys
-
-          print("::group::Test Failure Details")
-          print("Test Step Outcome: ${{ steps.test.outcome }}")
-          print("Test Step Conclusion: ${{ steps.test.conclusion }}")
-          print("Test Passed Output: '${{ steps.test.outputs.test-passed }}'")
-          print("::endgroup::")
-
-          # Determine failure reason
-          outcome = "${{ steps.test.outcome }}"
-          test_passed = "${{ steps.test.outputs.test-passed }}"
-
-          if outcome == "failure":
-              print("::error::Test fixture step failed - check logs above for details")
-          elif test_passed == "false":
-              print("::error::Tests ran but failed - check test results above")
-          elif not test_passed:
-              print("::error::Test fixture did not complete - no test-passed output set")
-          else:
-              print("::error::Unknown test failure - check logs above")
-
-          sys.exit(1)
+        if: always()
+        uses: ./.github/actions/fail-if-test-failed
+        with:
+          test-passed: ${{ steps.test.outputs.test-passed }}
+          test-outcome: ${{ steps.test.outcome }}
+          test-conclusion: ${{ steps.test.conclusion }}
 
   # ============================================================================
   # Node.js Tests - Restore Cache
@@ -351,69 +277,14 @@ jobs:
 
       - name: Save test results
         if: always()
-        shell: python
-        run: |
-          import json
-          import os
-          import traceback
-          from pathlib import Path
-
-          try:
-              # Get outputs from GitHub Actions
-              passed = "${{ steps.test.outputs.test-passed }}" or "false"
-              results_str = r'''${{ steps.test.outputs.test-results }}''' or "{}"
-
-              # Parse results JSON - ensure it's always a dict
-              results = json.loads(results_str)
-              if not isinstance(results, dict):
-                  results = {}
-
-              # Extract error from results if present
-              error = results.get("error", "") if isinstance(results, dict) else ""
-
-              # Build final JSON
-              test_name = "${{ matrix.pm }}-restore-cache"
-              output = {
-                  "name": f"{test_name}-${{ matrix.os }}",
-                  "os": "${{ matrix.os }}",
-                  "test_name": test_name,
-                  "title": "${{ matrix.title }}",
-                  "fixture": "${{ matrix.fixture }}",
-                  "passed": passed == "true" if not error else False,
-                  "results": results if not error else {},
-                  "lockfile_verified": "n/a",
-                  "no_modules_verified": "n/a",
-                  "error": error
-              }
-
-              # Write to file (slugify name to avoid spaces in filenames)
-              Path("test-results").mkdir(exist_ok=True)
-              safe_name = test_name.replace(" ", "-").lower()
-              output_file = Path("test-results") / f"{safe_name}-${{ matrix.os }}.json"
-              output_file.write_text(json.dumps(output, indent=2))
-
-          except Exception as e:
-              # Error handling - create error JSON
-              print(f"::error::Failed to save test results: {e}")
-              traceback.print_exc()
-
-              Path("test-results").mkdir(exist_ok=True)
-              test_name = "${{ matrix.pm }}-restore-cache"
-              error_output = {
-                  "name": f"{test_name}-${{ matrix.os }}",
-                  "os": "${{ matrix.os }}",
-                  "test_name": test_name,
-                  "title": "${{ matrix.title }}",
-                  "fixture": "${{ matrix.fixture }}",
-                  "passed": False,
-                  "results": {},
-                  "lockfile_verified": "n/a",
-                  "no_modules_verified": "n/a",
-                  "error": str(e)
-              }
-              safe_name = test_name.replace(" ", "-").lower()
-              output_file = Path("test-results") / f"{safe_name}-${{ matrix.os }}.json"
-              output_file.write_text(json.dumps(error_output, indent=2))
+        uses: ./.github/actions/save-test-results
+        with:
+          test-passed: ${{ steps.test.outputs.test-passed }}
+          test-results: ${{ steps.test.outputs.test-results }}
+          test-name: ${{ matrix.pm }}-restore-cache
+          os: ${{ matrix.os }}
+          title: ${{ matrix.title }}
+          fixture: ${{ matrix.fixture }}
 
       - name: Upload test results
         if: always()
@@ -424,31 +295,12 @@ jobs:
           retention-days: 1
 
       - name: Fail job if test failed
-        if: always() && (steps.test.outputs.test-passed == 'false' || steps.test.outputs.test-passed == '')
-        shell: python
-        run: |
-          import sys
-
-          print("::group::Test Failure Details")
-          print("Test Step Outcome: ${{ steps.test.outcome }}")
-          print("Test Step Conclusion: ${{ steps.test.conclusion }}")
-          print("Test Passed Output: '${{ steps.test.outputs.test-passed }}'")
-          print("::endgroup::")
-
-          # Determine failure reason
-          outcome = "${{ steps.test.outcome }}"
-          test_passed = "${{ steps.test.outputs.test-passed }}"
-
-          if outcome == "failure":
-              print("::error::Test fixture step failed - check logs above for details")
-          elif test_passed == "false":
-              print("::error::Tests ran but failed - check test results above")
-          elif not test_passed:
-              print("::error::Test fixture did not complete - no test-passed output set")
-          else:
-              print("::error::Unknown test failure - check logs above")
-
-          sys.exit(1)
+        if: always()
+        uses: ./.github/actions/fail-if-test-failed
+        with:
+          test-passed: ${{ steps.test.outputs.test-passed }}
+          test-outcome: ${{ steps.test.outcome }}
+          test-conclusion: ${{ steps.test.conclusion }}
 
   # ============================================================================
   # Explicit Inputs Tests - Test explicit version inputs + feature detection
@@ -612,67 +464,15 @@ jobs:
 
       - name: Save test results
         if: always()
-        shell: python
-        run: |
-          import json
-          import os
-          import traceback
-          from pathlib import Path
-
-          try:
-              # Get outputs from GitHub Actions
-              passed = "${{ steps.test.outputs.test-passed }}" or "false"
-              results_str = r'''${{ steps.test.outputs.test-results }}''' or "{}"
-
-              # Parse results JSON - ensure it's always a dict
-              results = json.loads(results_str)
-              if not isinstance(results, dict):
-                  results = {}
-
-              # Extract error from results if present
-              error = results.get("error", "") if isinstance(results, dict) else ""
-
-              # Build final JSON
-              test_name = "${{ matrix.runtime }}-${{ matrix.fixture }}"
-              output = {
-                  "name": f"{test_name}-${{ matrix.os }}",
-                  "os": "${{ matrix.os }}",
-                  "test_name": test_name,
-                  "title": "${{ matrix.title }}",
-                  "fixture": "${{ matrix.fixture }}",
-                  "runtime": "${{ matrix.runtime }}",
-                  "passed": passed == "true" if not error else False,
-                  "results": results if not error else {},
-                  "error": error
-              }
-
-              # Write to file (slugify name to avoid spaces in filenames)
-              Path("test-results").mkdir(exist_ok=True)
-              safe_name = test_name.replace(" ", "-").lower()
-              output_file = Path("test-results") / f"{safe_name}-${{ matrix.os }}.json"
-              output_file.write_text(json.dumps(output, indent=2))
-
-          except Exception as e:
-              # Error handling - create error JSON
-              print(f"::error::Failed to save test results: {e}")
-              traceback.print_exc()
-
-              Path("test-results").mkdir(exist_ok=True)
-              test_name = "${{ matrix.runtime }}-${{ matrix.fixture }}"
-              error_output = {
-                  "name": f"{test_name}-${{ matrix.os }}",
-                  "os": "${{ matrix.os }}",
-                  "test_name": test_name,
-                  "title": "${{ matrix.title }}",
-                  "fixture": "${{ matrix.fixture }}",
-                  "runtime": "${{ matrix.runtime }}",
-                  "passed": False,
-                  "results": {},
-                  "error": str(e)
-              }
-              safe_name = test_name.replace(" ", "-").lower()
-              output_file = Path("test-results") / f"{safe_name}-${{ matrix.os }}.json"
-              output_file.write_text(json.dumps(error_output, indent=2))
+        uses: ./.github/actions/save-test-results
+        with:
+          test-passed: ${{ steps.test.outputs.test-passed }}
+          test-results: ${{ steps.test.outputs.test-results }}
+          test-name: ${{ matrix.runtime }}-${{ matrix.fixture }}
+          os: ${{ matrix.os }}
+          title: ${{ matrix.title }}
+          fixture: ${{ matrix.fixture }}
+          runtime: ${{ matrix.runtime }}
 
       - name: Upload test results
         if: always()
@@ -683,25 +483,12 @@ jobs:
           retention-days: 1
 
       - name: Fail job if test failed
-        if: always() && (steps.test.outputs.test-passed == 'false' || steps.test.outputs.test-passed == '')
-        shell: python
-        run: |
-          import sys
-
-          # Check test results
-          test_passed = "${{ steps.test.outputs.test-passed }}"
-          setup_error = "${{ steps.test.outputs.setup-error }}"
-
-          if setup_error:
-              print(f"::error::Test fixture setup failed: {setup_error}")
-          elif test_passed == "false":
-              print("::error::Test validation failed - check the 'Test fixture' step logs above for details")
-          elif not test_passed:
-              print("::error::Test fixture did not complete - no test-passed output set")
-          else:
-              print("::error::Unknown test failure - check logs above")
-
-          sys.exit(1)
+        if: always()
+        uses: ./.github/actions/fail-if-test-failed
+        with:
+          test-passed: ${{ steps.test.outputs.test-passed }}
+          test-outcome: ${{ steps.test.outcome }}
+          setup-error: ${{ steps.test.outputs.setup-error }}
 
   # ============================================================================
   # Additional Inputs Tests
@@ -763,44 +550,19 @@ jobs:
           expected-package-manager: npm
           expected-package-manager-version: "11.6.0"
           expected-cache-hit: "false"
+          expected-lockfiles: "custom.lock, vendor.lock"
+          expected-cache-paths: "build, dist"
 
-      - name: Verify additional lockfiles in output
-        shell: bash
-        run: |
-          lockfiles="${{ steps.test.outputs.lockfiles }}"
-          echo "Lockfiles output: $lockfiles"
-
-          # Check that custom.lock and vendor.lock are in the output
-          if [[ ! "$lockfiles" =~ custom\.lock ]]; then
-            echo "::error::Expected custom.lock in lockfiles output"
-            exit 1
-          fi
-
-          if [[ ! "$lockfiles" =~ vendor\.lock ]]; then
-            echo "::error::Expected vendor.lock in lockfiles output"
-            exit 1
-          fi
-
-          echo "✅ Additional lockfiles found in output"
-
-      - name: Verify additional cache paths in output
-        shell: bash
-        run: |
-          cache_paths="${{ steps.test.outputs.cache-paths }}"
-          echo "Cache paths output: $cache_paths"
-
-          # Check that build and dist are in the output
-          if [[ ! "$cache_paths" =~ build ]]; then
-            echo "::error::Expected build in cache-paths output"
-            exit 1
-          fi
-
-          if [[ ! "$cache_paths" =~ dist ]]; then
-            echo "::error::Expected dist in cache-paths output"
-            exit 1
-          fi
-
-          echo "✅ Additional cache paths found in output"
+      - name: Save test results
+        if: always()
+        uses: ./.github/actions/save-test-results
+        with:
+          test-passed: ${{ steps.test.outputs.test-passed }}
+          test-results: ${{ steps.test.outputs.test-results }}
+          test-name: additional-inputs-${{ matrix.format }}
+          os: ubuntu-latest
+          title: ${{ matrix.title }}
+          fixture: additional-inputs
 
       - name: Upload test results
         if: always()
@@ -811,25 +573,12 @@ jobs:
           retention-days: 1
 
       - name: Fail job if test failed
-        if: always() && (steps.test.outputs.test-passed == 'false' || steps.test.outputs.test-passed == '')
-        shell: python
-        run: |
-          import sys
-
-          # Check test results
-          test_passed = "${{ steps.test.outputs.test-passed }}"
-          setup_error = "${{ steps.test.outputs.setup-error }}"
-
-          if setup_error:
-              print(f"::error::Test fixture setup failed: {setup_error}")
-          elif test_passed == "false":
-              print("::error::Test validation failed - check the 'Test fixture' step logs above for details")
-          elif not test_passed:
-              print("::error::Test fixture did not complete - no test-passed output set")
-          else:
-              print("::error::Unknown test failure - check logs above")
-
-          sys.exit(1)
+        if: always()
+        uses: ./.github/actions/fail-if-test-failed
+        with:
+          test-passed: ${{ steps.test.outputs.test-passed }}
+          test-outcome: ${{ steps.test.outcome }}
+          setup-error: ${{ steps.test.outputs.setup-error }}
 
   # ============================================================================
   # Test Summary
