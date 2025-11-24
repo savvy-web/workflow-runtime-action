@@ -22,6 +22,10 @@ on:
       - ".github/actions/test-fixture/**"
       - ".github/workflows/test.yml"
 
+concurrency:
+  group: "tests-${{ github.ref }}"
+  cancel-in-progress: true
+
 jobs:
   # ============================================================================
   # Node.js Tests
