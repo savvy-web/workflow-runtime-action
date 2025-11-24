@@ -167,28 +167,28 @@ outputs:
 runs:
   using: composite
   steps:
-    # Step 0: Compute cache hash based on cache-bust input
-    - name: Compute cache hash
-      id: compute-cache-hash
+    # Step 0: Compute cache bust value based on cache-bust input
+    - name: Compute cache bust value
+      id: compute-cache-bust
       shell: bash
       run: |
         cache_bust="${{ inputs.cache-bust }}"
 
         if [ "$cache_bust" = "true" ]; then
           # Auto-generate unique hash using run_id and run_attempt
-          cache_hash="${{ github.run_id }}-${{ github.run_attempt }}"
-          echo "Generated cache hash: $cache_hash"
+          cache_bust_value="${{ github.run_id }}-${{ github.run_attempt }}"
+          echo "Generated cache bust value: $cache_bust_value"
         elif [ "$cache_bust" = "false" ] || [ -z "$cache_bust" ]; then
           # No cache busting
-          cache_hash=""
+          cache_bust_value=""
           echo "Cache busting disabled"
         else
           # Use custom string
-          cache_hash="$cache_bust"
-          echo "Using custom cache hash: $cache_hash"
+          cache_bust_value="$cache_bust"
+          echo "Using custom cache bust value: $cache_bust_value"
         fi
 
-        echo "cache-hash=$cache_hash" >> $GITHUB_OUTPUT
+        echo "cache-bust=$cache_bust_value" >> $GITHUB_OUTPUT
 
     # Step 1: Setup the test fixture
     - name: Setup fixture
@@ -309,7 +309,7 @@ runs:
         install-deps: ${{ inputs.install-deps }}
         turbo-token: ${{ inputs.turbo-token }}
         turbo-team: ${{ inputs.turbo-team }}
-        cache-hash: ${{ steps.compute-cache-hash.outputs.cache-hash }}
+        cache-bust: ${{ steps.compute-cache-bust.outputs.cache-bust }}
         additional-lockfiles: ${{ inputs.additional-lockfiles }}
         additional-cache-paths: ${{ inputs.additional-cache-paths }}
 
@@ -328,7 +328,7 @@ runs:
         install-deps: ${{ inputs.install-deps }}
         turbo-token: ${{ inputs.turbo-token }}
         turbo-team: ${{ inputs.turbo-team }}
-        cache-hash: ${{ steps.compute-cache-hash.outputs.cache-hash }}
+        cache-bust: ${{ steps.compute-cache-bust.outputs.cache-bust }}
         additional-lockfiles: ${{ inputs.additional-lockfiles }}
         additional-cache-paths: ${{ inputs.additional-cache-paths }}
 
@@ -382,7 +382,7 @@ runs:
         install-deps: ${{ inputs.install-deps }}
         turbo-token: ${{ inputs.turbo-token }}
         turbo-team: ${{ inputs.turbo-team }}
-        cache-hash: ${{ steps.compute-cache-hash.outputs.cache-hash }}
+        cache-bust: ${{ steps.compute-cache-bust.outputs.cache-bust }}
         additional-lockfiles: ${{ inputs.additional-lockfiles }}
         additional-cache-paths: ${{ inputs.additional-cache-paths }}
 

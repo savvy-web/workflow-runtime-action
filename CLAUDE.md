@@ -225,9 +225,9 @@ All inputs are **optional**. If not provided, values are auto-detected from
 
 ### Testing Inputs
 
-* **`cache-hash`** - Optional cache hash for testing cache behavior. Use
-  `github.job-github.run_id` to ensure unique cache per job/run. **Only use
-  this for testing!**
+* **`cache-bust`** - Cache busting for testing. Accepts `"true"` (auto-generate
+  unique hash), `"false"` (normal cache), or a custom string. **Only use for
+  testing - do not use in production!**
 
 ## Action Outputs
 

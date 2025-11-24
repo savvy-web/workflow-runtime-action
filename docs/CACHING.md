@@ -726,15 +726,15 @@ bun install --frozen-lockfile=false
 deno cache --reload
 ```
 
-Or use the `cache-hash` input for testing:
+Or use the `cache-bust` input for testing:
 
 ```yaml
 - uses: savvy-web/workflow-runtime-action@v1
   with:
-    cache-hash: 'test-${{ github.run_id }}'  # Unique per run
+    cache-bust: 'true'  # Auto-generates unique value per run
 ```
 
-**⚠️ Only use `cache-hash` for testing!** It creates new cache entries on every run.
+**⚠️ Only use `cache-bust` for testing!** It creates new cache entries on every run.
 
 ## Multi-Runtime Caching
 
@@ -782,7 +782,7 @@ linux-abc12345-def67890
 
 - Don't cache `.env` files or secrets
 - Don't cache OS-specific build artifacts across different OS runners
-- Don't use `cache-hash` in production (testing only!)
+- Don't use `cache-bust` in production (testing only!)
 - Don't cache `node_modules` separately (action handles it!)
 - Don't manually manage Node.js/npm/pnpm/yarn caches (action handles it!)
 - Don't cache non-deterministic build outputs

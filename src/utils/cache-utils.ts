@@ -497,7 +497,7 @@ function generateRestoreKeys(
 	packageManagerVersion: string,
 	cacheBust?: string,
 ): string[] {
-	// When cache-hash is provided (testing mode), don't use restore keys
+	// When cache-bust is provided (testing mode), don't use restore keys
 	// We want exact matches only for test validation
 	if (cacheBust) {
 		return [];
