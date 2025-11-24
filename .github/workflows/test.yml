@@ -451,13 +451,267 @@ jobs:
           sys.exit(1)
 
   # ============================================================================
+  # Explicit Inputs Tests - Test explicit version inputs + feature detection
+  # ============================================================================
+  test-explicit-inputs:
+    name: explicit | ${{ matrix.runtime }} | ${{ matrix.fixture }} | ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        runtime: [node, bun, deno]
+        fixture: [biome-enabled, turbo-enabled]
+        include:
+          # Node.js + Biome fixture (auto-detect biome, no turbo)
+          - runtime: node
+            fixture: biome-enabled
+            node-version: "24.11.0"
+            package-manager: npm
+            package-manager-version: "10.20.0"
+            expected-node-enabled: "true"
+            expected-node-version: "24.11.0"
+            expected-bun-enabled: "false"
+            expected-deno-enabled: "false"
+            expected-package-manager: npm
+            expected-package-manager-version: "10.20.0"
+            expected-biome-enabled: "true"
+            expected-biome-version: "2.3.6"
+            expected-turbo-enabled: "false"
+            test-command: "node --version && npm --version"
+            title: "🔧 Node + Biome (auto-detect)"
+
+          # Node.js + Turbo fixture (auto-detect turbo, install biome)
+          - runtime: node
+            fixture: turbo-enabled
+            node-version: "24.11.0"
+            package-manager: pnpm
+            package-manager-version: "10.20.0"
+            biome-version: "2.3.6"
+            expected-node-enabled: "true"
+            expected-node-version: "24.11.0"
+            expected-bun-enabled: "false"
+            expected-deno-enabled: "false"
+            expected-package-manager: pnpm
+            expected-package-manager-version: "10.20.0"
+            expected-biome-enabled: "true"
+            expected-biome-version: "2.3.6"
+            expected-turbo-enabled: "true"
+            test-command: "node --version && pnpm --version"
+            title: "🔧 Node + Turbo (install biome)"
+
+          # Bun + Biome fixture (auto-detect biome, no turbo)
+          - runtime: bun
+            fixture: biome-enabled
+            bun-version: "1.3.3"
+            package-manager: bun
+            package-manager-version: "1.3.3"
+            expected-node-enabled: "false"
+            expected-bun-enabled: "true"
+            expected-bun-version: "1.3.3"
+            expected-deno-enabled: "false"
+            expected-package-manager: bun
+            expected-package-manager-version: "1.3.3"
+            expected-biome-enabled: "true"
+            expected-biome-version: "2.3.6"
+            expected-turbo-enabled: "false"
+            test-command: "bun --version"
+            title: "🔧 Bun + Biome (auto-detect)"
+
+          # Bun + Turbo fixture (auto-detect turbo, install biome)
+          - runtime: bun
+            fixture: turbo-enabled
+            bun-version: "1.3.3"
+            package-manager: bun
+            package-manager-version: "1.3.3"
+            biome-version: "2.3.6"
+            expected-node-enabled: "false"
+            expected-bun-enabled: "true"
+            expected-bun-version: "1.3.3"
+            expected-deno-enabled: "false"
+            expected-package-manager: bun
+            expected-package-manager-version: "1.3.3"
+            expected-biome-enabled: "true"
+            expected-biome-version: "2.3.6"
+            expected-turbo-enabled: "true"
+            test-command: "bun --version"
+            title: "🔧 Bun + Turbo (install biome)"
+
+          # Deno + Biome fixture (auto-detect biome, no turbo)
+          - runtime: deno
+            fixture: biome-enabled
+            deno-version: "2.5.6"
+            package-manager: deno
+            package-manager-version: "2.5.6"
+            expected-node-enabled: "false"
+            expected-bun-enabled: "false"
+            expected-deno-enabled: "true"
+            expected-deno-version: "2.5.6"
+            expected-package-manager: deno
+            expected-package-manager-version: "2.5.6"
+            expected-biome-enabled: "true"
+            expected-biome-version: "2.3.6"
+            expected-turbo-enabled: "false"
+            test-command: "deno --version"
+            title: "🔧 Deno + Biome (auto-detect)"
+
+          # Deno + Turbo fixture (auto-detect turbo, install biome)
+          - runtime: deno
+            fixture: turbo-enabled
+            deno-version: "2.5.6"
+            package-manager: deno
+            package-manager-version: "2.5.6"
+            biome-version: "2.3.6"
+            expected-node-enabled: "false"
+            expected-bun-enabled: "false"
+            expected-deno-enabled: "true"
+            expected-deno-version: "2.5.6"
+            expected-package-manager: deno
+            expected-package-manager-version: "2.5.6"
+            expected-biome-enabled: "true"
+            expected-biome-version: "2.3.6"
+            expected-turbo-enabled: "true"
+            test-command: "deno --version"
+            title: "🔧 Deno + Turbo (install biome)"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Test fixture
+        id: test
+        continue-on-error: true
+        uses: ./.github/actions/test-fixture
+        with:
+          fixture: ${{ matrix.fixture }}
+          title: ${{ matrix.title }}
+          node-version: ${{ matrix.node-version || '' }}
+          bun-version: ${{ matrix.bun-version || '' }}
+          deno-version: ${{ matrix.deno-version || '' }}
+          package-manager: ${{ matrix.package-manager || '' }}
+          package-manager-version: ${{ matrix.package-manager-version || '' }}
+          biome-version: ${{ matrix.biome-version || '' }}
+          install-deps: "false"
+          expected-node-version: ${{ matrix.expected-node-version || '' }}
+          expected-node-enabled: ${{ matrix.expected-node-enabled || '' }}
+          expected-bun-version: ${{ matrix.expected-bun-version || '' }}
+          expected-bun-enabled: ${{ matrix.expected-bun-enabled || '' }}
+          expected-deno-version: ${{ matrix.expected-deno-version || '' }}
+          expected-deno-enabled: ${{ matrix.expected-deno-enabled || '' }}
+          expected-package-manager: ${{ matrix.expected-package-manager || '' }}
+          expected-package-manager-version: ${{ matrix.expected-package-manager-version || '' }}
+          expected-biome-enabled: ${{ matrix.expected-biome-enabled || '' }}
+          expected-biome-version: ${{ matrix.expected-biome-version || '' }}
+          expected-turbo-enabled: ${{ matrix.expected-turbo-enabled || '' }}
+
+      - name: Test runtime
+        if: matrix.test-command != ''
+        continue-on-error: true
+        run: ${{ matrix.test-command }}
+
+      - name: Save test results
+        if: always()
+        shell: python
+        run: |
+          import json
+          import os
+          import traceback
+          from pathlib import Path
+
+          try:
+              # Get outputs from GitHub Actions
+              passed = "${{ steps.test.outputs.test-passed }}" or "false"
+              results_str = r'''${{ steps.test.outputs.test-results }}''' or "{}"
+
+              # Parse results JSON - ensure it's always a dict
+              results = json.loads(results_str)
+              if not isinstance(results, dict):
+                  results = {}
+
+              # Extract error from results if present
+              error = results.get("error", "") if isinstance(results, dict) else ""
+
+              # Build final JSON
+              test_name = "${{ matrix.runtime }}-${{ matrix.fixture }}"
+              output = {
+                  "name": f"{test_name}-${{ matrix.os }}",
+                  "os": "${{ matrix.os }}",
+                  "test_name": test_name,
+                  "title": "${{ matrix.title }}",
+                  "fixture": "${{ matrix.fixture }}",
+                  "runtime": "${{ matrix.runtime }}",
+                  "passed": passed == "true" if not error else False,
+                  "results": results if not error else {},
+                  "error": error
+              }
+
+              # Write to file (slugify name to avoid spaces in filenames)
+              Path("test-results").mkdir(exist_ok=True)
+              safe_name = test_name.replace(" ", "-").lower()
+              output_file = Path("test-results") / f"{safe_name}-${{ matrix.os }}.json"
+              output_file.write_text(json.dumps(output, indent=2))
+
+          except Exception as e:
+              # Error handling - create error JSON
+              print(f"::error::Failed to save test results: {e}")
+              traceback.print_exc()
+
+              Path("test-results").mkdir(exist_ok=True)
+              test_name = "${{ matrix.runtime }}-${{ matrix.fixture }}"
+              error_output = {
+                  "name": f"{test_name}-${{ matrix.os }}",
+                  "os": "${{ matrix.os }}",
+                  "test_name": test_name,
+                  "title": "${{ matrix.title }}",
+                  "fixture": "${{ matrix.fixture }}",
+                  "runtime": "${{ matrix.runtime }}",
+                  "passed": False,
+                  "results": {},
+                  "error": str(e)
+              }
+              safe_name = test_name.replace(" ", "-").lower()
+              output_file = Path("test-results") / f"{safe_name}-${{ matrix.os }}.json"
+              output_file.write_text(json.dumps(error_output, indent=2))
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: test-results-explicit-inputs-${{ matrix.os }}-${{ strategy.job-index }}
+          path: test-results/
+          retention-days: 1
+
+      - name: Fail job if test failed
+        if: always() && (steps.test.outputs.test-passed == 'false' || steps.test.outputs.test-passed == '')
+        shell: python
+        run: |
+          import sys
+
+          # Check test results
+          test_passed = "${{ steps.test.outputs.test-passed }}"
+          setup_error = "${{ steps.test.outputs.setup-error }}"
+
+          if setup_error:
+              print(f"::error::Test fixture setup failed: {setup_error}")
+          elif test_passed == "false":
+              print("::error::Test validation failed - check the 'Test fixture' step logs above for details")
+          elif not test_passed:
+              print("::error::Test fixture did not complete - no test-passed output set")
+          else:
+              print("::error::Unknown test failure - check logs above")
+
+          sys.exit(1)
+
+  # ============================================================================
   # Test Summary
   # ============================================================================
   summary:
     name: Test Summary
     runs-on: ubuntu-latest
     timeout-minutes: 3
-    needs: [test-node-create-cache, test-node-restore-cache]
+    needs:
+      [test-node-create-cache, test-node-restore-cache, test-explicit-inputs]
     if: always()
     steps:
       - name: Download all test results
