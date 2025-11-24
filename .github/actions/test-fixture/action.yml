@@ -78,6 +78,20 @@ inputs:
     description: Expected cache hit status
     required: false
 
+  # Cache testing expectations
+  expected-first-run-cache-hit:
+    description: Expected cache hit status for first run (cache miss expected)
+    required: false
+  expected-second-run-cache-hit:
+    description: Expected cache hit status for second run (cache hit expected)
+    required: false
+  expected-dependencies-installed:
+    description: Expected dependencies installed verification status
+    required: false
+  expected-cache-restored:
+    description: Expected cache restoration verification status
+    required: false
+
   # Cache testing
   test-cache:
     description: Whether to test cache effectiveness (runs action twice)
@@ -457,10 +471,10 @@ runs:
                 check_value("cache-paths", r"${{ steps.setup1.outputs.cache-paths }}", "")
 
                 # Cache-specific checks
-                check_value("first-run-cache-hit", "${{ steps.setup1.outputs.cache-hit }}", "false")
-                check_value("second-run-cache-hit", "${{ steps.setup2.outputs.cache-hit }}", "true")
-                check_value("dependencies-installed", "${{ steps.verify-deps.outputs.deps-verified || 'false' }}", "true")
-                check_value("cache-restored", "${{ steps.verify-cache.outputs.cache-verified || 'false' }}", "true")
+                check_value("first-run-cache-hit", "${{ steps.setup1.outputs.cache-hit }}", "${{ inputs.expected-first-run-cache-hit }}")
+                check_value("second-run-cache-hit", "${{ steps.setup2.outputs.cache-hit }}", "${{ inputs.expected-second-run-cache-hit }}")
+                check_value("dependencies-installed", "${{ steps.verify-deps.outputs.deps-verified || 'false' }}", "${{ inputs.expected-dependencies-installed }}")
+                check_value("cache-restored", "${{ steps.verify-cache.outputs.cache-verified || 'false' }}", "${{ inputs.expected-cache-restored }}")
             else:
                 # Standard test mode - use setup outputs
                 check_value("node-version", "${{ steps.setup.outputs.node-version }}", "${{ inputs.expected-node-version }}")

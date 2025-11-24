@@ -56,6 +56,7 @@ jobs:
             expected-first-run-cache-hit: "false"
             expected-second-run-cache-hit: "true"
             expected-dependencies-installed: "true"
+            expected-cache-restored: "true"
             test-command: "node --version && npm --version"
             title: "📦 NPM Test Results"
 
@@ -76,6 +77,7 @@ jobs:
             expected-first-run-cache-hit: "false"
             expected-second-run-cache-hit: "true"
             expected-dependencies-installed: "true"
+            expected-cache-restored: "true"
             test-command: "node --version && pnpm --version"
             title: "📦 PNPM Test Results"
 
@@ -96,6 +98,7 @@ jobs:
             expected-first-run-cache-hit: "false"
             expected-second-run-cache-hit: "true"
             expected-dependencies-installed: "true"
+            expected-cache-restored: "true"
             test-command: "node --version && yarn --version"
             title: "📦 Yarn Test Results"
 
@@ -115,8 +118,18 @@ jobs:
           test-cache: ${{ matrix.test-cache || 'false' }}
           expected-node-version: ${{ matrix.expected-node-version || '' }}
           expected-node-enabled: ${{ matrix.expected-node-enabled || '' }}
+          expected-bun-version: ${{ matrix.expected-bun-version || '' }}
+          expected-bun-enabled: ${{ matrix.expected-bun-enabled || '' }}
+          expected-deno-version: ${{ matrix.expected-deno-version || '' }}
+          expected-deno-enabled: ${{ matrix.expected-deno-enabled || '' }}
           expected-package-manager: ${{ matrix.expected-package-manager || '' }}
           expected-package-manager-version: ${{ matrix.expected-package-manager-version || '' }}
+          expected-biome-version: ${{ matrix.expected-biome-version || '' }}
+          expected-biome-enabled: ${{ matrix.expected-biome-enabled || '' }}
+          expected-first-run-cache-hit: ${{ matrix.expected-first-run-cache-hit || '' }}
+          expected-second-run-cache-hit: ${{ matrix.expected-second-run-cache-hit || '' }}
+          expected-dependencies-installed: ${{ matrix.expected-dependencies-installed || '' }}
+          expected-cache-restored: ${{ matrix.expected-cache-restored || '' }}
 
       - name: Test runtime
         if: matrix.test-command != ''
