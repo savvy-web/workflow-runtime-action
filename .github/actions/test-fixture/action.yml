@@ -358,7 +358,7 @@ runs:
                     traceback.print_stack()
                     with open(github_output, "a") as f:
                         f.write("test-passed=false\n")
-                        error_json = json.dumps({"error": error_msg}")
+                        error_json = json.dumps({"error": error_msg})
                         f.write(f"test-results={error_json}\n")
                     sys.exit(0)
             else:
