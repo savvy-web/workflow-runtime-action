@@ -108,7 +108,9 @@ jobs:
 
               # Build final JSON
               output = {
-                  "name": "${{ matrix.name }}",
+                  "name": "${{ matrix.name }}-${{ matrix.os }}",
+                  "os": "${{ matrix.os }}",
+                  "test_name": "${{ matrix.name }}",
                   "title": "${{ matrix.title }}",
                   "fixture": "${{ matrix.fixture }}",
                   "passed": passed == "true",
@@ -117,7 +119,7 @@ jobs:
 
               # Write to file
               Path("test-results").mkdir(exist_ok=True)
-              output_file = Path("test-results") / "${{ matrix.name }}.json"
+              output_file = Path("test-results") / f"${{ matrix.name }}-${{ matrix.os }}.json"
               output_file.write_text(json.dumps(output, indent=2))
 
           except Exception as e:
@@ -126,14 +128,18 @@ jobs:
 
               Path("test-results").mkdir(exist_ok=True)
               error_output = {
-                  "name": "${{ matrix.name }}",
+                  "name": "${{ matrix.name }}-${{ matrix.os }}",
+                  "os": "${{ matrix.os }}",
+                  "test_name": "${{ matrix.name }}",
                   "title": "${{ matrix.title }}",
                   "fixture": "${{ matrix.fixture }}",
                   "passed": False,
-                  "error": str(e),
-                  "results": {}
+                  "results": {},
+                  "lockfile_verified": "n/a",
+                  "no_modules_verified": "n/a",
+                  "error": str(e)
               }
-              output_file = Path("test-results") / "${{ matrix.name }}.json"
+              output_file = Path("test-results") / f"${{ matrix.name }}-${{ matrix.os }}.json"
               output_file.write_text(json.dumps(error_output, indent=2))
 
       - name: Upload test results
@@ -280,7 +286,7 @@ jobs:
 
               # Write to file
               Path("test-results").mkdir(exist_ok=True)
-              output_file = Path("test-results") / "${{ matrix.name }}.json"
+              output_file = Path("test-results") / f"${{ matrix.name }}-${{ matrix.os }}.json"
               output_file.write_text(json.dumps(output, indent=2))
 
           except Exception as e:
@@ -289,14 +295,18 @@ jobs:
 
               Path("test-results").mkdir(exist_ok=True)
               error_output = {
-                  "name": "${{ matrix.name }}",
+                  "name": "${{ matrix.name }}-${{ matrix.os }}",
+                  "os": "${{ matrix.os }}",
+                  "test_name": "${{ matrix.name }}",
                   "title": "${{ matrix.title }}",
                   "fixture": "${{ matrix.fixture }}",
                   "passed": False,
-                  "error": str(e),
-                  "results": {}
+                  "results": {},
+                  "lockfile_verified": "n/a",
+                  "no_modules_verified": "n/a",
+                  "error": str(e)
               }
-              output_file = Path("test-results") / "${{ matrix.name }}.json"
+              output_file = Path("test-results") / f"${{ matrix.name }}-${{ matrix.os }}.json"
               output_file.write_text(json.dumps(error_output, indent=2))
 
       - name: Upload test results
@@ -463,7 +473,7 @@ jobs:
 
               # Write to file
               Path("test-results").mkdir(exist_ok=True)
-              output_file = Path("test-results") / "${{ matrix.name }}.json"
+              output_file = Path("test-results") / f"${{ matrix.name }}-${{ matrix.os }}.json"
               output_file.write_text(json.dumps(output, indent=2))
 
           except Exception as e:
@@ -472,14 +482,18 @@ jobs:
 
               Path("test-results").mkdir(exist_ok=True)
               error_output = {
-                  "name": "${{ matrix.name }}",
+                  "name": "${{ matrix.name }}-${{ matrix.os }}",
+                  "os": "${{ matrix.os }}",
+                  "test_name": "${{ matrix.name }}",
                   "title": "${{ matrix.title }}",
                   "fixture": "${{ matrix.fixture }}",
                   "passed": False,
-                  "error": str(e),
-                  "results": {}
+                  "results": {},
+                  "lockfile_verified": "n/a",
+                  "no_modules_verified": "n/a",
+                  "error": str(e)
               }
-              output_file = Path("test-results") / "${{ matrix.name }}.json"
+              output_file = Path("test-results") / f"${{ matrix.name }}-${{ matrix.os }}.json"
               output_file.write_text(json.dumps(error_output, indent=2))
 
       - name: Upload test results
@@ -610,6 +624,7 @@ jobs:
               # Get outputs from GitHub Actions
               passed = "${{ steps.test.outputs.test-passed }}" or "false"
               results_str = r'''${{ toJson(steps.test.outputs.test-results) }}''' or "{}"
+              lockfile_verified = "${{ steps.verify-lockfile.outputs.lockfile-verified || 'n/a' }}"
               no_modules = "${{ steps.verify-no-modules.outputs.no-modules-verified || 'n/a' }}"
 
               # Parse results JSON - ensure it's always a dict
@@ -617,8 +632,10 @@ jobs:
               if not isinstance(results, dict):
                   results = {}
 
-              # Check no_modules for overall pass/fail
+              # Check verifications for overall pass/fail
               if no_modules != "n/a" and no_modules != "true":
+                  passed = "false"
+              if lockfile_verified != "n/a" and lockfile_verified != "true":
                   passed = "false"
 
               # Add no_modules_verified to results if it was checked
@@ -632,16 +649,21 @@ jobs:
 
               # Build final JSON
               output = {
-                  "name": "${{ matrix.name }}",
+                  "name": "${{ matrix.name }}-${{ matrix.os }}",
+                  "os": "${{ matrix.os }}",
+                  "test_name": "${{ matrix.name }}",
                   "title": "${{ matrix.title }}",
                   "fixture": "${{ matrix.fixture }}",
                   "passed": passed == "true",
-                  "results": results
+                  "results": results,
+                  "lockfile_verified": lockfile_verified,
+                  "no_modules_verified": no_modules,
+                  "error": ""
               }
 
               # Write to file
               Path("test-results").mkdir(exist_ok=True)
-              output_file = Path("test-results") / "${{ matrix.name }}.json"
+              output_file = Path("test-results") / f"${{ matrix.name }}-${{ matrix.os }}.json"
               output_file.write_text(json.dumps(output, indent=2))
 
           except Exception as e:
@@ -650,14 +672,18 @@ jobs:
 
               Path("test-results").mkdir(exist_ok=True)
               error_output = {
-                  "name": "${{ matrix.name }}",
+                  "name": "${{ matrix.name }}-${{ matrix.os }}",
+                  "os": "${{ matrix.os }}",
+                  "test_name": "${{ matrix.name }}",
                   "title": "${{ matrix.title }}",
                   "fixture": "${{ matrix.fixture }}",
                   "passed": False,
-                  "error": str(e),
-                  "results": {}
+                  "results": {},
+                  "lockfile_verified": "n/a",
+                  "no_modules_verified": "n/a",
+                  "error": str(e)
               }
-              output_file = Path("test-results") / "${{ matrix.name }}.json"
+              output_file = Path("test-results") / f"${{ matrix.name }}-${{ matrix.os }}.json"
               output_file.write_text(json.dumps(error_output, indent=2))
 
       - name: Upload test results
@@ -776,10 +802,8 @@ jobs:
               summary_content = f"### {overall_status} {title}\n\n"
 
               # List OS results
-              for os_data in sorted(os_results, key=lambda x: x.get("name", "")):
-                  name = os_data.get("name", "Unknown")
-                  # Extract OS from name (e.g., "Cache Effectiveness-ubuntu-latest" -> "ubuntu-latest")
-                  os_name = name.split("-", 1)[-1] if "-" in name else name
+              for os_data in sorted(os_results, key=lambda x: x.get("os", "")):
+                  os_name = os_data.get("os", "Unknown")
                   passed = os_data.get("passed", False)
                   os_status = "✅" if passed else "❌"
                   summary_content += f"  {os_status} `{os_name}`\n"
@@ -787,9 +811,8 @@ jobs:
               summary_content += "\n"
 
               # Add expandable details for each OS
-              for os_data in sorted(os_results, key=lambda x: x.get("name", "")):
-                  name = os_data.get("name", "Unknown")
-                  os_name = name.split("-", 1)[-1] if "-" in name else name
+              for os_data in sorted(os_results, key=lambda x: x.get("os", "")):
+                  os_name = os_data.get("os", "Unknown")
                   fixture = os_data.get("fixture", "Unknown")
                   passed = os_data.get("passed", False)
                   results = os_data.get("results", {})
@@ -797,6 +820,11 @@ jobs:
                   summary_content += f"<details>\n"
                   summary_content += f"<summary><code>{os_name}</code> - Details</summary>\n\n"
                   summary_content += f"**Fixture:** `{fixture}`\n\n"
+
+                  # Show error if exists
+                  error = os_data.get("error", "")
+                  if error:
+                      summary_content += f"**⚠️ Error:**\n```\n{error}\n```\n\n"
 
                   # Show test results table
                   if results:
