@@ -809,32 +809,18 @@ jobs:
               # Write test header
               summary_content = f"### {overall_status} {title}\n\n"
 
-              # Create outer details with OS list as summary
-              # Auto-expand if any tests failed
-              details_open = " open" if not all_passed else ""
-              summary_content += f"<details{details_open}>\n"
-              summary_content += "<summary>\n\n"
-
-              # List OS results in the summary
-              for os_data in sorted(os_results, key=lambda x: x.get("os", "")):
-                  os_name = os_data.get("os", "Unknown")
-                  passed = os_data.get("passed", False)
-                  os_status = "✅" if passed else "❌"
-                  summary_content += f"  {os_status} `{os_name}`\n"
-
-              summary_content += "\n</summary>\n\n"
-
-              # Add nested details for each OS
+              # Add each OS as its own details section
               for os_data in sorted(os_results, key=lambda x: x.get("os", "")):
                   os_name = os_data.get("os", "Unknown")
                   fixture = os_data.get("fixture", "Unknown")
                   passed = os_data.get("passed", False)
                   results = os_data.get("results", {})
+                  os_status = "✅" if passed else "❌"
 
                   # Auto-expand if this OS failed
                   os_open = " open" if not passed else ""
                   summary_content += f"<details{os_open}>\n"
-                  summary_content += f"<summary><code>{os_name}</code> - Details</summary>\n\n"
+                  summary_content += f"<summary>{os_status} <code>{os_name}</code></summary>\n\n"
                   summary_content += f"**Fixture:** `{fixture}`\n\n"
 
                   # Show error if exists
@@ -883,9 +869,6 @@ jobs:
                   summary_content += "</details>\n"
 
                   summary_content += "\n</details>\n\n"
-
-              # Close outer details (OS list wrapper)
-              summary_content += "</details>\n\n"
 
               with open(summary_file, "a") as f:
                   f.write(summary_content)
