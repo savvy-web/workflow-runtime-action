@@ -94,6 +94,7 @@ jobs:
         run: |
           import json
           import os
+          import traceback
           from pathlib import Path
 
           try:
@@ -132,6 +133,7 @@ jobs:
           except Exception as e:
               # Error handling - create error JSON
               print(f"::error::Failed to save test results: {e}")
+              traceback.print_exc()
 
               Path("test-results").mkdir(exist_ok=True)
               error_output = {
@@ -269,6 +271,7 @@ jobs:
         run: |
           import json
           import os
+          import traceback
           from pathlib import Path
 
           try:
@@ -308,6 +311,7 @@ jobs:
           except Exception as e:
               # Error handling - create error JSON
               print(f"::error::Failed to save test results: {e}")
+              traceback.print_exc()
 
               Path("test-results").mkdir(exist_ok=True)
               error_output = {
@@ -465,6 +469,7 @@ jobs:
         run: |
           import json
           import os
+          import traceback
           from pathlib import Path
 
           try:
@@ -504,6 +509,7 @@ jobs:
           except Exception as e:
               # Error handling - create error JSON
               print(f"::error::Failed to save test results: {e}")
+              traceback.print_exc()
 
               Path("test-results").mkdir(exist_ok=True)
               error_output = {
@@ -644,6 +650,7 @@ jobs:
         run: |
           import json
           import os
+          import traceback
           from pathlib import Path
 
           try:
@@ -696,6 +703,7 @@ jobs:
           except Exception as e:
               # Error handling - create error JSON
               print(f"::error::Failed to save test results: {e}")
+              traceback.print_exc()
 
               Path("test-results").mkdir(exist_ok=True)
               error_output = {
