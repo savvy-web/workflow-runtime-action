@@ -222,10 +222,12 @@ runs:
 
         # Check for common dependency marker (lodash is in cache-test fixture)
         if not Path("node_modules/lodash").is_dir():
-            github_output.write_text("deps-verified=false\n", mode="a")
+            with open(github_output, "a") as f:
+                f.write("deps-verified=false\n")
             sys.exit(1)
 
-        github_output.write_text("deps-verified=true\n", mode="a")
+        with open(github_output, "a") as f:
+            f.write("deps-verified=true\n")
 
     # Step 2c: Clear node_modules for second run
     - name: Clear node_modules for second run
@@ -272,15 +274,18 @@ runs:
 
         # Check cache hit status
         if cache_hit != "true":
-            github_output.write_text("cache-verified=false\n", mode="a")
+            with open(github_output, "a") as f:
+                f.write("cache-verified=false\n")
             sys.exit(1)
 
         # Check dependencies were restored
         if not Path("node_modules/lodash").is_dir():
-            github_output.write_text("cache-verified=false\n", mode="a")
+            with open(github_output, "a") as f:
+                f.write("cache-verified=false\n")
             sys.exit(1)
 
-        github_output.write_text("cache-verified=true\n", mode="a")
+        with open(github_output, "a") as f:
+            f.write("cache-verified=true\n")
 
     # Step 3: Verify outputs
     - name: Verify outputs
@@ -365,8 +370,9 @@ runs:
             test_passed = "true" if not failed else "false"
             results_json = json.dumps(results)
 
-            github_output.write_text(f"test-passed={test_passed}\n", mode="a")
-            github_output.write_text(f"test-results={results_json}\n", mode="a")
+            with open(github_output, "a") as f:
+                f.write(f"test-passed={test_passed}\n")
+                f.write(f"test-results={results_json}\n")
 
         except Exception as e:
             # Error handling - write error outputs
@@ -375,9 +381,10 @@ runs:
             traceback.print_exc()
 
             github_output = Path(os.environ["GITHUB_OUTPUT"])
-            github_output.write_text("test-passed=false\n", mode="a")
-            error_json = json.dumps({"error": error_msg})
-            github_output.write_text(f"test-results={error_json}\n", mode="a")
+            with open(github_output, "a") as f:
+                f.write("test-passed=false\n")
+                error_json = json.dumps({"error": error_msg})
+                f.write(f"test-results={error_json}\n")
 
         # Always exit 0 - don't fail the job
         sys.exit(0)

@@ -242,10 +242,12 @@ jobs:
           github_output = Path(os.environ["GITHUB_OUTPUT"])
 
           if not Path(lockfile).is_file():
-              github_output.write_text("lockfile-verified=false\n", mode="a")
+              with open(github_output, "a") as f:
+                  f.write("lockfile-verified=false\n")
               sys.exit(1)
 
-          github_output.write_text("lockfile-verified=true\n", mode="a")
+          with open(github_output, "a") as f:
+              f.write("lockfile-verified=true\n")
 
       - name: Save test results
         if: always()
@@ -423,10 +425,12 @@ jobs:
           github_output = Path(os.environ["GITHUB_OUTPUT"])
 
           if not Path(lockfile).is_file():
-              github_output.write_text("lockfile-verified=false\n", mode="a")
+              with open(github_output, "a") as f:
+                  f.write("lockfile-verified=false\n")
               sys.exit(1)
 
-          github_output.write_text("lockfile-verified=true\n", mode="a")
+          with open(github_output, "a") as f:
+              f.write("lockfile-verified=true\n")
 
       - name: Save test results
         if: always()
@@ -587,10 +591,12 @@ jobs:
           github_output = Path(os.environ["GITHUB_OUTPUT"])
 
           if Path("node_modules").is_dir():
-              github_output.write_text("no-modules-verified=false\n", mode="a")
+              with open(github_output, "a") as f:
+                  f.write("no-modules-verified=false\n")
               sys.exit(1)
 
-          github_output.write_text("no-modules-verified=true\n", mode="a")
+          with open(github_output, "a") as f:
+              f.write("no-modules-verified=true\n")
 
       - name: Save test results
         if: always()
@@ -734,7 +740,8 @@ jobs:
           # Check if there are any test results
           result_files = list(results_dir.glob("*.json"))
           if not result_files:
-              summary_file.write_text("⚠️ No test results found - all test jobs may have failed before uploading results.\n", mode="a")
+              with open(summary_file, "a") as f:
+                  f.write("⚠️ No test results found - all test jobs may have failed before uploading results.\n")
               sys.exit(1)
 
           # Process all JSON result files
@@ -759,11 +766,11 @@ jobs:
                       failed += 1
                       status = "❌"
 
-                  # Write test header
-                  summary_file.write_text(f"### {status} {title}\n\n", mode="a")
+                  # Build summary content starting with header
+                  summary_content = f"### {status} {title}\n\n"
 
                   # Add expandable details
-                  summary_content = "<details>\n"
+                  summary_content += "<details>\n"
                   if test_passed:
                       summary_content += f"<summary>{name}</summary>\n"
                   else:
@@ -820,7 +827,8 @@ jobs:
                   summary_content += "</details>\n\n"
                   summary_content += "</details>\n\n"
 
-                  summary_file.write_text(summary_content, mode="a")
+                  with open(summary_file, "a") as f:
+                      f.write(summary_content)
 
               except json.JSONDecodeError:
                   skipped += 1
@@ -828,7 +836,8 @@ jobs:
                   print(f"⚠️ Skipping malformed JSON: {file_path.name}", file=sys.stderr)
 
           # Add separator
-          summary_file.write_text("---\n\n", mode="a")
+          with open(summary_file, "a") as f:
+              f.write("---\n\n")
 
           # Report parse errors if any
           if parse_errors:
@@ -837,30 +846,36 @@ jobs:
               for error_file in parse_errors:
                   error_summary += f"- `{error_file}`\n"
               error_summary += "\n---\n\n"
-              summary_file.write_text(error_summary, mode="a")
+              with open(summary_file, "a") as f:
+                  f.write(error_summary)
 
           # Final summary
           if total == 0 and skipped == 0:
-              summary_file.write_text("### ⚠️ No test results found\n\n", mode="a")
-              summary_file.write_text("This usually means all test jobs failed before uploading results.\n", mode="a")
+              with open(summary_file, "a") as f:
+                  f.write("### ⚠️ No test results found\n\n")
+                  f.write("This usually means all test jobs failed before uploading results.\n")
               sys.exit(1)
           elif total == 0:
-              summary_file.write_text("### ⚠️ No valid test results\n\n", mode="a")
-              summary_file.write_text(f"**Skipped:** {skipped} (malformed JSON)\n\n", mode="a")
-              summary_file.write_text("All test result files were malformed. Check individual job logs for details.\n", mode="a")
+              with open(summary_file, "a") as f:
+                  f.write("### ⚠️ No valid test results\n\n")
+                  f.write(f"**Skipped:** {skipped} (malformed JSON)\n\n")
+                  f.write("All test result files were malformed. Check individual job logs for details.\n")
               sys.exit(0)
           elif failed == 0 and skipped == 0:
-              summary_file.write_text(f"### ✅ All {total} tests passed!\n", mode="a")
+              with open(summary_file, "a") as f:
+                  f.write(f"### ✅ All {total} tests passed!\n")
               sys.exit(0)
           elif failed == 0:
-              summary_file.write_text(f"### ✅ All {total} valid tests passed\n\n", mode="a")
-              summary_file.write_text(f"**Passed:** {passed} / **Total:** {total}\n", mode="a")
-              if skipped > 0:
-                  summary_file.write_text(f"\n⚠️ **Skipped:** {skipped} test(s) with malformed JSON - check job logs for details\n", mode="a")
+              with open(summary_file, "a") as f:
+                  f.write(f"### ✅ All {total} valid tests passed\n\n")
+                  f.write(f"**Passed:** {passed} / **Total:** {total}\n")
+                  if skipped > 0:
+                      f.write(f"\n⚠️ **Skipped:** {skipped} test(s) with malformed JSON - check job logs for details\n")
               sys.exit(0)
           else:
-              summary_file.write_text(f"### ❌ {failed} of {total} tests failed\n\n", mode="a")
-              summary_file.write_text(f"**Passed:** {passed} / **Failed:** {failed} / **Total:** {total}\n", mode="a")
-              if skipped > 0:
-                  summary_file.write_text(f"\n⚠️ **Skipped:** {skipped} test(s) with malformed JSON - check job logs for details\n", mode="a")
+              with open(summary_file, "a") as f:
+                  f.write(f"### ❌ {failed} of {total} tests failed\n\n")
+                  f.write(f"**Passed:** {passed} / **Failed:** {failed} / **Total:** {total}\n")
+                  if skipped > 0:
+                      f.write(f"\n⚠️ **Skipped:** {skipped} test(s) with malformed JSON - check job logs for details\n")
               sys.exit(0)
