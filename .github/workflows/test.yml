@@ -28,26 +28,24 @@ concurrency:
 
 jobs:
   # ============================================================================
-  # Node.js Tests
+  # Node.js Tests - Create Cache
   # ============================================================================
-  test-node:
-    name: node | ${{ matrix.pm }} | ${{ matrix.test-type }} | ${{ matrix.os }}
+  test-node-create-cache:
+    name: node | ${{ matrix.pm }} | create cache | ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
         pm: [npm, pnpm, yarn]
-        test-type: [no-deps, with-cache]
         include:
-          # NPM - no deps (creates cache)
+          # NPM - create cache
           - pm: npm
-            test-type: no-deps
             fixture: node-npm
             install-deps: "false"
             expected-cache-hit: "false"
             expected-node-enabled: "true"
-            expected-node-version: "20.11.0"
+            expected-node-version: "24.9.0"
             expected-package-manager: npm
             expected-package-manager-version: "11.6.0"
             expected-deno-enabled: "false"
@@ -56,25 +54,8 @@ jobs:
             test-command: "node --version && npm --version"
             title: "📦 NPM (Create Cache)"
 
-          # NPM - with cache (restores cache)
-          - pm: npm
-            test-type: with-cache
-            fixture: node-npm
-            install-deps: "true"
-            expected-cache-hit: "true"
-            expected-node-enabled: "true"
-            expected-node-version: "20.11.0"
-            expected-package-manager: npm
-            expected-package-manager-version: "11.6.0"
-            expected-deno-enabled: "false"
-            expected-bun-enabled: "false"
-            expected-biome-enabled: "false"
-            test-command: "node --version && npm --version"
-            title: "📦 NPM (Restore Cache)"
-
-          # PNPM - no deps (creates cache)
+          # PNPM - create cache
           - pm: pnpm
-            test-type: no-deps
             fixture: node-pnpm
             install-deps: "false"
             expected-cache-hit: "false"
@@ -88,25 +69,8 @@ jobs:
             test-command: "node --version && pnpm --version"
             title: "📦 PNPM (Create Cache)"
 
-          # PNPM - with cache (restores cache)
-          - pm: pnpm
-            test-type: with-cache
-            fixture: node-pnpm
-            install-deps: "true"
-            expected-cache-hit: "true"
-            expected-node-enabled: "true"
-            expected-node-version: "20.11.0"
-            expected-package-manager: pnpm
-            expected-package-manager-version: "10.20.0"
-            expected-deno-enabled: "false"
-            expected-bun-enabled: "false"
-            expected-biome-enabled: "false"
-            test-command: "node --version && pnpm --version"
-            title: "📦 PNPM (Restore Cache)"
-
-          # Yarn - no deps (creates cache)
+          # Yarn - create cache
           - pm: yarn
-            test-type: no-deps
             fixture: node-yarn
             install-deps: "false"
             expected-cache-hit: "false"
@@ -120,9 +84,178 @@ jobs:
             test-command: "node --version && yarn --version"
             title: "📦 Yarn (Create Cache)"
 
-          # Yarn - with cache (restores cache)
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Test fixture
+        id: test
+        continue-on-error: true
+        uses: ./.github/actions/test-fixture
+        with:
+          fixture: ${{ matrix.fixture }}
+          title: ${{ matrix.title }}
+          install-deps: ${{ matrix.install-deps }}
+          expected-node-version: ${{ matrix.expected-node-version || '' }}
+          expected-node-enabled: ${{ matrix.expected-node-enabled || '' }}
+          expected-bun-enabled: ${{ matrix.expected-bun-enabled || '' }}
+          expected-deno-enabled: ${{ matrix.expected-deno-enabled || '' }}
+          expected-package-manager: ${{ matrix.expected-package-manager || '' }}
+          expected-package-manager-version: ${{ matrix.expected-package-manager-version || '' }}
+          expected-biome-enabled: ${{ matrix.expected-biome-enabled || '' }}
+          expected-cache-hit: ${{ matrix.expected-cache-hit || '' }}
+
+      - name: Test runtime
+        if: matrix.test-command != ''
+        continue-on-error: true
+        run: ${{ matrix.test-command }}
+
+      - name: Save test results
+        if: always()
+        shell: python
+        run: |
+          import json
+          import os
+          import traceback
+          from pathlib import Path
+
+          try:
+              # Get outputs from GitHub Actions
+              passed = "${{ steps.test.outputs.test-passed }}" or "false"
+              results_str = r'''${{ steps.test.outputs.test-results }}''' or "{}"
+
+              # Parse results JSON - ensure it's always a dict
+              results = json.loads(results_str)
+              if not isinstance(results, dict):
+                  results = {}
+
+              # Extract error from results if present
+              error = results.get("error", "") if isinstance(results, dict) else ""
+
+              # Build final JSON
+              test_name = "${{ matrix.pm }}-create-cache"
+              output = {
+                  "name": f"{test_name}-${{ matrix.os }}",
+                  "os": "${{ matrix.os }}",
+                  "test_name": test_name,
+                  "title": "${{ matrix.title }}",
+                  "fixture": "${{ matrix.fixture }}",
+                  "passed": passed == "true" if not error else False,
+                  "results": results if not error else {},
+                  "lockfile_verified": "n/a",
+                  "no_modules_verified": "n/a",
+                  "error": error
+              }
+
+              # Write to file (slugify name to avoid spaces in filenames)
+              Path("test-results").mkdir(exist_ok=True)
+              safe_name = test_name.replace(" ", "-").lower()
+              output_file = Path("test-results") / f"{safe_name}-${{ matrix.os }}.json"
+              output_file.write_text(json.dumps(output, indent=2))
+
+          except Exception as e:
+              # Error handling - create error JSON
+              print(f"::error::Failed to save test results: {e}")
+              traceback.print_exc()
+
+              Path("test-results").mkdir(exist_ok=True)
+              test_name = "${{ matrix.pm }}-create-cache"
+              error_output = {
+                  "name": f"{test_name}-${{ matrix.os }}",
+                  "os": "${{ matrix.os }}",
+                  "test_name": test_name,
+                  "title": "${{ matrix.title }}",
+                  "fixture": "${{ matrix.fixture }}",
+                  "passed": False,
+                  "results": {},
+                  "lockfile_verified": "n/a",
+                  "no_modules_verified": "n/a",
+                  "error": str(e)
+              }
+              safe_name = test_name.replace(" ", "-").lower()
+              output_file = Path("test-results") / f"{safe_name}-${{ matrix.os }}.json"
+              output_file.write_text(json.dumps(error_output, indent=2))
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: test-results-node-create-cache-${{ matrix.os }}-${{ strategy.job-index }}
+          path: test-results/
+          retention-days: 1
+
+      - name: Fail job if test failed
+        if: always() && (steps.test.outputs.test-passed == 'false' || steps.test.outputs.test-passed == '')
+        shell: python
+        run: |
+          import sys
+
+          print("::group::Test Failure Details")
+          print("Test Step Outcome: ${{ steps.test.outcome }}")
+          print("Test Step Conclusion: ${{ steps.test.conclusion }}")
+          print("Test Passed Output: '${{ steps.test.outputs.test-passed }}'")
+          print("::endgroup::")
+
+          # Determine failure reason
+          outcome = "${{ steps.test.outcome }}"
+          test_passed = "${{ steps.test.outputs.test-passed }}"
+
+          if outcome == "failure":
+              print("::error::Test fixture step failed - check logs above for details")
+          elif test_passed == "false":
+              print("::error::Tests ran but failed - check test results above")
+          elif not test_passed:
+              print("::error::Test fixture did not complete - no test-passed output set")
+          else:
+              print("::error::Unknown test failure - check logs above")
+
+          sys.exit(1)
+
+  # ============================================================================
+  # Node.js Tests - Restore Cache
+  # ============================================================================
+  test-node-restore-cache:
+    name: node | ${{ matrix.pm }} | restore cache | ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    needs: [test-node-create-cache]
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        pm: [npm, pnpm, yarn]
+        include:
+          # NPM - restore cache
+          - pm: npm
+            fixture: node-npm
+            install-deps: "true"
+            expected-cache-hit: "true"
+            expected-node-enabled: "true"
+            expected-node-version: "24.9.0"
+            expected-package-manager: npm
+            expected-package-manager-version: "11.6.0"
+            expected-deno-enabled: "false"
+            expected-bun-enabled: "false"
+            expected-biome-enabled: "false"
+            test-command: "node --version && npm --version"
+            title: "📦 NPM (Restore Cache)"
+
+          # PNPM - restore cache
+          - pm: pnpm
+            fixture: node-pnpm
+            install-deps: "true"
+            expected-cache-hit: "true"
+            expected-node-enabled: "true"
+            expected-node-version: "20.11.0"
+            expected-package-manager: pnpm
+            expected-package-manager-version: "10.20.0"
+            expected-deno-enabled: "false"
+            expected-bun-enabled: "false"
+            expected-biome-enabled: "false"
+            test-command: "node --version && pnpm --version"
+            title: "📦 PNPM (Restore Cache)"
+
+          # Yarn - restore cache
           - pm: yarn
-            test-type: with-cache
             fixture: node-yarn
             install-deps: "true"
             expected-cache-hit: "true"
@@ -185,7 +318,7 @@ jobs:
               error = results.get("error", "") if isinstance(results, dict) else ""
 
               # Build final JSON
-              test_name = "${{ matrix.pm }}-${{ matrix.test-type }}"
+              test_name = "${{ matrix.pm }}-restore-cache"
               output = {
                   "name": f"{test_name}-${{ matrix.os }}",
                   "os": "${{ matrix.os }}",
@@ -211,7 +344,7 @@ jobs:
               traceback.print_exc()
 
               Path("test-results").mkdir(exist_ok=True)
-              test_name = "${{ matrix.pm }}-${{ matrix.test-type }}"
+              test_name = "${{ matrix.pm }}-restore-cache"
               error_output = {
                   "name": f"{test_name}-${{ matrix.os }}",
                   "os": "${{ matrix.os }}",
@@ -232,7 +365,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v5
         with:
-          name: test-results-node-${{ matrix.os }}-${{ strategy.job-index }}
+          name: test-results-node-restore-cache-${{ matrix.os }}-${{ strategy.job-index }}
           path: test-results/
           retention-days: 1
 
@@ -269,7 +402,7 @@ jobs:
   summary:
     name: Test Summary
     runs-on: ubuntu-latest
-    needs: [test-node]
+    needs: [test-node-create-cache, test-node-restore-cache]
     if: always()
     steps:
       - name: Download all test results
