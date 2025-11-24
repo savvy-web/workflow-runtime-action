@@ -42,7 +42,7 @@ jobs:
           # NPM - create cache
           - pm: npm
             fixture: node-npm
-            install-deps: "false"
+            install-deps: "true"
             expected-cache-hit: "false"
             expected-node-enabled: "true"
             expected-node-version: "24.9.0"
@@ -57,7 +57,7 @@ jobs:
           # PNPM - create cache
           - pm: pnpm
             fixture: node-pnpm
-            install-deps: "false"
+            install-deps: "true"
             expected-cache-hit: "false"
             expected-node-enabled: "true"
             expected-node-version: "20.11.0"
@@ -72,7 +72,7 @@ jobs:
           # Yarn - create cache
           - pm: yarn
             fixture: node-yarn
-            install-deps: "false"
+            install-deps: "true"
             expected-cache-hit: "false"
             expected-node-enabled: "true"
             expected-node-version: "20.11.0"
