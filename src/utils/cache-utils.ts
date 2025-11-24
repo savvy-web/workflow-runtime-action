@@ -502,6 +502,23 @@ export async function saveCache(): Promise<void> {
 			core.info(`  - ${path}`);
 		}
 
+		// Check if any cache paths exist
+		let pathsExist = false;
+		for (const path of cachePaths) {
+			const globber = await glob.create(path, { followSymbolicLinks: false });
+			const matches = await globber.glob();
+			if (matches.length > 0) {
+				pathsExist = true;
+				break;
+			}
+		}
+
+		if (!pathsExist) {
+			core.info("No cache paths exist, skipping cache save");
+			core.endGroup();
+			return;
+		}
+
 		// Save the cache
 		const cacheId = await cache.saveCache(cachePaths, primaryKey);
 
