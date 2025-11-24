@@ -414,14 +414,11 @@ export async function restoreCache(
 		const lockFiles = await findLockFiles(config.lockFilePatterns);
 
 		if (lockFiles.length === 0) {
-			core.warning(`No lock files found for ${pmList}, skipping cache`);
-			core.endGroup();
-			setOutput("lockfiles", "");
-			setOutput("cache-paths", "");
-			return undefined;
+			core.info(`No lock files found for ${pmList}, caching without lockfile hash`);
+		} else {
+			core.info(`Found lock files: ${lockFiles.join(", ")}`);
 		}
 
-		core.info(`Found lock files: ${lockFiles.join(", ")}`);
 		core.info(`Cache paths (${config.cachePaths.length} total): ${config.cachePaths.join(", ")}`);
 
 		// Set outputs for observability

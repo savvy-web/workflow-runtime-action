@@ -132,12 +132,14 @@ describe("restoreCache", () => {
 			const globber = await glob.create("**/*.json");
 			vi.mocked(globber.glob).mockResolvedValue([]);
 
-			const result = await restoreCache("npm", { node: "24.11.0" }, "10.20.0");
+			await restoreCache("npm", { node: "24.11.0" }, "10.20.0");
 
-			expect(core.warning).toHaveBeenCalledWith("No lock files found for 📦 npm, skipping cache");
+			expect(core.info).toHaveBeenCalledWith("No lock files found for 📦 npm, caching without lockfile hash");
 			expect(core.setOutput).toHaveBeenCalledWith("lockfiles", "");
-			expect(core.setOutput).toHaveBeenCalledWith("cache-paths", "");
-			expect(result).toBeUndefined();
+			// Cache paths should still be set even without lockfiles
+			expect(core.setOutput).toHaveBeenCalledWith("cache-paths", expect.any(String));
+			// Should still attempt to restore cache
+			expect(cache.restoreCache).toHaveBeenCalled();
 		});
 	});
 
