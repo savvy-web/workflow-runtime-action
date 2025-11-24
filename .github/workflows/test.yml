@@ -106,6 +106,9 @@ jobs:
               if not isinstance(results, dict):
                   results = {}
 
+              # Extract error from results if present
+              error = results.get("error", "") if isinstance(results, dict) else ""
+
               # Build final JSON
               output = {
                   "name": "${{ matrix.name }}-${{ matrix.os }}",
@@ -113,8 +116,11 @@ jobs:
                   "test_name": "${{ matrix.name }}",
                   "title": "${{ matrix.title }}",
                   "fixture": "${{ matrix.fixture }}",
-                  "passed": passed == "true",
-                  "results": results
+                  "passed": passed == "true" if not error else False,
+                  "results": results if not error else {},
+                  "lockfile_verified": "n/a",
+                  "no_modules_verified": "n/a",
+                  "error": error
               }
 
               # Write to file (slugify name to avoid spaces in filenames)
@@ -276,14 +282,21 @@ jobs:
               if not isinstance(results, dict):
                   results = {}
 
+              # Extract error from results if present
+              error = results.get("error", "") if isinstance(results, dict) else ""
+
               # Build final JSON
               output = {
-                  "name": "${{ matrix.name }}",
+                  "name": "${{ matrix.name }}-${{ matrix.os }}",
+                  "os": "${{ matrix.os }}",
+                  "test_name": "${{ matrix.name }}",
                   "title": "${{ matrix.title }}",
                   "fixture": "${{ matrix.fixture }}",
-                  "passed": passed == "true",
+                  "passed": passed == "true" if not error else False,
+                  "results": results if not error else {},
                   "lockfile_verified": lockfile_verified,
-                  "results": results
+                  "no_modules_verified": "n/a",
+                  "error": error
               }
 
               # Write to file (slugify name to avoid spaces in filenames)
@@ -465,14 +478,21 @@ jobs:
               if not isinstance(results, dict):
                   results = {}
 
+              # Extract error from results if present
+              error = results.get("error", "") if isinstance(results, dict) else ""
+
               # Build final JSON
               output = {
-                  "name": "${{ matrix.name }}",
+                  "name": "${{ matrix.name }}-${{ matrix.os }}",
+                  "os": "${{ matrix.os }}",
+                  "test_name": "${{ matrix.name }}",
                   "title": "${{ matrix.title }}",
                   "fixture": "${{ matrix.fixture }}",
-                  "passed": passed == "true",
+                  "passed": passed == "true" if not error else False,
+                  "results": results if not error else {},
                   "lockfile_verified": lockfile_verified,
-                  "results": results
+                  "no_modules_verified": "n/a",
+                  "error": error
               }
 
               # Write to file (slugify name to avoid spaces in filenames)

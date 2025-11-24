@@ -139,41 +139,67 @@ runs:
   steps:
     # Step 1: Setup the test fixture
     - name: Setup fixture
+      id: setup-fixture
+      continue-on-error: true
       shell: python
       run: |
+        import os
         import shutil
+        import sys
+        import traceback
         from pathlib import Path
 
-        # Remove repository config files
-        config_files = [
-            "package.json",
-            "pnpm-workspace.yaml",
-            "biome.jsonc",
-            "turbo.json",
-            "pnpm-lock.yaml",
-            "deno.json",
-            "deno.lock",
-        ]
-        for file in config_files:
-            path = Path(file)
-            if path.exists():
-                path.unlink()
+        try:
+            github_output = Path(os.environ["GITHUB_OUTPUT"])
 
-        # Copy fixture files to current directory (including hidden files)
-        fixture_dir = Path("__fixtures__") / "${{ inputs.fixture }}"
-        if fixture_dir.exists():
-            for item in fixture_dir.iterdir():
-                if item.is_file():
-                    shutil.copy2(item, item.name)
-                elif item.is_dir():
-                    shutil.copytree(item, item.name, dirs_exist_ok=True)
+            # Remove repository config files
+            config_files = [
+                "package.json",
+                "pnpm-workspace.yaml",
+                "biome.jsonc",
+                "turbo.json",
+                "pnpm-lock.yaml",
+                "deno.json",
+                "deno.lock",
+            ]
+            for file in config_files:
+                path = Path(file)
+                if path.exists():
+                    path.unlink()
 
-        # Remove __fixtures__ directory to prevent glob pattern interference
-        fixtures_dir = Path("__fixtures__")
-        if fixtures_dir.exists():
-            shutil.rmtree(fixtures_dir)
+            # Copy fixture files to current directory (including hidden files)
+            fixture_dir = Path("__fixtures__") / "${{ inputs.fixture }}"
+            if fixture_dir.exists():
+                for item in fixture_dir.iterdir():
+                    if item.is_file():
+                        shutil.copy2(item, item.name)
+                    elif item.is_dir():
+                        shutil.copytree(item, item.name, dirs_exist_ok=True)
 
-        print("✓ Fixture '${{ inputs.fixture }}' prepared")
+            # Remove __fixtures__ directory to prevent glob pattern interference
+            fixtures_dir = Path("__fixtures__")
+            if fixtures_dir.exists():
+                shutil.rmtree(fixtures_dir)
+
+            print("Fixture '${{ inputs.fixture }}' prepared")
+
+            # Write success status
+            with open(github_output, "a") as f:
+                f.write("setup-error=\n")
+
+        except Exception as e:
+            # Capture error and write to output
+            error_msg = f"Setup fixture failed: {str(e)}"
+            print(f"::error::{error_msg}")
+            traceback.print_exc()
+
+            github_output = Path(os.environ["GITHUB_OUTPUT"])
+            with open(github_output, "a") as f:
+                # Escape newlines and quotes in error message
+                escaped_error = str(e).replace("\n", " ").replace("'", "''")
+                f.write(f"setup-error={escaped_error}\n")
+
+            sys.exit(1)
 
     # Step 2: Run the runtime setup action (single run mode)
     - name: Setup runtime
@@ -303,6 +329,15 @@ runs:
             failed = False
             results = {}
             test_cache = "${{ inputs.test-cache }}"
+            setup_error = "${{ steps.setup-fixture.outputs.setup-error }}"
+
+            # Check for setup fixture error first
+            if setup_error:
+                with open(github_output, "a") as f:
+                    f.write("test-passed=false\n")
+                    error_json = json.dumps({"error": setup_error})
+                    f.write(f"test-results={error_json}\n")
+                sys.exit(0)
 
             def check_value(key: str, actual: str, expected: str) -> None:
                 global failed
