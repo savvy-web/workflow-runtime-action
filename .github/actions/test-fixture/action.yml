@@ -216,6 +216,7 @@ runs:
         install-deps: ${{ inputs.install-deps }}
         turbo-token: ${{ inputs.turbo-token }}
         turbo-team: ${{ inputs.turbo-team }}
+        cache-hash: ${{ github.run_id }}
 
     # Step 2a: First run for cache testing (cache miss expected)
     - name: First run (cache miss)
@@ -232,6 +233,7 @@ runs:
         install-deps: ${{ inputs.install-deps }}
         turbo-token: ${{ inputs.turbo-token }}
         turbo-team: ${{ inputs.turbo-team }}
+        cache-hash: ${{ github.run_id }}
 
     # Step 2b: Verify dependencies installed after first run
     - name: Verify dependencies installed
@@ -283,6 +285,7 @@ runs:
         install-deps: ${{ inputs.install-deps }}
         turbo-token: ${{ inputs.turbo-token }}
         turbo-team: ${{ inputs.turbo-team }}
+        cache-hash: ${{ github.run_id }}
 
     # Step 2e: Verify cache restoration
     - name: Verify cache restoration

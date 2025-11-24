@@ -62,6 +62,8 @@ interface SetupResult {
 	biomeConfigFile: string;
 	/** Whether to install dependencies */
 	installDeps: boolean;
+	/** Optional cache hash for testing (typically github.run_id) */
+	cacheHash: string;
 }
 
 /**
@@ -204,6 +206,7 @@ async function detectConfiguration(): Promise<SetupResult> {
 	const packageManagerVersionInput = getInput("package-manager-version");
 	const biomeVersionInput = getInput("biome-version");
 	const installDeps = getInput("install-deps") !== "false";
+	const cacheHash = getInput("cache-hash");
 
 	// Validate that package-manager and package-manager-version are used together
 	const hasExplicitRuntime = nodeVersionInput || bunVersionInput || denoVersionInput;
@@ -306,6 +309,7 @@ async function detectConfiguration(): Promise<SetupResult> {
 		biomeVersion: biome.version,
 		biomeConfigFile: biome.configFile,
 		installDeps,
+		cacheHash,
 	};
 }
 
@@ -446,7 +450,12 @@ async function main(): Promise<void> {
 
 		// 4. Restore cache before installing dependencies (using all active package managers)
 		if (config.installDeps) {
-			await restoreCache(activePackageManagers);
+			await restoreCache(
+				activePackageManagers,
+				installedVersions,
+				config.packageManagerVersion,
+				config.cacheHash || undefined,
+			);
 		}
 
 		// 5. Install dependencies for each package manager

@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
-import { arch, platform } from "node:os";
+import { platform } from "node:os";
 import * as cache from "@actions/cache";
 import * as core from "@actions/core";
 import * as exec from "@actions/exec";
@@ -14,6 +14,18 @@ import { formatCache, formatSuccess, getPackageManagerEmoji } from "./emoji.js";
 export type PackageManager = "npm" | "pnpm" | "yarn" | "bun" | "deno";
 
 /**
+ * Runtime versions for cache key generation
+ */
+export interface RuntimeVersions {
+	/** Node.js version if installed */
+	node?: string;
+	/** Bun version if installed */
+	bun?: string;
+	/** Deno version if installed */
+	deno?: string;
+}
+
+/**
  * Cache configuration for a package manager
  */
 interface CacheConfig {
@@ -21,8 +33,6 @@ interface CacheConfig {
 	cachePaths: string[];
 	/** Lock file patterns to look for */
 	lockFilePatterns: string[];
-	/** Cache key prefix */
-	keyPrefix: string;
 }
 
 /**
@@ -150,9 +160,6 @@ function getDefaultCachePaths(packageManager: PackageManager): string[] {
  * @returns Cache configuration with dynamically detected paths
  */
 async function getCacheConfig(packageManager: PackageManager): Promise<CacheConfig> {
-	const plat = platform();
-	const architecture = arch();
-
 	// Detect cache path from package manager
 	const detectedPath = await detectCachePath(packageManager);
 
@@ -213,7 +220,6 @@ async function getCacheConfig(packageManager: PackageManager): Promise<CacheConf
 	return {
 		cachePaths,
 		lockFilePatterns,
-		keyPrefix: `${packageManager}-${plat}-${architecture}`,
 	};
 }
 
@@ -259,13 +265,9 @@ async function hashFiles(files: string[]): Promise<string> {
  * @returns Combined cache configuration with deduplicated paths
  */
 async function getCombinedCacheConfig(packageManagers: PackageManager[]): Promise<CacheConfig> {
-	const plat = platform();
-	const architecture = arch();
-
 	// Use Sets for deduplication
 	const cachePathsSet = new Set<string>();
 	const lockFilePatternsSet = new Set<string>();
-	const keyPrefixes: string[] = [];
 
 	// Collect configs from all package managers
 	for (const pm of packageManagers) {
@@ -280,60 +282,122 @@ async function getCombinedCacheConfig(packageManagers: PackageManager[]): Promis
 		for (const pattern of config.lockFilePatterns) {
 			lockFilePatternsSet.add(pattern);
 		}
-
-		// Collect key prefixes
-		keyPrefixes.push(pm);
 	}
 
 	// Convert Sets back to arrays
 	const cachePaths = Array.from(cachePathsSet);
 	const lockFilePatterns = Array.from(lockFilePatternsSet);
 
-	// Sort package managers for consistent key prefix
-	const sortedPrefixes = keyPrefixes.sort();
-	const keyPrefix = `${sortedPrefixes.join("+")}-${plat}-${architecture}`;
-
 	return {
 		cachePaths,
 		lockFilePatterns,
-		keyPrefix,
 	};
 }
 
 /**
- * Generates cache key from lock files
+ * Generates hash from runtime versions and package manager
  *
- * @param packageManagers - Package managers being cached
- * @param lockFiles - Lock file paths
- * @returns Cache key string
+ * @param runtimeVersions - Runtime versions to include in hash
+ * @param packageManager - Package manager name
+ * @param packageManagerVersion - Package manager version
+ * @param cacheHash - Optional cache hash (for testing, typically github.run_id)
+ * @returns Hash string
  */
-async function generateCacheKey(packageManagers: PackageManager[], lockFiles: string[]): Promise<string> {
-	const config = await getCombinedCacheConfig(packageManagers);
-	const fileHash = await hashFiles(lockFiles);
+function generateVersionHash(
+	runtimeVersions: RuntimeVersions,
+	packageManager: PackageManager,
+	packageManagerVersion: string,
+	cacheHash?: string,
+): string {
+	const hash = createHash("sha256");
 
-	return `${config.keyPrefix}-${fileHash}`;
+	// Add optional cache hash (for testing)
+	if (cacheHash) {
+		hash.update(cacheHash);
+	}
+
+	// Add runtime versions in sorted order for consistency
+	const runtimeEntries = Object.entries(runtimeVersions).sort(([a], [b]) => a.localeCompare(b));
+	for (const [runtime, version] of runtimeEntries) {
+		if (version) {
+			hash.update(`${runtime}:${version}`);
+		}
+	}
+
+	// Add package manager
+	hash.update(`${packageManager}:${packageManagerVersion}`);
+
+	return hash.digest("hex");
+}
+
+/**
+ * Generates cache key from runtime versions, package manager, and lock files
+ *
+ * @param runtimeVersions - Runtime versions being cached
+ * @param packageManager - Package manager name
+ * @param packageManagerVersion - Package manager version
+ * @param lockFiles - Lock file paths
+ * @param cacheHash - Optional cache hash (for testing, typically github.run_id)
+ * @returns Cache key string in format: {os}-{version-hash}-{lockfile-hash}
+ */
+async function generateCacheKey(
+	runtimeVersions: RuntimeVersions,
+	packageManager: PackageManager,
+	packageManagerVersion: string,
+	lockFiles: string[],
+	cacheHash?: string,
+): Promise<string> {
+	const plat = platform();
+	const versionHash = generateVersionHash(runtimeVersions, packageManager, packageManagerVersion, cacheHash);
+	const lockfileHash = await hashFiles(lockFiles);
+
+	return `${plat}-${versionHash}-${lockfileHash}`;
 }
 
 /**
  * Generates restore keys for cache fallback
  *
- * @param packageManagers - Package managers being cached
+ * @param runtimeVersions - Runtime versions being cached
+ * @param packageManager - Package manager name
+ * @param packageManagerVersion - Package manager version
+ * @param cacheHash - Optional cache hash (for testing)
  * @returns Array of restore key prefixes
  */
-async function generateRestoreKeys(packageManagers: PackageManager[]): Promise<string[]> {
-	const config = await getCombinedCacheConfig(packageManagers);
-	return [`${config.keyPrefix}-`];
+function generateRestoreKeys(
+	runtimeVersions: RuntimeVersions,
+	packageManager: PackageManager,
+	packageManagerVersion: string,
+	cacheHash?: string,
+): string[] {
+	const plat = platform();
+	const versionHash = generateVersionHash(runtimeVersions, packageManager, packageManagerVersion, cacheHash);
+
+	// Restore keys in order of specificity:
+	// 1. Match OS + version hash (any lockfile for same runtime/pm versions)
+	// 2. Match OS only (any cache for same OS)
+	return [`${plat}-${versionHash}-`, `${plat}-`];
 }
 
 /**
  * Restores package manager cache
  *
  * @param packageManagers - Package manager(s) to restore cache for
+ * @param runtimeVersions - Runtime versions installed
+ * @param packageManagerVersion - Package manager version
+ * @param cacheHash - Optional cache hash (for testing, typically github.run_id)
  * @returns Cache key if restored, undefined if no cache found
  */
-export async function restoreCache(packageManagers: PackageManager | PackageManager[]): Promise<string | undefined> {
+export async function restoreCache(
+	packageManagers: PackageManager | PackageManager[],
+	runtimeVersions: RuntimeVersions,
+	packageManagerVersion: string,
+	cacheHash?: string,
+): Promise<string | undefined> {
 	// Normalize to array
 	const pmArray = Array.isArray(packageManagers) ? packageManagers : [packageManagers];
+
+	// For cache key, we only use the primary package manager
+	const primaryPm = pmArray[0];
 
 	const pmList = pmArray.map((pm) => `${getPackageManagerEmoji(pm)} ${pm}`).join(", ");
 	core.startGroup(formatCache("Restoring", pmList));
@@ -360,8 +424,8 @@ export async function restoreCache(packageManagers: PackageManager | PackageMana
 		setOutput("cache-paths", config.cachePaths.join(","));
 
 		// Generate cache keys
-		const primaryKey = await generateCacheKey(pmArray, lockFiles);
-		const restoreKeys = await generateRestoreKeys(pmArray);
+		const primaryKey = await generateCacheKey(runtimeVersions, primaryPm, packageManagerVersion, lockFiles, cacheHash);
+		const restoreKeys = generateRestoreKeys(runtimeVersions, primaryPm, packageManagerVersion, cacheHash);
 
 		core.info(`Primary key: ${primaryKey}`);
 		core.info(`Restore keys: ${restoreKeys.join(", ")}`);

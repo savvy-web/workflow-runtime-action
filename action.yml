@@ -42,6 +42,10 @@ inputs:
     description: "Whether to install dependencies (true | false). Set to false to skip dependency installation."
     required: false
     default: "true"
+  cache-hash:
+    description: "Optional cache hash for testing. Use github.run_id to ensure unique cache per run. Only use this for testing cache behavior."
+    required: false
+    default: ""
 
 outputs:
   node-version:

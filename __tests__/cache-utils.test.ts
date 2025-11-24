@@ -79,11 +79,16 @@ describe("restoreCache", () => {
 		// Mock file reading and hashing
 		vi.mocked(readFile).mockResolvedValue("lockfile content");
 
-		const mockHash = {
-			update: vi.fn().mockReturnThis(),
-			digest: vi.fn().mockReturnValue("abc123def456"),
-		};
-		vi.mocked(createHash).mockReturnValue(mockHash as never);
+		// Mock createHash - it's called twice per restoreCache call:
+		// 1. For version hash (runtime versions + package manager)
+		// 2. For lockfile hash
+		vi.mocked(createHash).mockImplementation(() => {
+			const mockHash = {
+				update: vi.fn().mockReturnThis(),
+				digest: vi.fn().mockReturnValue("abc123def456"),
+			};
+			return mockHash as never;
+		});
 	});
 
 	afterEach(() => {
@@ -92,13 +97,13 @@ describe("restoreCache", () => {
 
 	describe("npm caching", () => {
 		it("should restore npm cache with detected path", async () => {
-			await restoreCache("npm");
+			await restoreCache("npm", { node: "24.11.0" }, "10.20.0");
 
 			expect(exec.exec).toHaveBeenCalledWith("npm", ["config", "get", "cache"], expect.any(Object));
 			expect(cache.restoreCache).toHaveBeenCalledWith(
 				["/home/user/.npm", "**/node_modules"],
-				"npm-linux-x64-abc123def456",
-				["npm-linux-x64-"],
+				"linux-abc123def456-abc123def456",
+				["linux-abc123def456-", "linux-"],
 			);
 			expect(core.setOutput).toHaveBeenCalledWith("lockfiles", "package-lock.json");
 			expect(core.setOutput).toHaveBeenCalledWith("cache-paths", "/home/user/.npm,**/node_modules");
@@ -108,17 +113,17 @@ describe("restoreCache", () => {
 			vi.mocked(platform).mockReturnValue("win32");
 			vi.mocked(exec.exec).mockResolvedValue(1); // Simulate failure
 
-			await restoreCache("npm");
+			await restoreCache("npm", { node: "24.11.0" }, "10.20.0");
 
 			expect(cache.restoreCache).toHaveBeenCalledWith(
 				["~/AppData/Local/npm-cache", "**/node_modules"],
-				"npm-win32-x64-abc123def456",
-				["npm-win32-x64-"],
+				"win32-abc123def456-abc123def456",
+				["win32-abc123def456-", "win32-"],
 			);
 		});
 
 		it("should find package-lock.json files", async () => {
-			await restoreCache("npm");
+			await restoreCache("npm", { node: "24.11.0" }, "10.20.0");
 
 			expect(glob.create).toHaveBeenCalledWith("**/package-lock.json", expect.any(Object));
 		});
@@ -127,7 +132,7 @@ describe("restoreCache", () => {
 			const globber = await glob.create("**/*.json");
 			vi.mocked(globber.glob).mockResolvedValue([]);
 
-			const result = await restoreCache("npm");
+			const result = await restoreCache("npm", { node: "24.11.0" }, "10.20.0");
 
 			expect(core.warning).toHaveBeenCalledWith("No lock files found for 📦 npm, skipping cache");
 			expect(core.setOutput).toHaveBeenCalledWith("lockfiles", "");
@@ -138,13 +143,13 @@ describe("restoreCache", () => {
 
 	describe("pnpm caching", () => {
 		it("should restore pnpm cache with detected path", async () => {
-			await restoreCache("pnpm");
+			await restoreCache("pnpm", { node: "24.11.0" }, "10.20.0");
 
 			expect(exec.exec).toHaveBeenCalledWith("pnpm", ["store", "path"], expect.any(Object));
 			expect(cache.restoreCache).toHaveBeenCalledWith(
 				["/home/user/.local/share/pnpm/store", "**/node_modules"],
-				"pnpm-linux-x64-abc123def456",
-				["pnpm-linux-x64-"],
+				"linux-abc123def456-abc123def456",
+				["linux-abc123def456-", "linux-"],
 			);
 		});
 
@@ -152,17 +157,17 @@ describe("restoreCache", () => {
 			vi.mocked(platform).mockReturnValue("win32");
 			vi.mocked(exec.exec).mockResolvedValue(1); // Simulate failure
 
-			await restoreCache("pnpm");
+			await restoreCache("pnpm", { node: "24.11.0" }, "10.20.0");
 
 			expect(cache.restoreCache).toHaveBeenCalledWith(
 				["~/AppData/Local/pnpm/store", "**/node_modules"],
-				"pnpm-win32-x64-abc123def456",
-				["pnpm-win32-x64-"],
+				"win32-abc123def456-abc123def456",
+				["win32-abc123def456-", "win32-"],
 			);
 		});
 
 		it("should find pnpm-lock.yaml files", async () => {
-			await restoreCache("pnpm");
+			await restoreCache("pnpm", { node: "24.11.0" }, "10.20.0");
 
 			expect(glob.create).toHaveBeenCalledWith(
 				"**/pnpm-lock.yaml\n**/pnpm-workspace.yaml\n**/.pnpmfile.cjs",
@@ -173,7 +178,7 @@ describe("restoreCache", () => {
 
 	describe("yarn caching", () => {
 		it("should restore yarn cache with detected path", async () => {
-			await restoreCache("yarn");
+			await restoreCache("yarn", { node: "24.11.0" }, "10.20.0");
 
 			expect(exec.exec).toHaveBeenCalledWith("yarn", ["config", "get", "cacheFolder"], expect.any(Object));
 			expect(cache.restoreCache).toHaveBeenCalledWith(
@@ -184,8 +189,8 @@ describe("restoreCache", () => {
 					"**/.yarn/unplugged",
 					"**/.yarn/install-state.gz",
 				],
-				"yarn-linux-x64-abc123def456",
-				["yarn-linux-x64-"],
+				"linux-abc123def456-abc123def456",
+				["linux-abc123def456-", "linux-"],
 			);
 		});
 
@@ -193,17 +198,17 @@ describe("restoreCache", () => {
 			vi.mocked(platform).mockReturnValue("win32");
 			vi.mocked(exec.exec).mockResolvedValue(1); // Simulate failure
 
-			await restoreCache("yarn");
+			await restoreCache("yarn", { node: "24.11.0" }, "10.20.0");
 
 			expect(cache.restoreCache).toHaveBeenCalledWith(
 				expect.arrayContaining(["~/AppData/Local/Yarn/Cache", "~/AppData/Local/Yarn/Berry/cache"]),
-				"yarn-win32-x64-abc123def456",
-				["yarn-win32-x64-"],
+				"win32-abc123def456-abc123def456",
+				["win32-abc123def456-", "win32-"],
 			);
 		});
 
 		it("should find yarn.lock files", async () => {
-			await restoreCache("yarn");
+			await restoreCache("yarn", { node: "24.11.0" }, "10.20.0");
 
 			expect(glob.create).toHaveBeenCalledWith("**/yarn.lock", expect.any(Object));
 		});
@@ -232,14 +237,14 @@ describe("restoreCache", () => {
 				return 0;
 			});
 
-			await restoreCache("yarn");
+			await restoreCache("yarn", { node: "24.11.0" }, "10.20.0");
 
 			expect(exec.exec).toHaveBeenCalledWith("yarn", ["config", "get", "cacheFolder"], expect.any(Object));
 			expect(exec.exec).toHaveBeenCalledWith("yarn", ["cache", "dir"], expect.any(Object));
 			expect(cache.restoreCache).toHaveBeenCalledWith(
 				expect.arrayContaining(["/home/user/.cache/yarn/v6"]),
-				"yarn-linux-x64-abc123def456",
-				["yarn-linux-x64-"],
+				"linux-abc123def456-abc123def456",
+				["linux-abc123def456-", "linux-"],
 			);
 		});
 	});
@@ -267,13 +272,13 @@ describe("restoreCache", () => {
 		});
 
 		it("should restore bun cache with detected path", async () => {
-			await restoreCache("bun");
+			await restoreCache("bun", { bun: "1.3.3" }, "1.3.3");
 
 			expect(exec.exec).toHaveBeenCalledWith("bun", ["pm", "cache"], expect.any(Object));
 			expect(cache.restoreCache).toHaveBeenCalledWith(
 				["/home/user/.bun/install/cache", "**/node_modules"],
-				"bun-linux-x64-abc123def456",
-				["bun-linux-x64-"],
+				"linux-abc123def456-abc123def456",
+				["linux-abc123def456-", "linux-"],
 			);
 		});
 
@@ -281,17 +286,17 @@ describe("restoreCache", () => {
 			vi.mocked(platform).mockReturnValue("win32");
 			vi.mocked(exec.exec).mockResolvedValue(1); // Simulate failure
 
-			await restoreCache("bun");
+			await restoreCache("bun", { bun: "1.3.3" }, "1.3.3");
 
 			expect(cache.restoreCache).toHaveBeenCalledWith(
 				["~/AppData/Local/bun/install/cache", "**/node_modules"],
-				"bun-win32-x64-abc123def456",
-				["bun-win32-x64-"],
+				"win32-abc123def456-abc123def456",
+				["win32-abc123def456-", "win32-"],
 			);
 		});
 
 		it("should find bun.lock files", async () => {
-			await restoreCache("bun");
+			await restoreCache("bun", { bun: "1.3.3" }, "1.3.3");
 
 			expect(glob.create).toHaveBeenCalledWith("**/bun.lock", expect.any(Object));
 		});
@@ -320,11 +325,12 @@ describe("restoreCache", () => {
 		});
 
 		it("should restore deno cache with detected path", async () => {
-			await restoreCache("deno");
+			await restoreCache("deno", { deno: "2.1.0" }, "2.1.0");
 
 			expect(exec.exec).toHaveBeenCalledWith("deno", ["info", "--json"], expect.any(Object));
-			expect(cache.restoreCache).toHaveBeenCalledWith(["/home/user/.cache/deno"], "deno-linux-x64-abc123def456", [
-				"deno-linux-x64-",
+			expect(cache.restoreCache).toHaveBeenCalledWith(["/home/user/.cache/deno"], "linux-abc123def456-abc123def456", [
+				"linux-abc123def456-",
+				"linux-",
 			]);
 			expect(core.setOutput).toHaveBeenCalledWith("lockfiles", "deno.lock");
 			expect(core.setOutput).toHaveBeenCalledWith("cache-paths", "/home/user/.cache/deno");
@@ -334,15 +340,16 @@ describe("restoreCache", () => {
 			vi.mocked(platform).mockReturnValue("win32");
 			vi.mocked(exec.exec).mockResolvedValue(1); // Simulate failure
 
-			await restoreCache("deno");
+			await restoreCache("deno", { deno: "2.1.0" }, "2.1.0");
 
-			expect(cache.restoreCache).toHaveBeenCalledWith(["~/AppData/Local/deno"], "deno-win32-x64-abc123def456", [
-				"deno-win32-x64-",
+			expect(cache.restoreCache).toHaveBeenCalledWith(["~/AppData/Local/deno"], "win32-abc123def456-abc123def456", [
+				"win32-abc123def456-",
+				"win32-",
 			]);
 		});
 
 		it("should find deno.lock files", async () => {
-			await restoreCache("deno");
+			await restoreCache("deno", { deno: "2.1.0" }, "2.1.0");
 
 			expect(glob.create).toHaveBeenCalledWith("**/deno.lock", expect.any(Object));
 		});
@@ -358,11 +365,12 @@ describe("restoreCache", () => {
 				return 0;
 			});
 
-			await restoreCache("deno");
+			await restoreCache("deno", { deno: "2.1.0" }, "2.1.0");
 
 			// Should fallback to default paths
-			expect(cache.restoreCache).toHaveBeenCalledWith(["~/.cache/deno"], "deno-linux-x64-abc123def456", [
-				"deno-linux-x64-",
+			expect(cache.restoreCache).toHaveBeenCalledWith(["~/.cache/deno"], "linux-abc123def456-abc123def456", [
+				"linux-abc123def456-",
+				"linux-",
 			]);
 		});
 	});
@@ -372,7 +380,7 @@ describe("restoreCache", () => {
 			// Mock exec.exec to throw an error
 			vi.mocked(exec.exec).mockRejectedValue(new Error("Command failed"));
 
-			await restoreCache("npm");
+			await restoreCache("npm", { node: "24.11.0" }, "10.20.0");
 
 			// Should fallback to default paths
 			expect(cache.restoreCache).toHaveBeenCalledWith(
@@ -385,17 +393,35 @@ describe("restoreCache", () => {
 
 	describe("cache hit detection", () => {
 		it("should set cache-hit to true on exact match", async () => {
-			vi.mocked(cache.restoreCache).mockResolvedValue("npm-linux-x64-abc123def456");
+			// Mock the exact key that will be generated
+			const exactKey = "linux-abc123-abc123def456";
+			vi.mocked(cache.restoreCache).mockResolvedValue(exactKey);
 
-			await restoreCache("npm");
+			// Mock createHash to return consistent values
+			const mockHash = {
+				update: vi.fn().mockReturnThis(),
+				digest: vi.fn().mockReturnValueOnce("abc123").mockReturnValueOnce("abc123def456"),
+			};
+			vi.mocked(createHash).mockReturnValue(mockHash as never);
+
+			await restoreCache("npm", { node: "24.11.0" }, "10.20.0");
 
 			expect(core.setOutput).toHaveBeenCalledWith("cache-hit", "true");
 		});
 
 		it("should set cache-hit to partial on restore key match", async () => {
-			vi.mocked(cache.restoreCache).mockResolvedValue("npm-linux-x64-differenthash");
+			// Mock a partial match (different lockfile hash)
+			const partialKey = "linux-abc123-differenthash";
+			vi.mocked(cache.restoreCache).mockResolvedValue(partialKey);
 
-			await restoreCache("npm");
+			// Mock createHash to return consistent values
+			const mockHash = {
+				update: vi.fn().mockReturnThis(),
+				digest: vi.fn().mockReturnValueOnce("abc123").mockReturnValueOnce("abc123def456"),
+			};
+			vi.mocked(createHash).mockReturnValue(mockHash as never);
+
+			await restoreCache("npm", { node: "24.11.0" }, "10.20.0");
 
 			expect(core.setOutput).toHaveBeenCalledWith("cache-hit", "partial");
 		});
@@ -403,7 +429,7 @@ describe("restoreCache", () => {
 		it("should set cache-hit to false when no cache found", async () => {
 			vi.mocked(cache.restoreCache).mockResolvedValue(undefined);
 
-			await restoreCache("npm");
+			await restoreCache("npm", { node: "24.11.0" }, "10.20.0");
 
 			expect(core.setOutput).toHaveBeenCalledWith("cache-hit", "false");
 		});
@@ -411,19 +437,19 @@ describe("restoreCache", () => {
 
 	describe("state management", () => {
 		it("should save cache state when cache is restored", async () => {
-			vi.mocked(cache.restoreCache).mockResolvedValue("npm-linux-x64-abc123def456");
+			vi.mocked(cache.restoreCache).mockResolvedValue("linux-abc123-abc123def456");
 
-			await restoreCache("npm");
+			await restoreCache("npm", { node: "24.11.0" }, "10.20.0");
 
-			expect(core.saveState).toHaveBeenCalledWith("CACHE_KEY", "npm-linux-x64-abc123def456");
-			expect(core.saveState).toHaveBeenCalledWith("CACHE_PRIMARY_KEY", "npm-linux-x64-abc123def456");
+			expect(core.saveState).toHaveBeenCalledWith("CACHE_KEY", "linux-abc123-abc123def456");
+			expect(core.saveState).toHaveBeenCalledWith("CACHE_PRIMARY_KEY", expect.any(String));
 			expect(core.saveState).toHaveBeenCalledWith("CACHE_PATHS", expect.any(String));
 		});
 
 		it("should save state even when cache not found", async () => {
 			vi.mocked(cache.restoreCache).mockResolvedValue(undefined);
 
-			await restoreCache("npm");
+			await restoreCache("npm", { node: "24.11.0" }, "10.20.0");
 
 			expect(core.saveState).toHaveBeenCalledWith("CACHE_PRIMARY_KEY", expect.any(String));
 			expect(core.saveState).toHaveBeenCalledWith("CACHE_PATHS", expect.any(String));
@@ -434,7 +460,7 @@ describe("restoreCache", () => {
 		it("should handle cache restore errors gracefully", async () => {
 			vi.mocked(cache.restoreCache).mockRejectedValue(new Error("Cache service unavailable"));
 
-			const result = await restoreCache("npm");
+			const result = await restoreCache("npm", { node: "24.11.0" }, "10.20.0");
 
 			expect(core.warning).toHaveBeenCalledWith(expect.stringContaining("Failed to restore cache"));
 			expect(result).toBeUndefined();
@@ -443,7 +469,7 @@ describe("restoreCache", () => {
 		it("should warn on file read errors during hashing", async () => {
 			vi.mocked(readFile).mockRejectedValue(new Error("File not found"));
 
-			await restoreCache("npm");
+			await restoreCache("npm", { node: "24.11.0" }, "10.20.0");
 
 			expect(core.warning).toHaveBeenCalledWith(
 				expect.stringContaining("Failed to read package-lock.json for hashing"),
@@ -452,27 +478,26 @@ describe("restoreCache", () => {
 	});
 
 	describe("architecture handling", () => {
-		it("should include ARM64 in cache key", async () => {
-			vi.mocked(arch).mockReturnValue("arm64");
+		it("should include platform in cache key", async () => {
+			vi.mocked(platform).mockReturnValue("linux");
 
-			await restoreCache("npm");
+			await restoreCache("npm", { node: "24.11.0" }, "10.20.0");
 
-			expect(cache.restoreCache).toHaveBeenCalledWith(expect.any(Array), expect.stringContaining("npm-linux-arm64-"), [
-				"npm-linux-arm64-",
+			expect(cache.restoreCache).toHaveBeenCalledWith(expect.any(Array), "linux-abc123def456-abc123def456", [
+				"linux-abc123def456-",
+				"linux-",
 			]);
 		});
 
 		it("should handle different platforms", async () => {
 			vi.mocked(platform).mockReturnValue("darwin");
-			vi.mocked(arch).mockReturnValue("arm64");
 
-			await restoreCache("pnpm");
+			await restoreCache("pnpm", { node: "24.11.0" }, "10.20.0");
 
-			expect(cache.restoreCache).toHaveBeenCalledWith(
-				expect.any(Array),
-				expect.stringContaining("pnpm-darwin-arm64-"),
-				["pnpm-darwin-arm64-"],
-			);
+			expect(cache.restoreCache).toHaveBeenCalledWith(expect.any(Array), "darwin-abc123def456-abc123def456", [
+				"darwin-abc123def456-",
+				"darwin-",
+			]);
 		});
 	});
 });
@@ -497,7 +522,7 @@ describe("saveCache", () => {
 	describe("cache saving", () => {
 		it("should save cache with correct key and paths", async () => {
 			vi.mocked(core.getState).mockImplementation((name: string) => {
-				if (name === "CACHE_PRIMARY_KEY") return "npm-linux-x64-abc123";
+				if (name === "CACHE_PRIMARY_KEY") return "linux-abc123-abc123";
 				if (name === "CACHE_PATHS") return JSON.stringify(["~/.npm", "**/node_modules"]);
 				if (name === "CACHE_KEY") return "";
 				return "";
@@ -505,7 +530,7 @@ describe("saveCache", () => {
 
 			await saveCache();
 
-			expect(cache.saveCache).toHaveBeenCalledWith(["~/.npm", "**/node_modules"], "npm-linux-x64-abc123");
+			expect(cache.saveCache).toHaveBeenCalledWith(["~/.npm", "**/node_modules"], "linux-abc123-abc123");
 			expect(core.info).toHaveBeenCalledWith(expect.stringContaining("Cache saved successfully"));
 		});
 
@@ -520,8 +545,8 @@ describe("saveCache", () => {
 
 		it("should skip saving when cache hit occurred", async () => {
 			vi.mocked(core.getState).mockImplementation((name: string) => {
-				if (name === "CACHE_PRIMARY_KEY") return "npm-linux-x64-abc123";
-				if (name === "CACHE_KEY") return "npm-linux-x64-abc123";
+				if (name === "CACHE_PRIMARY_KEY") return "linux-abc123-abc123";
+				if (name === "CACHE_KEY") return "linux-abc123-abc123";
 				if (name === "CACHE_PATHS") return JSON.stringify(["~/.npm"]);
 				return "";
 			});
@@ -534,7 +559,7 @@ describe("saveCache", () => {
 
 		it("should warn when cache save fails", async () => {
 			vi.mocked(core.getState).mockImplementation((name: string) => {
-				if (name === "CACHE_PRIMARY_KEY") return "npm-linux-x64-abc123";
+				if (name === "CACHE_PRIMARY_KEY") return "linux-abc123-abc123";
 				if (name === "CACHE_PATHS") return JSON.stringify(["~/.npm"]);
 				if (name === "CACHE_KEY") return "";
 				return "";
@@ -551,7 +576,7 @@ describe("saveCache", () => {
 	describe("error handling", () => {
 		it("should handle cache save errors gracefully", async () => {
 			vi.mocked(core.getState).mockImplementation((name: string) => {
-				if (name === "CACHE_PRIMARY_KEY") return "npm-linux-x64-abc123";
+				if (name === "CACHE_PRIMARY_KEY") return "linux-abc123-abc123";
 				if (name === "CACHE_PATHS") return JSON.stringify(["~/.npm"]);
 				if (name === "CACHE_KEY") return "";
 				return "";
@@ -566,7 +591,7 @@ describe("saveCache", () => {
 
 		it("should handle non-Error exceptions", async () => {
 			vi.mocked(core.getState).mockImplementation((name: string) => {
-				if (name === "CACHE_PRIMARY_KEY") return "npm-linux-x64-abc123";
+				if (name === "CACHE_PRIMARY_KEY") return "linux-abc123-abc123";
 				if (name === "CACHE_PATHS") return JSON.stringify(["~/.npm"]);
 				if (name === "CACHE_KEY") return "";
 				return "";
@@ -583,7 +608,7 @@ describe("saveCache", () => {
 	describe("output grouping", () => {
 		it("should group cache save output", async () => {
 			vi.mocked(core.getState).mockImplementation((name: string) => {
-				if (name === "CACHE_PRIMARY_KEY") return "npm-linux-x64-abc123";
+				if (name === "CACHE_PRIMARY_KEY") return "linux-abc123-abc123";
 				if (name === "CACHE_PATHS") return JSON.stringify(["~/.npm"]);
 				if (name === "CACHE_KEY") return "";
 				return "";
@@ -597,7 +622,7 @@ describe("saveCache", () => {
 
 		it("should end group even on error", async () => {
 			vi.mocked(core.getState).mockImplementation((name: string) => {
-				if (name === "CACHE_PRIMARY_KEY") return "npm-linux-x64-abc123";
+				if (name === "CACHE_PRIMARY_KEY") return "linux-abc123-abc123";
 				if (name === "CACHE_PATHS") return JSON.stringify(["~/.npm"]);
 				if (name === "CACHE_KEY") return "";
 				return "";
@@ -663,11 +688,14 @@ describe("multi-package manager support", () => {
 		// Mock file reading and hashing
 		vi.mocked(readFile).mockResolvedValue("lockfile content");
 
-		const mockHash = {
-			update: vi.fn().mockReturnThis(),
-			digest: vi.fn().mockReturnValue("multihash123"),
-		};
-		vi.mocked(createHash).mockReturnValue(mockHash as never);
+		// Mock createHash - it's called twice per restoreCache call
+		vi.mocked(createHash).mockImplementation(() => {
+			const mockHash = {
+				update: vi.fn().mockReturnThis(),
+				digest: vi.fn().mockReturnValue("multihash123"),
+			};
+			return mockHash as never;
+		});
 	});
 
 	afterEach(() => {
@@ -684,14 +712,13 @@ describe("multi-package manager support", () => {
 			};
 			vi.mocked(glob.create).mockResolvedValue(globber as unknown as Globber);
 
-			await restoreCache(["pnpm", "deno"]);
+			await restoreCache(["pnpm", "deno"], { node: "24.11.0", deno: "2.1.0" }, "10.20.0");
 
-			// Should include both package managers in cache key (sorted)
-			expect(cache.restoreCache).toHaveBeenCalledWith(
-				expect.any(Array),
-				expect.stringContaining("deno+pnpm-linux-x64-"), // Sorted: deno+pnpm
-				expect.arrayContaining([expect.stringContaining("deno+pnpm-linux-x64-")]),
-			);
+			// Should use the primary package manager (first in array) for cache key
+			expect(cache.restoreCache).toHaveBeenCalledWith(expect.any(Array), "linux-multihash123-multihash123", [
+				"linux-multihash123-",
+				"linux-",
+			]);
 		});
 
 		it("should deduplicate cache paths from multiple package managers", async () => {
@@ -702,7 +729,7 @@ describe("multi-package manager support", () => {
 			};
 			vi.mocked(glob.create).mockResolvedValue(globber as unknown as Globber);
 
-			await restoreCache(["pnpm", "deno"]);
+			await restoreCache(["pnpm", "deno"], { node: "24.11.0", deno: "2.1.0" }, "10.20.0");
 
 			const cacheCall = vi.mocked(cache.restoreCache).mock.calls[0];
 			const cachePaths = cacheCall[0];
@@ -730,7 +757,7 @@ describe("multi-package manager support", () => {
 			};
 			vi.mocked(glob.create).mockResolvedValue(globber as unknown as Globber);
 
-			await restoreCache(["pnpm", "bun"]);
+			await restoreCache(["pnpm", "bun"], { node: "24.11.0", bun: "1.3.3" }, "10.20.0");
 
 			// Should create globber with both lock file patterns
 			const createCallArg = vi.mocked(glob.create).mock.calls[0][0];
@@ -738,7 +765,7 @@ describe("multi-package manager support", () => {
 			expect(createCallArg).toContain("**/bun.lock");
 		});
 
-		it("should sort package managers for consistent cache key", async () => {
+		it("should use primary package manager for cache key", async () => {
 			const globber = {
 				glob: vi.fn().mockResolvedValue(["yarn.lock", "bun.lock"]),
 				getSearchPaths: vi.fn().mockReturnValue([]),
@@ -746,15 +773,14 @@ describe("multi-package manager support", () => {
 			};
 			vi.mocked(glob.create).mockResolvedValue(globber as unknown as Globber);
 
-			// Pass in unsorted order
-			await restoreCache(["yarn", "bun"]);
+			// Pass in specific order - primary is first (yarn)
+			await restoreCache(["yarn", "bun"], { node: "24.11.0", bun: "1.3.3" }, "10.20.0");
 
-			// Should be sorted alphabetically: bun+yarn
-			expect(cache.restoreCache).toHaveBeenCalledWith(
-				expect.any(Array),
-				expect.stringContaining("bun+yarn-linux-x64-"),
-				expect.arrayContaining([expect.stringContaining("bun+yarn-linux-x64-")]),
-			);
+			// Cache key should use the primary package manager (yarn, first in array)
+			expect(cache.restoreCache).toHaveBeenCalledWith(expect.any(Array), "linux-multihash123-multihash123", [
+				"linux-multihash123-",
+				"linux-",
+			]);
 		});
 
 		it("should save all package managers to state", async () => {
@@ -765,9 +791,9 @@ describe("multi-package manager support", () => {
 			};
 			vi.mocked(glob.create).mockResolvedValue(globber as unknown as Globber);
 
-			vi.mocked(cache.restoreCache).mockResolvedValue("deno+pnpm-linux-x64-multihash123");
+			vi.mocked(cache.restoreCache).mockResolvedValue("linux-abc123-multihash123");
 
-			await restoreCache(["pnpm", "deno"]);
+			await restoreCache(["pnpm", "deno"], { node: "24.11.0", deno: "2.1.0" }, "10.20.0");
 
 			// Should save package managers array to state
 			expect(core.saveState).toHaveBeenCalledWith("PACKAGE_MANAGERS", JSON.stringify(["pnpm", "deno"]));
@@ -777,7 +803,7 @@ describe("multi-package manager support", () => {
 	describe("saveCache with multiple package managers", () => {
 		it("should save cache with multiple package managers from state", async () => {
 			vi.mocked(core.getState).mockImplementation((name: string) => {
-				if (name === "CACHE_PRIMARY_KEY") return "deno+pnpm-linux-x64-multihash123";
+				if (name === "CACHE_PRIMARY_KEY") return "linux-abc123-multihash123";
 				if (name === "CACHE_PATHS")
 					return JSON.stringify(["/home/user/.local/share/pnpm/store", "/home/user/.cache/deno", "**/node_modules"]);
 				if (name === "PACKAGE_MANAGERS") return JSON.stringify(["pnpm", "deno"]);
@@ -789,14 +815,14 @@ describe("multi-package manager support", () => {
 
 			expect(cache.saveCache).toHaveBeenCalledWith(
 				["/home/user/.local/share/pnpm/store", "/home/user/.cache/deno", "**/node_modules"],
-				"deno+pnpm-linux-x64-multihash123",
+				"linux-abc123-multihash123",
 			);
 			expect(core.info).toHaveBeenCalledWith(expect.stringContaining("pnpm, deno"));
 		});
 
 		it("should handle missing PACKAGE_MANAGERS state gracefully", async () => {
 			vi.mocked(core.getState).mockImplementation((name: string) => {
-				if (name === "CACHE_PRIMARY_KEY") return "npm-linux-x64-abc123";
+				if (name === "CACHE_PRIMARY_KEY") return "linux-abc123-abc123";
 				if (name === "CACHE_PATHS") return JSON.stringify(["~/.npm"]);
 				if (name === "CACHE_KEY") return "";
 				// PACKAGE_MANAGERS not set (backwards compatibility)
@@ -806,7 +832,7 @@ describe("multi-package manager support", () => {
 			await saveCache();
 
 			// Should still save cache successfully
-			expect(cache.saveCache).toHaveBeenCalledWith(["~/.npm"], "npm-linux-x64-abc123");
+			expect(cache.saveCache).toHaveBeenCalledWith(["~/.npm"], "linux-abc123-abc123");
 			expect(core.info).toHaveBeenCalledWith(expect.stringContaining("unknown"));
 		});
 	});
@@ -821,13 +847,12 @@ describe("multi-package manager support", () => {
 			vi.mocked(glob.create).mockResolvedValue(globber as unknown as Globber);
 
 			// Single string (not array)
-			await restoreCache("pnpm");
+			await restoreCache("pnpm", { node: "24.11.0" }, "10.20.0");
 
-			expect(cache.restoreCache).toHaveBeenCalledWith(
-				expect.any(Array),
-				expect.stringContaining("pnpm-linux-x64-"),
-				expect.arrayContaining([expect.stringContaining("pnpm-linux-x64-")]),
-			);
+			expect(cache.restoreCache).toHaveBeenCalledWith(expect.any(Array), "linux-multihash123-multihash123", [
+				"linux-multihash123-",
+				"linux-",
+			]);
 		});
 	});
 });

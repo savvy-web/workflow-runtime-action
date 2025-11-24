@@ -13,6 +13,7 @@ const VALID_INPUTS: Set<string> = new Set([
 	"turbo-token",
 	"turbo-team",
 	"install-deps",
+	"cache-hash",
 ] as const);
 
 /**
@@ -47,7 +48,8 @@ export type ActionInput =
 	| "biome-version"
 	| "turbo-token"
 	| "turbo-team"
-	| "install-deps";
+	| "install-deps"
+	| "cache-hash";
 
 /**
  * Type-safe output key
