@@ -167,11 +167,11 @@ runs:
                     print(f"{sub_indent}{file}")
             print("::endgroup::")
 
-            # Remove ALL files/directories except .github and .git
+            # Remove ALL files/directories except .github, .git, and __fixtures__
             print("::group::Cleaning workspace")
             for item in cwd.iterdir():
-                # Skip .github and .git directories
-                if item.name in [".github", ".git"]:
+                # Skip .github, .git, and __fixtures__ directories
+                if item.name in [".github", ".git", "__fixtures__"]:
                     print(f"Skipping: {item.name}")
                     continue
 
