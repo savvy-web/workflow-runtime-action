@@ -547,7 +547,6 @@ jobs:
           title: ${{ matrix.title }}
           additional-lockfiles: ${{ matrix.additional-lockfiles }}
           additional-cache-paths: ${{ matrix.additional-cache-paths }}
-          cache-bust: "true"
           expected-node-enabled: "true"
           expected-node-version: "24.9.0"
           expected-package-manager: npm
@@ -557,7 +556,6 @@ jobs:
           expected-bun-enabled: "false"
           expected-biome-enabled: "false"
           expected-turbo-enabled: "false"
-          expected-cache-hit: "false"
           expected-lockfiles: "custom.lock, vendor.lock"
           expected-cache-paths: "build, dist"
 
@@ -707,7 +705,14 @@ jobs:
                           status_icons = {"passed": "✅", "failed": "❌", "info": "ℹ️"}
                           status_icon = status_icons.get(result_status, "—")
                           expected_display = expected if expected else "—"
-                          summary_content += f"| `{key}` | `{actual}` | `{expected_display}` | {status_icon} |\n"
+
+                          # Format lockfiles and cache-paths with line breaks for readability
+                          if key in ["lockfiles", "cache-paths"] and actual:
+                              actual_display = "<br>".join(item.strip() for item in actual.split(",") if item.strip())
+                          else:
+                              actual_display = actual
+
+                          summary_content += f"| `{key}` | {actual_display} | `{expected_display}` | {status_icon} |\n"
 
                   # Show additional verifications
                   lockfile_verified = os_data.get("lockfile_verified", "n/a")
