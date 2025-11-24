@@ -121,7 +121,6 @@ jobs:
           except Exception as e:
               # Error handling - create error JSON
               print(f"::error::Failed to save test results: {e}")
-              print(f"::error::Test outputs - passed: '${{ steps.test.outputs.test-passed }}', results: '${{ toJson(steps.test.outputs.test-results) }}'")
 
               Path("test-results").mkdir(exist_ok=True)
               error_output = {
@@ -284,7 +283,6 @@ jobs:
           except Exception as e:
               # Error handling - create error JSON
               print(f"::error::Failed to save test results: {e}")
-              print(f"::error::Test outputs - passed: '${{ steps.test.outputs.test-passed }}', results: '${{ toJson(steps.test.outputs.test-results) }}'")
 
               Path("test-results").mkdir(exist_ok=True)
               error_output = {
@@ -467,7 +465,6 @@ jobs:
           except Exception as e:
               # Error handling - create error JSON
               print(f"::error::Failed to save test results: {e}")
-              print(f"::error::Test outputs - passed: '${{ steps.test.outputs.test-passed }}', results: '${{ toJson(steps.test.outputs.test-results) }}'")
 
               Path("test-results").mkdir(exist_ok=True)
               error_output = {
@@ -645,7 +642,6 @@ jobs:
           except Exception as e:
               # Error handling - create error JSON
               print(f"::error::Failed to save test results: {e}")
-              print(f"::error::Test outputs - passed: '${{ steps.test.outputs.test-passed }}', results: '${{ toJson(steps.test.outputs.test-results) }}'")
 
               Path("test-results").mkdir(exist_ok=True)
               error_output = {
