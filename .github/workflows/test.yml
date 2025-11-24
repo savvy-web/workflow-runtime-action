@@ -154,7 +154,6 @@ jobs:
           print("Test Step Outcome: ${{ steps.test.outcome }}")
           print("Test Step Conclusion: ${{ steps.test.conclusion }}")
           print("Test Passed Output: '${{ steps.test.outputs.test-passed }}'")
-          print("Test Results Output: '${{ toJson(steps.test.outputs.test-results) }}'")
           print("::endgroup::")
 
           # Determine failure reason
@@ -318,7 +317,6 @@ jobs:
           print("Test Step Outcome: ${{ steps.test.outcome }}")
           print("Test Step Conclusion: ${{ steps.test.conclusion }}")
           print("Test Passed Output: '${{ steps.test.outputs.test-passed }}'")
-          print("Test Results Output: '${{ toJson(steps.test.outputs.test-results) }}'")
           print("::endgroup::")
 
           # Determine failure reason
@@ -502,7 +500,6 @@ jobs:
           print("Test Step Outcome: ${{ steps.test.outcome }}")
           print("Test Step Conclusion: ${{ steps.test.conclusion }}")
           print("Test Passed Output: '${{ steps.test.outputs.test-passed }}'")
-          print("Test Results Output: '${{ toJson(steps.test.outputs.test-results) }}'")
           print("::endgroup::")
 
           # Determine failure reason
@@ -681,7 +678,6 @@ jobs:
           print("Test Step Outcome: ${{ steps.test.outcome }}")
           print("Test Step Conclusion: ${{ steps.test.conclusion }}")
           print("Test Passed Output: '${{ steps.test.outputs.test-passed }}'")
-          print("Test Results Output: '${{ toJson(steps.test.outputs.test-results) }}'")
           print("::endgroup::")
 
           # Determine failure reason
