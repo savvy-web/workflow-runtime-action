@@ -152,32 +152,74 @@ runs:
         try:
             github_output = Path(os.environ["GITHUB_OUTPUT"])
 
-            # Remove ALL files/directories except .github and .git
+            # Log all files before cleanup
+            print("::group::Files before cleanup")
             cwd = Path(".")
+            for root, dirs, files in os.walk("."):
+                # Skip .git directory
+                if ".git" in root:
+                    continue
+                level = root.replace(".", "", 1).count(os.sep)
+                indent = " " * 2 * level
+                print(f"{indent}{os.path.basename(root)}/")
+                sub_indent = " " * 2 * (level + 1)
+                for file in files:
+                    print(f"{sub_indent}{file}")
+            print("::endgroup::")
+
+            # Remove ALL files/directories except .github and .git
+            print("::group::Cleaning workspace")
             for item in cwd.iterdir():
                 # Skip .github and .git directories
                 if item.name in [".github", ".git"]:
+                    print(f"Skipping: {item.name}")
                     continue
 
                 # Remove everything else
                 if item.is_file() or item.is_symlink():
+                    print(f"Removing file: {item.name}")
                     item.unlink()
                 elif item.is_dir():
+                    print(f"Removing directory: {item.name}")
                     shutil.rmtree(item)
+            print("::endgroup::")
 
             # Copy fixture files to current directory (including hidden files)
+            print("::group::Copying fixture files")
             fixture_dir = Path("__fixtures__") / "${{ inputs.fixture }}"
             if fixture_dir.exists():
                 for item in fixture_dir.iterdir():
                     if item.is_file():
+                        print(f"Copying file: {item.name}")
                         shutil.copy2(item, item.name)
                     elif item.is_dir():
+                        print(f"Copying directory: {item.name}")
                         shutil.copytree(item, item.name, dirs_exist_ok=True)
+            else:
+                print(f"::warning::Fixture directory not found: {fixture_dir}")
+            print("::endgroup::")
 
             # Remove __fixtures__ directory to prevent glob pattern interference
+            print("::group::Removing __fixtures__ directory")
             fixtures_dir = Path("__fixtures__")
             if fixtures_dir.exists():
+                print(f"Removing: {fixtures_dir}")
                 shutil.rmtree(fixtures_dir)
+            print("::endgroup::")
+
+            # Log final workspace state
+            print("::group::Files after setup")
+            for root, dirs, files in os.walk("."):
+                # Skip .git directory
+                if ".git" in root:
+                    continue
+                level = root.replace(".", "", 1).count(os.sep)
+                indent = " " * 2 * level
+                print(f"{indent}{os.path.basename(root)}/")
+                sub_indent = " " * 2 * (level + 1)
+                for file in files:
+                    print(f"{sub_indent}{file}")
+            print("::endgroup::")
 
             print("Fixture '${{ inputs.fixture }}' prepared")
 
