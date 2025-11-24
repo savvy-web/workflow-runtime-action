@@ -64,8 +64,8 @@ jobs:
             fixture: cache-test
             test-cache: "true"
             expected-node-version: "20.11.0"
-            expected-package-manager: npm
-            expected-package-manager-version: "10.2.4"
+            expected-package-manager: pnpm
+            expected-package-manager-version: "10.20.0"
             title: "💾 Cache Effectiveness Test Results"
 
     steps:

@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
-import { platform } from "node:os";
+import { arch, platform } from "node:os";
 import * as cache from "@actions/cache";
 import * as core from "@actions/core";
 import * as exec from "@actions/exec";
@@ -369,13 +369,18 @@ function generateRestoreKeys(
 	packageManagerVersion: string,
 	cacheHash?: string,
 ): string[] {
+	// When cache-hash is provided (testing mode), don't use restore keys
+	// We want exact matches only for test validation
+	if (cacheHash) {
+		return [];
+	}
+
 	const plat = platform();
 	const versionHash = generateVersionHash(runtimeVersions, packageManager, packageManagerVersion, cacheHash);
 
 	// Restore keys in order of specificity:
 	// 1. Match OS + version hash (any lockfile for same runtime/pm versions)
-	// 2. Match OS only (any cache for same OS)
-	return [`${plat}-${versionHash}-`, `${plat}-`];
+	return [`${plat}-${versionHash}-`];
 }
 
 /**
