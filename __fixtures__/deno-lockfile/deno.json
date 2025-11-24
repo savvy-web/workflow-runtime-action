@@ -1,6 +1,0 @@
-{
-  "lock": true,
-  "tasks": {
-    "dev": "deno run main.ts"
-  }
-}

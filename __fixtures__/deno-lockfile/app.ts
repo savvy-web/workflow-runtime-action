@@ -1,1 +1,0 @@
-console.log("Deno package.json test");
