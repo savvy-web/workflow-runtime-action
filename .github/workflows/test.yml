@@ -31,15 +31,16 @@ jobs:
   # Node.js Tests
   # ============================================================================
   test-node:
-    name: Node.js - ${{ matrix.name }} (${{ matrix.os }})
+    name: Node.js | ${{ matrix.name }} | (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
         include:
-          - name: NPM
+          - name: npm
             fixture: node-npm
+            test-cache: "true"
             expected-node-enabled: "true"
             expected-node-version: "20.11.0"
             expected-package-manager: npm
@@ -47,27 +48,21 @@ jobs:
             test-command: "node --version && npm --version"
             title: "📦 NPM Test Results"
 
-          - name: PNPM
+          - name: pnpm
             fixture: node-pnpm
+            test-cache: "true"
             expected-node-enabled: "true"
             expected-package-manager: pnpm
             test-command: "node --version && pnpm --version"
             title: "📦 PNPM Test Results"
 
-          - name: Yarn
+          - name: yarn
             fixture: node-yarn
+            test-cache: "true"
             expected-node-enabled: "true"
             expected-package-manager: yarn
             test-command: "node --version && yarn --version"
             title: "📦 Yarn Test Results"
-
-          - name: Cache Effectiveness
-            fixture: cache-test
-            test-cache: "true"
-            expected-node-version: "20.11.0"
-            expected-package-manager: pnpm
-            expected-package-manager-version: "10.20.0"
-            title: "💾 Cache Effectiveness Test Results"
 
     steps:
       - name: Checkout
