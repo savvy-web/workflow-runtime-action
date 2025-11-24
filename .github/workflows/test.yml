@@ -92,6 +92,29 @@ jobs:
         if: always()
         shell: bash
         run: |
+          # Error trapping for debugging
+          set -euo pipefail
+
+          error_handler() {
+            echo "::error::Failed to save test results at line $1: $2 (exit code $3)"
+            echo "::error::Test outputs - passed: '${{ steps.test.outputs.test-passed }}', results: '${{ steps.test.outputs.test-results }}'"
+            # Create error JSON file so we still have something to upload
+            mkdir -p test-results
+            cat > "test-results/${{ matrix.name }}.json" <<'ERROR_EOF'
+          {
+            "name": "${{ matrix.name }}",
+            "title": "${{ matrix.title }}",
+            "fixture": "${{ matrix.fixture }}",
+            "passed": false,
+            "error": "Failed to save test results at line $1: $2 (exit code $3)",
+            "results": {}
+          }
+          ERROR_EOF
+            exit 0
+          }
+
+          trap 'error_handler $LINENO "$BASH_COMMAND" $?' ERR
+
           mkdir -p test-results
 
           # Set defaults for missing outputs
@@ -120,8 +143,26 @@ jobs:
 
       - name: Fail job if test failed
         if: always() && (steps.test.outputs.test-passed == 'false' || steps.test.outputs.test-passed == '')
+        shell: bash
         run: |
-          echo "::error::Test failed - see results above"
+          echo "::group::Test Failure Details"
+          echo "Test Step Outcome: ${{ steps.test.outcome }}"
+          echo "Test Step Conclusion: ${{ steps.test.conclusion }}"
+          echo "Test Passed Output: '${{ steps.test.outputs.test-passed }}'"
+          echo "Test Results Output: '${{ steps.test.outputs.test-results }}'"
+          echo "::endgroup::"
+
+          # Determine failure reason
+          if [ "${{ steps.test.outcome }}" = "failure" ]; then
+            echo "::error::Test fixture step failed - check logs above for details"
+          elif [ "${{ steps.test.outputs.test-passed }}" = "false" ]; then
+            echo "::error::Tests ran but failed - check test results above"
+          elif [ -z "${{ steps.test.outputs.test-passed }}" ]; then
+            echo "::error::Test fixture did not complete - no test-passed output set"
+          else
+            echo "::error::Unknown test failure - check logs above"
+          fi
+
           exit 1
 
   # ============================================================================
@@ -197,6 +238,29 @@ jobs:
         if: always()
         shell: bash
         run: |
+          # Error trapping for debugging
+          set -euo pipefail
+
+          error_handler() {
+            echo "::error::Failed to save test results at line $1: $2 (exit code $3)"
+            echo "::error::Test outputs - passed: '${{ steps.test.outputs.test-passed }}', results: '${{ steps.test.outputs.test-results }}'"
+            # Create error JSON file so we still have something to upload
+            mkdir -p test-results
+            cat > "test-results/${{ matrix.name }}.json" <<'ERROR_EOF'
+          {
+            "name": "${{ matrix.name }}",
+            "title": "${{ matrix.title }}",
+            "fixture": "${{ matrix.fixture }}",
+            "passed": false,
+            "error": "Failed to save test results at line $1: $2 (exit code $3)",
+            "results": {}
+          }
+          ERROR_EOF
+            exit 0
+          }
+
+          trap 'error_handler $LINENO "$BASH_COMMAND" $?' ERR
+
           mkdir -p test-results
 
           # Set defaults for missing outputs
@@ -226,8 +290,26 @@ jobs:
 
       - name: Fail job if test failed
         if: always() && (steps.test.outputs.test-passed == 'false' || steps.test.outputs.test-passed == '')
+        shell: bash
         run: |
-          echo "::error::Test failed - see results above"
+          echo "::group::Test Failure Details"
+          echo "Test Step Outcome: ${{ steps.test.outcome }}"
+          echo "Test Step Conclusion: ${{ steps.test.conclusion }}"
+          echo "Test Passed Output: '${{ steps.test.outputs.test-passed }}'"
+          echo "Test Results Output: '${{ steps.test.outputs.test-results }}'"
+          echo "::endgroup::"
+
+          # Determine failure reason
+          if [ "${{ steps.test.outcome }}" = "failure" ]; then
+            echo "::error::Test fixture step failed - check logs above for details"
+          elif [ "${{ steps.test.outputs.test-passed }}" = "false" ]; then
+            echo "::error::Tests ran but failed - check test results above"
+          elif [ -z "${{ steps.test.outputs.test-passed }}" ]; then
+            echo "::error::Test fixture did not complete - no test-passed output set"
+          else
+            echo "::error::Unknown test failure - check logs above"
+          fi
+
           exit 1
 
   # ============================================================================
@@ -323,6 +405,29 @@ jobs:
         if: always()
         shell: bash
         run: |
+          # Error trapping for debugging
+          set -euo pipefail
+
+          error_handler() {
+            echo "::error::Failed to save test results at line $1: $2 (exit code $3)"
+            echo "::error::Test outputs - passed: '${{ steps.test.outputs.test-passed }}', results: '${{ steps.test.outputs.test-results }}'"
+            # Create error JSON file so we still have something to upload
+            mkdir -p test-results
+            cat > "test-results/${{ matrix.name }}.json" <<'ERROR_EOF'
+          {
+            "name": "${{ matrix.name }}",
+            "title": "${{ matrix.title }}",
+            "fixture": "${{ matrix.fixture }}",
+            "passed": false,
+            "error": "Failed to save test results at line $1: $2 (exit code $3)",
+            "results": {}
+          }
+          ERROR_EOF
+            exit 0
+          }
+
+          trap 'error_handler $LINENO "$BASH_COMMAND" $?' ERR
+
           mkdir -p test-results
 
           # Set defaults for missing outputs
@@ -352,8 +457,26 @@ jobs:
 
       - name: Fail job if test failed
         if: always() && (steps.test.outputs.test-passed == 'false' || steps.test.outputs.test-passed == '')
+        shell: bash
         run: |
-          echo "::error::Test failed - see results above"
+          echo "::group::Test Failure Details"
+          echo "Test Step Outcome: ${{ steps.test.outcome }}"
+          echo "Test Step Conclusion: ${{ steps.test.conclusion }}"
+          echo "Test Passed Output: '${{ steps.test.outputs.test-passed }}'"
+          echo "Test Results Output: '${{ steps.test.outputs.test-results }}'"
+          echo "::endgroup::"
+
+          # Determine failure reason
+          if [ "${{ steps.test.outcome }}" = "failure" ]; then
+            echo "::error::Test fixture step failed - check logs above for details"
+          elif [ "${{ steps.test.outputs.test-passed }}" = "false" ]; then
+            echo "::error::Tests ran but failed - check test results above"
+          elif [ -z "${{ steps.test.outputs.test-passed }}" ]; then
+            echo "::error::Test fixture did not complete - no test-passed output set"
+          else
+            echo "::error::Unknown test failure - check logs above"
+          fi
+
           exit 1
 
   # ============================================================================
@@ -433,6 +556,29 @@ jobs:
         if: always()
         shell: bash
         run: |
+          # Error trapping for debugging
+          set -euo pipefail
+
+          error_handler() {
+            echo "::error::Failed to save test results at line $1: $2 (exit code $3)"
+            echo "::error::Test outputs - passed: '${{ steps.test.outputs.test-passed }}', results: '${{ steps.test.outputs.test-results }}'"
+            # Create error JSON file so we still have something to upload
+            mkdir -p test-results
+            cat > "test-results/${{ matrix.name }}.json" <<'ERROR_EOF'
+          {
+            "name": "${{ matrix.name }}",
+            "title": "${{ matrix.title }}",
+            "fixture": "${{ matrix.fixture }}",
+            "passed": false,
+            "error": "Failed to save test results at line $1: $2 (exit code $3)",
+            "results": {}
+          }
+          ERROR_EOF
+            exit 0
+          }
+
+          trap 'error_handler $LINENO "$BASH_COMMAND" $?' ERR
+
           mkdir -p test-results
 
           # Set defaults for missing outputs
@@ -477,8 +623,26 @@ jobs:
 
       - name: Fail job if test failed
         if: always() && (steps.test.outputs.test-passed == 'false' || steps.test.outputs.test-passed == '')
+        shell: bash
         run: |
-          echo "::error::Test failed - see results above"
+          echo "::group::Test Failure Details"
+          echo "Test Step Outcome: ${{ steps.test.outcome }}"
+          echo "Test Step Conclusion: ${{ steps.test.conclusion }}"
+          echo "Test Passed Output: '${{ steps.test.outputs.test-passed }}'"
+          echo "Test Results Output: '${{ steps.test.outputs.test-results }}'"
+          echo "::endgroup::"
+
+          # Determine failure reason
+          if [ "${{ steps.test.outcome }}" = "failure" ]; then
+            echo "::error::Test fixture step failed - check logs above for details"
+          elif [ "${{ steps.test.outputs.test-passed }}" = "false" ]; then
+            echo "::error::Tests ran but failed - check test results above"
+          elif [ -z "${{ steps.test.outputs.test-passed }}" ]; then
+            echo "::error::Test fixture did not complete - no test-passed output set"
+          else
+            echo "::error::Unknown test failure - check logs above"
+          fi
+
           exit 1
 
   # ============================================================================

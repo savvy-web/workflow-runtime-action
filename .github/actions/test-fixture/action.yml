@@ -248,6 +248,26 @@ runs:
       id: verify
       shell: bash
       run: |
+        # Error trapping for debugging
+        set -euo pipefail
+
+        error_handler() {
+          local line=$1
+          local command=$2
+          local code=$3
+          echo "::error::Script failed at line $line with exit code $code"
+          echo "::error::Failed command: $command"
+          echo "ERROR_LINE=$line" >> $GITHUB_OUTPUT
+          echo "ERROR_COMMAND=$command" >> $GITHUB_OUTPUT
+          echo "ERROR_CODE=$code" >> $GITHUB_OUTPUT
+          echo "test-passed=false" >> $GITHUB_OUTPUT
+          echo "test-results={\"error\":\"Script failed at line $line: $command (exit $code)\"}" >> $GITHUB_OUTPUT
+          # Exit 0 so step succeeds and outputs are available
+          exit 0
+        }
+
+        trap 'error_handler $LINENO "$BASH_COMMAND" $?' ERR
+
         FAILED=0
         RESULTS_JSON="{"
         TEST_CACHE="${{ inputs.test-cache }}"
