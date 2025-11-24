@@ -339,6 +339,40 @@ runs:
                     f.write(f"test-results={error_json}\n")
                 sys.exit(0)
 
+            # Check if runtime setup steps failed
+            if test_cache == "true":
+                setup1_outcome = "${{ steps.setup1.outcome }}"
+                setup2_outcome = "${{ steps.setup2.outcome }}"
+                if setup1_outcome == "failure":
+                    error_msg = "Runtime setup failed during first run (cache miss). Check the 'First run (cache miss)' step logs for details."
+                    print(f"::error::{error_msg}")
+                    traceback.print_stack()
+                    with open(github_output, "a") as f:
+                        f.write("test-passed=false\n")
+                        error_json = json.dumps({"error": error_msg})
+                        f.write(f"test-results={error_json}\n")
+                    sys.exit(0)
+                if setup2_outcome == "failure":
+                    error_msg = "Runtime setup failed during second run (cache hit expected). Check the 'Second run (cache hit expected)' step logs for details."
+                    print(f"::error::{error_msg}")
+                    traceback.print_stack()
+                    with open(github_output, "a") as f:
+                        f.write("test-passed=false\n")
+                        error_json = json.dumps({"error": error_msg}")
+                        f.write(f"test-results={error_json}\n")
+                    sys.exit(0)
+            else:
+                setup_outcome = "${{ steps.setup.outcome }}"
+                if setup_outcome == "failure":
+                    error_msg = "Runtime setup failed. Check the 'Setup runtime' step logs for details."
+                    print(f"::error::{error_msg}")
+                    traceback.print_stack()
+                    with open(github_output, "a") as f:
+                        f.write("test-passed=false\n")
+                        error_json = json.dumps({"error": error_msg})
+                        f.write(f"test-results={error_json}\n")
+                    sys.exit(0)
+
             def check_value(key: str, actual: str, expected: str) -> None:
                 global failed
                 # Skip if no actual value
