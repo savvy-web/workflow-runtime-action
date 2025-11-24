@@ -33,6 +33,7 @@ jobs:
   test-node-create-cache:
     name: node | ${{ matrix.pm }} | create cache | ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 5
     strategy:
       fail-fast: false
       matrix:
@@ -239,6 +240,7 @@ jobs:
   test-node-restore-cache:
     name: node | ${{ matrix.pm }} | restore cache | ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 5
     needs: [test-node-create-cache]
     strategy:
       fail-fast: false
@@ -446,6 +448,7 @@ jobs:
   summary:
     name: Test Summary
     runs-on: ubuntu-latest
+    timeout-minutes: 3
     needs: [test-node-create-cache, test-node-restore-cache]
     if: always()
     steps:
