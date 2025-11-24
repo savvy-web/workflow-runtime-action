@@ -39,10 +39,11 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
         include:
           - name: NPM
-            fixture: node-minimal
-            package-manager: npm
+            fixture: node-npm
             expected-node-enabled: "true"
+            expected-node-version: "20.11.0"
             expected-package-manager: npm
+            expected-package-manager-version: "11.6.0"
             test-command: "node --version && npm --version"
             title: "📦 NPM Test Results"
 
@@ -586,7 +587,7 @@ jobs:
             title: "🧬 Biome from Config Test Results"
 
           - name: Biome Explicit Version
-            fixture: node-minimal
+            fixture: node-npm
             biome-version: "2.3.6"
             expected-biome-enabled: "true"
             expected-biome-version: "2.3.6"
