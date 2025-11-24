@@ -62,8 +62,8 @@ interface SetupResult {
 	biomeConfigFile: string;
 	/** Whether to install dependencies */
 	installDeps: boolean;
-	/** Optional cache hash for testing (typically github.run_id) */
-	cacheHash: string;
+	/** Cache busting mode: 'true' (auto-generate), 'false' (normal), or custom string */
+	cacheBust: string;
 	/** Additional lockfile patterns for cache key generation */
 	additionalLockfiles: string;
 	/** Additional cache paths to cache/restore */
@@ -210,7 +210,7 @@ async function detectConfiguration(): Promise<SetupResult> {
 	const packageManagerVersionInput = getInput("package-manager-version");
 	const biomeVersionInput = getInput("biome-version");
 	const installDeps = getInput("install-deps") !== "false";
-	const cacheHash = getInput("cache-hash");
+	const cacheBust = getInput("cache-bust");
 	const additionalLockfiles = getInput("additional-lockfiles");
 	const additionalCachePaths = getInput("additional-cache-paths");
 
@@ -315,7 +315,7 @@ async function detectConfiguration(): Promise<SetupResult> {
 		biomeVersion: biome.version,
 		biomeConfigFile: biome.configFile,
 		installDeps,
-		cacheHash,
+		cacheBust,
 		additionalLockfiles,
 		additionalCachePaths,
 	};
@@ -424,7 +424,7 @@ async function main(): Promise<void> {
 			activePackageManagers,
 			config.runtimeVersions,
 			config.packageManagerVersion,
-			config.cacheHash || undefined,
+			config.cacheBust || undefined,
 			config.additionalLockfiles || undefined,
 			config.additionalCachePaths || undefined,
 		);

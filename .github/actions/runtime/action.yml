@@ -42,10 +42,10 @@ inputs:
     description: "Whether to install dependencies (true | false). Set to false to skip dependency installation."
     required: false
     default: "true"
-  cache-hash:
-    description: "Optional cache hash suffix for testing cache behavior. Example: 'test-job-12345'. Only use for testing - do not use in production!"
+  cache-bust:
+    description: "Cache busting for testing - 'true' (auto-generate), 'false' (normal cache), or custom string. Only use for testing - do not use in production!"
     required: false
-    default: ""
+    default: "false"
   additional-lockfiles:
     description: "Additional lockfile patterns to include in cache key generation. Multiline string with glob patterns (e.g., '**/some.lock', '**/some.db')."
     required: false

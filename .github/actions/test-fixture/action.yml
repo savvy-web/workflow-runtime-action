@@ -39,9 +39,10 @@ inputs:
   turbo-team:
     description: Turbo team slug
     required: false
-  cache-hash:
-    description: Optional cache hash for testing
+  cache-bust:
+    description: Cache busting mode - "true" (auto-generate unique hash), "false" (normal cache), or custom string
     required: false
+    default: "false"
   additional-lockfiles:
     description: Additional lockfile patterns to include in cache key generation
     required: false
@@ -166,6 +167,29 @@ outputs:
 runs:
   using: composite
   steps:
+    # Step 0: Compute cache hash based on cache-bust input
+    - name: Compute cache hash
+      id: compute-cache-hash
+      shell: bash
+      run: |
+        cache_bust="${{ inputs.cache-bust }}"
+
+        if [ "$cache_bust" = "true" ]; then
+          # Auto-generate unique hash using run_id and run_attempt
+          cache_hash="${{ github.run_id }}-${{ github.run_attempt }}"
+          echo "Generated cache hash: $cache_hash"
+        elif [ "$cache_bust" = "false" ] || [ -z "$cache_bust" ]; then
+          # No cache busting
+          cache_hash=""
+          echo "Cache busting disabled"
+        else
+          # Use custom string
+          cache_hash="$cache_bust"
+          echo "Using custom cache hash: $cache_hash"
+        fi
+
+        echo "cache-hash=$cache_hash" >> $GITHUB_OUTPUT
+
     # Step 1: Setup the test fixture
     - name: Setup fixture
       id: setup-fixture
@@ -285,7 +309,7 @@ runs:
         install-deps: ${{ inputs.install-deps }}
         turbo-token: ${{ inputs.turbo-token }}
         turbo-team: ${{ inputs.turbo-team }}
-        cache-hash: ${{ inputs.cache-hash }}
+        cache-hash: ${{ steps.compute-cache-hash.outputs.cache-hash }}
         additional-lockfiles: ${{ inputs.additional-lockfiles }}
         additional-cache-paths: ${{ inputs.additional-cache-paths }}
 
@@ -304,7 +328,7 @@ runs:
         install-deps: ${{ inputs.install-deps }}
         turbo-token: ${{ inputs.turbo-token }}
         turbo-team: ${{ inputs.turbo-team }}
-        cache-hash: ${{ inputs.cache-hash }}
+        cache-hash: ${{ steps.compute-cache-hash.outputs.cache-hash }}
         additional-lockfiles: ${{ inputs.additional-lockfiles }}
         additional-cache-paths: ${{ inputs.additional-cache-paths }}
 
@@ -358,7 +382,7 @@ runs:
         install-deps: ${{ inputs.install-deps }}
         turbo-token: ${{ inputs.turbo-token }}
         turbo-team: ${{ inputs.turbo-team }}
-        cache-hash: ${{ inputs.cache-hash }}
+        cache-hash: ${{ steps.compute-cache-hash.outputs.cache-hash }}
         additional-lockfiles: ${{ inputs.additional-lockfiles }}
         additional-cache-paths: ${{ inputs.additional-cache-paths }}
 
@@ -480,17 +504,34 @@ runs:
                 if not actual:
                     return
 
-                # Determine status - check if all expected patterns are in actual
+                # Determine status - check if all expected items are in actual
                 if expected:
-                    # Split expected by comma and check each pattern
-                    expected_patterns = [p.strip() for p in expected.split(",")]
-                    missing_patterns = [p for p in expected_patterns if p not in actual]
+                    # Parse both actual and expected as comma-separated lists
+                    actual_items = [item.strip() for item in actual.split(",") if item.strip()]
+                    expected_items = [item.strip() for item in expected.split(",") if item.strip()]
 
-                    if not missing_patterns:
+                    # Check if each expected item is found in any actual item
+                    # This allows matching "custom.lock" against "/path/to/custom.lock"
+                    # or "**/build" against "**/build"
+                    missing_items = []
+                    for exp_item in expected_items:
+                        found = False
+                        for act_item in actual_items:
+                            # Check exact match first, then substring match
+                            if exp_item == act_item or exp_item in act_item:
+                                found = True
+                                break
+                        if not found:
+                            missing_items.append(exp_item)
+
+                    if not missing_items:
                         status = "passed"
                     else:
                         status = "failed"
                         failed = True
+                        print(f"::error::{key}: Missing expected items: {', '.join(sorted(missing_items))}")
+                        print(f"::error::{key}: Expected items: {', '.join(sorted(expected_items))}")
+                        print(f"::error::{key}: Actual items: {', '.join(sorted(actual_items))}")
                 else:
                     status = "info"
 

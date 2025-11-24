@@ -426,20 +426,20 @@ async function getCombinedCacheConfig(
  * @param runtimeVersions - Runtime versions to include in hash
  * @param packageManager - Package manager name
  * @param packageManagerVersion - Package manager version
- * @param cacheHash - Optional cache hash (for testing, typically github.run_id)
+ * @param cacheBust - Optional cache hash (for testing, typically github.run_id)
  * @returns Truncated hash string (8 chars)
  */
 function generateVersionHash(
 	runtimeVersions: RuntimeVersions,
 	packageManager: PackageManager,
 	packageManagerVersion: string,
-	cacheHash?: string,
+	cacheBust?: string,
 ): string {
 	const hash = createHash("sha256");
 
 	// Add optional cache hash (for testing)
-	if (cacheHash) {
-		hash.update(cacheHash);
+	if (cacheBust) {
+		hash.update(cacheBust);
 	}
 
 	// Add runtime versions in sorted order for consistency
@@ -465,7 +465,7 @@ function generateVersionHash(
  * @param packageManager - Package manager name
  * @param packageManagerVersion - Package manager version
  * @param lockFiles - Lock file paths
- * @param cacheHash - Optional cache hash (for testing, typically github.run_id)
+ * @param cacheBust - Optional cache hash (for testing, typically github.run_id)
  * @returns Cache key string in format: {os}-{version-hash}-{lockfile-hash}
  */
 async function generateCacheKey(
@@ -473,10 +473,10 @@ async function generateCacheKey(
 	packageManager: PackageManager,
 	packageManagerVersion: string,
 	lockFiles: string[],
-	cacheHash?: string,
+	cacheBust?: string,
 ): Promise<string> {
 	const plat = platform();
-	const versionHash = generateVersionHash(runtimeVersions, packageManager, packageManagerVersion, cacheHash);
+	const versionHash = generateVersionHash(runtimeVersions, packageManager, packageManagerVersion, cacheBust);
 	const lockfileHash = await hashFiles(lockFiles);
 
 	return `${plat}-${versionHash}-${lockfileHash}`;
@@ -488,23 +488,23 @@ async function generateCacheKey(
  * @param runtimeVersions - Runtime versions being cached
  * @param packageManager - Package manager name
  * @param packageManagerVersion - Package manager version
- * @param cacheHash - Optional cache hash (for testing)
+ * @param cacheBust - Optional cache hash (for testing)
  * @returns Array of restore key prefixes
  */
 function generateRestoreKeys(
 	runtimeVersions: RuntimeVersions,
 	packageManager: PackageManager,
 	packageManagerVersion: string,
-	cacheHash?: string,
+	cacheBust?: string,
 ): string[] {
 	// When cache-hash is provided (testing mode), don't use restore keys
 	// We want exact matches only for test validation
-	if (cacheHash) {
+	if (cacheBust) {
 		return [];
 	}
 
 	const plat = platform();
-	const versionHash = generateVersionHash(runtimeVersions, packageManager, packageManagerVersion, cacheHash);
+	const versionHash = generateVersionHash(runtimeVersions, packageManager, packageManagerVersion, cacheBust);
 
 	// Restore keys in order of specificity:
 	// 1. Match OS + version hash (any lockfile for same runtime/pm versions)
@@ -517,7 +517,7 @@ function generateRestoreKeys(
  * @param packageManagers - Package manager(s) to restore cache for
  * @param runtimeVersions - Runtime versions installed
  * @param packageManagerVersion - Package manager version
- * @param cacheHash - Optional cache hash (for testing, typically github.run_id)
+ * @param cacheBust - Optional cache hash (for testing, typically github.run_id)
  * @param additionalLockfiles - Optional multiline string of additional lockfile patterns
  * @param additionalCachePaths - Optional multiline string of additional cache paths
  * @returns Cache key if restored, undefined if no cache found
@@ -526,7 +526,7 @@ export async function restoreCache(
 	packageManagers: PackageManager | PackageManager[],
 	runtimeVersions: RuntimeVersions,
 	packageManagerVersion: string,
-	cacheHash?: string,
+	cacheBust?: string,
 	additionalLockfiles?: string,
 	additionalCachePaths?: string,
 ): Promise<string | undefined> {
@@ -567,8 +567,8 @@ export async function restoreCache(
 		setOutput("cache-paths", config.cachePaths.join(","));
 
 		// Generate cache keys
-		const primaryKey = await generateCacheKey(runtimeVersions, primaryPm, packageManagerVersion, lockFiles, cacheHash);
-		const restoreKeys = generateRestoreKeys(runtimeVersions, primaryPm, packageManagerVersion, cacheHash);
+		const primaryKey = await generateCacheKey(runtimeVersions, primaryPm, packageManagerVersion, lockFiles, cacheBust);
+		const restoreKeys = generateRestoreKeys(runtimeVersions, primaryPm, packageManagerVersion, cacheBust);
 
 		core.info(`Primary key: ${primaryKey}`);
 		core.info(`Restore keys: ${restoreKeys.join(", ")}`);

@@ -118,7 +118,7 @@ jobs:
           fixture: ${{ matrix.fixture }}
           title: ${{ matrix.title }}
           install-deps: ${{ matrix.install-deps }}
-          cache-hash: ${{ matrix.pm }}-${{ matrix.os }}-${{ github.run_id }}
+          cache-bust: ${{ matrix.pm }}-${{ matrix.os }}-${{ github.run_id }}
           expected-node-version: ${{ matrix.expected-node-version || '' }}
           expected-node-enabled: ${{ matrix.expected-node-enabled || '' }}
           expected-bun-version: ${{ matrix.expected-bun-version || '' }}
@@ -202,10 +202,6 @@ jobs:
             expected-node-version: "20.11.0"
             expected-package-manager: pnpm
             expected-package-manager-version: "10.20.0"
-            expected-deno-enabled: "false"
-            expected-deno-version: "2.5.6"
-            expected-bun-enabled: "false"
-            expected-bun-version: "1.3.3"
             expected-biome-enabled: "false"
             expected-turbo-enabled: "false"
             test-command: "node --version && pnpm --version"
@@ -257,7 +253,7 @@ jobs:
           fixture: ${{ matrix.fixture }}
           title: ${{ matrix.title }}
           install-deps: ${{ matrix.install-deps }}
-          cache-hash: ${{ matrix.pm }}-${{ matrix.os }}-${{ github.run_id }}
+          cache-bust: ${{ matrix.pm }}-${{ matrix.os }}-${{ github.run_id }}
           expected-node-version: ${{ matrix.expected-node-version || '' }}
           expected-node-enabled: ${{ matrix.expected-node-enabled || '' }}
           expected-bun-version: ${{ matrix.expected-bun-version || '' }}
@@ -324,10 +320,12 @@ jobs:
             package-manager-version: "11.6.1"
             expected-node-enabled: "true"
             expected-node-version: "24.7.0"
-            expected-bun-enabled: "false"
-            expected-deno-enabled: "false"
             expected-package-manager: npm
             expected-package-manager-version: "11.6.1"
+            expected-bun-enabled: "false"
+            expected-bun-version: ""
+            expected-deno-enabled: "false"
+            expected-deno-version: ""
             expected-biome-enabled: "true"
             expected-biome-version: "2.3.6"
             expected-turbo-enabled: "false"
@@ -343,10 +341,12 @@ jobs:
             biome-version: "2.3.6"
             expected-node-enabled: "true"
             expected-node-version: "24.11.0"
-            expected-bun-enabled: "false"
-            expected-deno-enabled: "false"
             expected-package-manager: pnpm
             expected-package-manager-version: "10.20.0"
+            expected-bun-enabled: "false"
+            expected-bun-version: ""
+            expected-deno-enabled: "false"
+            expected-deno-version: ""
             expected-biome-enabled: "true"
             expected-biome-version: "2.3.6"
             expected-turbo-enabled: "true"
@@ -360,9 +360,11 @@ jobs:
             package-manager: bun
             package-manager-version: "1.3.3"
             expected-node-enabled: "false"
+            expected-node-version: ""
             expected-bun-enabled: "true"
             expected-bun-version: "1.3.3"
             expected-deno-enabled: "false"
+            expected-deno-version: ""
             expected-package-manager: bun
             expected-package-manager-version: "1.3.3"
             expected-biome-enabled: "true"
@@ -545,10 +547,16 @@ jobs:
           title: ${{ matrix.title }}
           additional-lockfiles: ${{ matrix.additional-lockfiles }}
           additional-cache-paths: ${{ matrix.additional-cache-paths }}
+          cache-bust: "true"
           expected-node-enabled: "true"
           expected-node-version: "24.9.0"
           expected-package-manager: npm
           expected-package-manager-version: "11.6.0"
+          expected-deno-enabled: "false"
+          expected-bun-version: "1.3.3"
+          expected-bun-enabled: "false"
+          expected-biome-enabled: "false"
+          expected-turbo-enabled: "false"
           expected-cache-hit: "false"
           expected-lockfiles: "custom.lock, vendor.lock"
           expected-cache-paths: "build, dist"
