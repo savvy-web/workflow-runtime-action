@@ -236,6 +236,7 @@ jobs:
             expected-deno-enabled: "false"
             expected-bun-enabled: "false"
             expected-biome-enabled: "false"
+            expected-turbo-enabled: "false"
             test-command: "node --version && npm --version"
             title: "📦 NPM (Restore Cache)"
 
@@ -251,6 +252,7 @@ jobs:
             expected-deno-enabled: "false"
             expected-bun-enabled: "false"
             expected-biome-enabled: "false"
+            expected-turbo-enabled: "false"
             test-command: "node --version && pnpm --version"
             title: "📦 PNPM (Restore Cache)"
 
@@ -266,6 +268,7 @@ jobs:
             expected-deno-enabled: "false"
             expected-bun-enabled: "false"
             expected-biome-enabled: "false"
+            expected-turbo-enabled: "false"
             test-command: "node --version && yarn --version"
             title: "📦 Yarn (Restore Cache)"
 
