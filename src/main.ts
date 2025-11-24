@@ -456,11 +456,9 @@ async function main(): Promise<void> {
 			config.cacheHash || undefined,
 		);
 
-		// 5. Install dependencies for each package manager
+		// 5. Install dependencies using the primary package manager
 		if (config.installDeps) {
-			for (const pm of activePackageManagers) {
-				await installDependencies(pm);
-			}
+			await installDependencies(config.packageManager);
 		}
 
 		// 6. Install Biome (optional)
