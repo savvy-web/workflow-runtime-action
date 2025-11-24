@@ -719,16 +719,10 @@ jobs:
           import os
           import sys
           from pathlib import Path
+          from collections import defaultdict
 
           # Get summary file path
           summary_file = Path(os.environ["GITHUB_STEP_SUMMARY"])
-
-          # Initialize counters
-          total = 0
-          passed = 0
-          failed = 0
-          skipped = 0
-          parse_errors = []
 
           # Write header
           summary_file.write_text("## 🧪 Test Results\n\n")
@@ -744,44 +738,67 @@ jobs:
                   f.write("⚠️ No test results found - all test jobs may have failed before uploading results.\n")
               sys.exit(1)
 
-          # Process all JSON result files
+          # Group results by test title
+          tests_by_title = defaultdict(list)
+          parse_errors = []
+
+          # Parse and group all test results
           for file_path in sorted(result_files):
               try:
-                  # Try to parse JSON
                   data = json.loads(file_path.read_text())
-
-                  total += 1
-
-                  # Extract test info
-                  name = data.get("name", "Unknown")
                   title = data.get("title", "Unknown")
-                  fixture = data.get("fixture", "Unknown")
-                  test_passed = data.get("passed", False)
+                  tests_by_title[title].append(data)
+              except json.JSONDecodeError:
+                  parse_errors.append(file_path.name)
+                  print(f"⚠️ Skipping malformed JSON: {file_path.name}", file=sys.stderr)
 
-                  # Count passes/fails
-                  if test_passed:
-                      passed += 1
-                      status = "✅"
-                  else:
-                      failed += 1
-                      status = "❌"
+          # Track overall stats
+          total_tests = 0
+          total_passed = 0
+          total_failed = 0
 
-                  # Build summary content starting with header
-                  summary_content = f"### {status} {title}\n\n"
+          # Generate summary for each test type
+          for title in sorted(tests_by_title.keys()):
+              os_results = tests_by_title[title]
 
-                  # Add expandable details
-                  summary_content += "<details>\n"
-                  if test_passed:
-                      summary_content += f"<summary>{name}</summary>\n"
-                  else:
-                      summary_content += f"<summary>{name} (failed)</summary>\n"
-                  summary_content += "\n"
+              # Determine overall status for this test type
+              all_passed = all(r.get("passed", False) for r in os_results)
+              any_failed = any(not r.get("passed", False) for r in os_results)
+              overall_status = "✅" if all_passed else "❌"
 
-                  # Show test metadata
+              total_tests += 1
+              if all_passed:
+                  total_passed += 1
+              else:
+                  total_failed += 1
+
+              # Write test header
+              summary_content = f"### {overall_status} {title}\n\n"
+
+              # List OS results
+              for os_data in sorted(os_results, key=lambda x: x.get("name", "")):
+                  name = os_data.get("name", "Unknown")
+                  # Extract OS from name (e.g., "Cache Effectiveness-ubuntu-latest" -> "ubuntu-latest")
+                  os_name = name.split("-", 1)[-1] if "-" in name else name
+                  passed = os_data.get("passed", False)
+                  os_status = "✅" if passed else "❌"
+                  summary_content += f"  {os_status} `{os_name}`\n"
+
+              summary_content += "\n"
+
+              # Add expandable details for each OS
+              for os_data in sorted(os_results, key=lambda x: x.get("name", "")):
+                  name = os_data.get("name", "Unknown")
+                  os_name = name.split("-", 1)[-1] if "-" in name else name
+                  fixture = os_data.get("fixture", "Unknown")
+                  passed = os_data.get("passed", False)
+                  results = os_data.get("results", {})
+
+                  summary_content += f"<details>\n"
+                  summary_content += f"<summary><code>{os_name}</code> - Details</summary>\n\n"
                   summary_content += f"**Fixture:** `{fixture}`\n\n"
 
-                  # Parse and display results
-                  results = data.get("results", {})
+                  # Show test results table
                   if results:
                       summary_content += "**Results:**\n\n"
                       summary_content += "| Output | Actual | Expected | Status |\n"
@@ -791,21 +808,16 @@ jobs:
                           actual = value.get("actual", "")
                           expected = value.get("expected", "")
                           result_status = value.get("status", "")
-
-                          # Format status with emoji
                           status_icons = {"passed": "✅", "failed": "❌", "info": "ℹ️"}
                           status_icon = status_icons.get(result_status, "—")
-
-                          # Handle empty expected
                           expected_display = expected if expected else "—"
-
                           summary_content += f"| `{key}` | `{actual}` | `{expected_display}` | {status_icon} |\n"
 
-                  # Show additional verification info if present
-                  lockfile_verified = data.get("lockfile_verified", "n/a")
-                  no_modules_verified = data.get("no_modules_verified", "n/a")
-                  deps_verified = data.get("deps_verified", "n/a")
-                  cache_verified = data.get("cache_verified", "n/a")
+                  # Show additional verifications
+                  lockfile_verified = os_data.get("lockfile_verified", "n/a")
+                  no_modules_verified = os_data.get("no_modules_verified", "n/a")
+                  deps_verified = os_data.get("deps_verified", "n/a")
+                  cache_verified = os_data.get("cache_verified", "n/a")
 
                   if any(v != "n/a" for v in [lockfile_verified, no_modules_verified, deps_verified, cache_verified]):
                       summary_content += "\n**Additional Verifications:**\n"
@@ -818,22 +830,10 @@ jobs:
                       if cache_verified != "n/a":
                           summary_content += f"- Cache verified: {cache_verified}\n"
 
-                  # Add raw JSON section
-                  summary_content += "\n<details>\n"
-                  summary_content += "<summary>Raw Test Data (JSON)</summary>\n\n"
-                  summary_content += "```json\n"
-                  summary_content += json.dumps(data, indent=2)
-                  summary_content += "\n```\n"
-                  summary_content += "</details>\n\n"
-                  summary_content += "</details>\n\n"
+                  summary_content += "\n</details>\n\n"
 
-                  with open(summary_file, "a") as f:
-                      f.write(summary_content)
-
-              except json.JSONDecodeError:
-                  skipped += 1
-                  parse_errors.append(file_path.name)
-                  print(f"⚠️ Skipping malformed JSON: {file_path.name}", file=sys.stderr)
+              with open(summary_file, "a") as f:
+                  f.write(summary_content)
 
           # Add separator
           with open(summary_file, "a") as f:
@@ -845,37 +845,34 @@ jobs:
               error_summary += "The following test result files could not be parsed (likely due to job failures):\n\n"
               for error_file in parse_errors:
                   error_summary += f"- `{error_file}`\n"
-              error_summary += "\n---\n\n"
+              error_summary += "\n"
               with open(summary_file, "a") as f:
                   f.write(error_summary)
 
           # Final summary
-          if total == 0 and skipped == 0:
+          if total_tests == 0 and len(parse_errors) == 0:
               with open(summary_file, "a") as f:
                   f.write("### ⚠️ No test results found\n\n")
                   f.write("This usually means all test jobs failed before uploading results.\n")
               sys.exit(1)
-          elif total == 0:
+          elif total_tests == 0:
               with open(summary_file, "a") as f:
                   f.write("### ⚠️ No valid test results\n\n")
-                  f.write(f"**Skipped:** {skipped} (malformed JSON)\n\n")
+                  f.write(f"**Parse Errors:** {len(parse_errors)}\n\n")
                   f.write("All test result files were malformed. Check individual job logs for details.\n")
-              sys.exit(0)
-          elif failed == 0 and skipped == 0:
+              sys.exit(1)
+          elif total_failed == 0:
               with open(summary_file, "a") as f:
-                  f.write(f"### ✅ All {total} tests passed!\n")
-              sys.exit(0)
-          elif failed == 0:
-              with open(summary_file, "a") as f:
-                  f.write(f"### ✅ All {total} valid tests passed\n\n")
-                  f.write(f"**Passed:** {passed} / **Total:** {total}\n")
-                  if skipped > 0:
-                      f.write(f"\n⚠️ **Skipped:** {skipped} test(s) with malformed JSON - check job logs for details\n")
+                  if len(parse_errors) == 0:
+                      f.write(f"### ✅ All {total_tests} test types passed across all platforms!\n")
+                  else:
+                      f.write(f"### ✅ All {total_tests} valid test types passed\n\n")
+                      f.write(f"⚠️ **Note:** {len(parse_errors)} test(s) had parse errors - check above for details\n")
               sys.exit(0)
           else:
               with open(summary_file, "a") as f:
-                  f.write(f"### ❌ {failed} of {total} tests failed\n\n")
-                  f.write(f"**Passed:** {passed} / **Failed:** {failed} / **Total:** {total}\n")
-                  if skipped > 0:
-                      f.write(f"\n⚠️ **Skipped:** {skipped} test(s) with malformed JSON - check job logs for details\n")
-              sys.exit(0)
+                  f.write(f"### ❌ {total_failed} of {total_tests} test types failed\n\n")
+                  f.write(f"**Passed:** {total_passed} / **Failed:** {total_failed} / **Total:** {total_tests}\n")
+                  if len(parse_errors) > 0:
+                      f.write(f"\n⚠️ **Parse Errors:** {len(parse_errors)} test(s) - check above for details\n")
+              sys.exit(1)
