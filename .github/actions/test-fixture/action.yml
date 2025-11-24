@@ -152,20 +152,18 @@ runs:
         try:
             github_output = Path(os.environ["GITHUB_OUTPUT"])
 
-            # Remove repository config files
-            config_files = [
-                "package.json",
-                "pnpm-workspace.yaml",
-                "biome.jsonc",
-                "turbo.json",
-                "pnpm-lock.yaml",
-                "deno.json",
-                "deno.lock",
-            ]
-            for file in config_files:
-                path = Path(file)
-                if path.exists():
-                    path.unlink()
+            # Remove ALL files/directories except .github and .git
+            cwd = Path(".")
+            for item in cwd.iterdir():
+                # Skip .github and .git directories
+                if item.name in [".github", ".git"]:
+                    continue
+
+                # Remove everything else
+                if item.is_file() or item.is_symlink():
+                    item.unlink()
+                elif item.is_dir():
+                    shutil.rmtree(item)
 
             # Copy fixture files to current directory (including hidden files)
             fixture_dir = Path("__fixtures__") / "${{ inputs.fixture }}"
@@ -216,7 +214,7 @@ runs:
         install-deps: ${{ inputs.install-deps }}
         turbo-token: ${{ inputs.turbo-token }}
         turbo-team: ${{ inputs.turbo-team }}
-        cache-hash: ${{ github.run_id }}
+        cache-hash: ${{ github.job }}-${{ github.run_id }}
 
     # Step 2a: First run for cache testing (cache miss expected)
     - name: First run (cache miss)
@@ -233,7 +231,7 @@ runs:
         install-deps: ${{ inputs.install-deps }}
         turbo-token: ${{ inputs.turbo-token }}
         turbo-team: ${{ inputs.turbo-team }}
-        cache-hash: ${{ github.run_id }}
+        cache-hash: ${{ github.job }}-${{ github.run_id }}
 
     # Step 2b: Verify dependencies installed after first run
     - name: Verify dependencies installed
@@ -285,7 +283,7 @@ runs:
         install-deps: ${{ inputs.install-deps }}
         turbo-token: ${{ inputs.turbo-token }}
         turbo-team: ${{ inputs.turbo-team }}
-        cache-hash: ${{ github.run_id }}
+        cache-hash: ${{ github.job }}-${{ github.run_id }}
 
     # Step 2e: Verify cache restoration
     - name: Verify cache restoration
@@ -413,8 +411,8 @@ runs:
                 check_value("biome-version", "${{ steps.setup1.outputs.biome-version }}", "${{ inputs.expected-biome-version }}")
                 check_value("biome-enabled", "${{ steps.setup1.outputs.biome-enabled }}", "${{ inputs.expected-biome-enabled }}")
                 check_value("turbo-enabled", "${{ steps.setup1.outputs.turbo-enabled }}", "${{ inputs.expected-turbo-enabled }}")
-                check_value("lockfiles", "${{ steps.setup1.outputs.lockfiles }}", "")
-                check_value("cache-paths", "${{ steps.setup1.outputs.cache-paths }}", "")
+                check_value("lockfiles", r"${{ steps.setup1.outputs.lockfiles }}", "")
+                check_value("cache-paths", r"${{ steps.setup1.outputs.cache-paths }}", "")
 
                 # Cache-specific checks
                 check_value("first-run-cache-hit", "${{ steps.setup1.outputs.cache-hit }}", "false")
@@ -435,8 +433,8 @@ runs:
                 check_value("biome-enabled", "${{ steps.setup.outputs.biome-enabled }}", "${{ inputs.expected-biome-enabled }}")
                 check_value("turbo-enabled", "${{ steps.setup.outputs.turbo-enabled }}", "${{ inputs.expected-turbo-enabled }}")
                 check_value("cache-hit", "${{ steps.setup.outputs.cache-hit }}", "${{ inputs.expected-cache-hit }}")
-                check_value("lockfiles", "${{ steps.setup.outputs.lockfiles }}", "")
-                check_value("cache-paths", "${{ steps.setup.outputs.cache-paths }}", "")
+                check_value("lockfiles", r"${{ steps.setup.outputs.lockfiles }}", "")
+                check_value("cache-paths", r"${{ steps.setup.outputs.cache-paths }}", "")
 
             # Set outputs
             test_passed = "true" if not failed else "false"

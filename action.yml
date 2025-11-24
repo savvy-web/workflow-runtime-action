@@ -43,7 +43,7 @@ inputs:
     required: false
     default: "true"
   cache-hash:
-    description: "Optional cache hash for testing. Use github.run_id to ensure unique cache per run. Only use this for testing cache behavior."
+    description: "Optional cache hash for testing. Use '${{ github.job }}-${{ github.run_id }}' to ensure unique cache per job/run. Only use this for testing cache behavior."
     required: false
     default: ""
 
