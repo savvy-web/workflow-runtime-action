@@ -221,7 +221,7 @@ export async function setupPackageManager(packageManagerName: string, packageMan
 
 			if (majorVersion >= 25) {
 				core.info(`Node.js ${nodeVersion} detected - corepack not bundled, installing globally...`);
-				await exec.exec("npm", ["install", "-g", "corepack@latest"]);
+				await exec.exec("npm", ["install", "-g", "--force", "corepack@latest"]);
 				core.info(formatSuccess("corepack installed successfully"));
 			}
 		}

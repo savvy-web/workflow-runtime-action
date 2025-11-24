@@ -151,7 +151,7 @@ describe("setupPackageManager", () => {
 			await setupPackageManager("pnpm", "10.20.0");
 
 			expect(core.info).toHaveBeenCalledWith("Node.js v25.0.0 detected - corepack not bundled, installing globally...");
-			expect(exec.exec).toHaveBeenCalledWith("npm", ["install", "-g", "corepack@latest"]);
+			expect(exec.exec).toHaveBeenCalledWith("npm", ["install", "-g", "--force", "corepack@latest"]);
 			expect(core.info).toHaveBeenCalledWith("✅ corepack installed successfully");
 		});
 
@@ -167,7 +167,7 @@ describe("setupPackageManager", () => {
 			await setupPackageManager("pnpm", "10.20.0");
 
 			expect(core.info).toHaveBeenCalledWith("Node.js v26.1.0 detected - corepack not bundled, installing globally...");
-			expect(exec.exec).toHaveBeenCalledWith("npm", ["install", "-g", "corepack@latest"]);
+			expect(exec.exec).toHaveBeenCalledWith("npm", ["install", "-g", "--force", "corepack@latest"]);
 		});
 
 		it("should NOT install corepack globally when Node.js < 25", async () => {
@@ -183,7 +183,7 @@ describe("setupPackageManager", () => {
 
 			// Should NOT install corepack
 			expect(core.info).not.toHaveBeenCalledWith(expect.stringContaining("corepack not bundled"));
-			expect(exec.exec).not.toHaveBeenCalledWith("npm", ["install", "-g", "corepack@latest"]);
+			expect(exec.exec).not.toHaveBeenCalledWith("npm", ["install", "-g", "--force", "corepack@latest"]);
 		});
 
 		it("should handle malformed Node.js version gracefully", async () => {
@@ -198,7 +198,7 @@ describe("setupPackageManager", () => {
 			// Should not throw, just skip corepack installation
 			await setupPackageManager("pnpm", "10.20.0");
 
-			expect(exec.exec).not.toHaveBeenCalledWith("npm", ["install", "-g", "corepack@latest"]);
+			expect(exec.exec).not.toHaveBeenCalledWith("npm", ["install", "-g", "--force", "corepack@latest"]);
 		});
 	});
 
