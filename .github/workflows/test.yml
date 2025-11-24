@@ -37,7 +37,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        pm: [npm, pnpm, yarn]
+        pm: [npm, pnpm, yarn, multi]
         include:
           # NPM - create cache
           - pm: npm
@@ -86,6 +86,24 @@ jobs:
             expected-turbo-enabled: "false"
             test-command: "node --version && yarn --version"
             title: "📦 Yarn (Create Cache)"
+
+          # Multi-runtime - create cache
+          - pm: multi
+            fixture: node-multi
+            install-deps: "true"
+            expected-cache-hit: "false"
+            expected-node-enabled: "true"
+            expected-node-version: "25.0.0"
+            expected-bun-enabled: "true"
+            expected-bun-version: "1.3.3"
+            expected-deno-enabled: "true"
+            expected-deno-version: "2.5.6"
+            expected-package-manager: pnpm
+            expected-package-manager-version: "10.23.0"
+            expected-biome-enabled: "false"
+            expected-turbo-enabled: "false"
+            test-command: "node --version && bun --version && deno --version && pnpm --version"
+            title: "📦 Multi-Runtime (Create Cache)"
 
     steps:
       - name: Checkout
@@ -226,7 +244,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        pm: [npm, pnpm, yarn]
+        pm: [npm, pnpm, yarn, multi]
         include:
           # NPM - restore cache
           - pm: npm
@@ -275,6 +293,24 @@ jobs:
             expected-turbo-enabled: "false"
             test-command: "node --version && yarn --version"
             title: "📦 Yarn (Restore Cache)"
+
+          # Multi-runtime - restore cache
+          - pm: multi
+            fixture: node-multi
+            install-deps: "true"
+            expected-cache-hit: "true"
+            expected-node-enabled: "true"
+            expected-node-version: "25.0.0"
+            expected-bun-enabled: "true"
+            expected-bun-version: "1.3.3"
+            expected-deno-enabled: "true"
+            expected-deno-version: "2.5.6"
+            expected-package-manager: pnpm
+            expected-package-manager-version: "10.23.0"
+            expected-biome-enabled: "false"
+            expected-turbo-enabled: "false"
+            test-command: "node --version && bun --version && deno --version && pnpm --version"
+            title: "📦 Multi-Runtime (Restore Cache)"
 
     steps:
       - name: Checkout

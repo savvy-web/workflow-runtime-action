@@ -3,7 +3,7 @@ import { arch, platform } from "node:os";
 import * as core from "@actions/core";
 import * as exec from "@actions/exec";
 import * as tc from "@actions/tool-cache";
-import { STATE, formatDetection, formatInstallation, formatRuntime, formatSuccess } from "./emoji.js";
+import { formatDetection, formatInstallation, formatRuntime, formatSuccess } from "./emoji.js";
 
 /**
  * Deno version configuration

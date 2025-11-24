@@ -1,0 +1,19 @@
+{
+  "name": "pkg-bun",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "postinstall": "bun install --ignore-scripts"
+  },
+  "dependencies": {
+    "@jsr/std__text": "^1.0.16",
+    "isarray": "1.0.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}
