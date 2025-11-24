@@ -96,6 +96,7 @@ jobs:
           fixture: ${{ matrix.fixture }}
           title: ${{ matrix.title }}
           install-deps: ${{ matrix.install-deps }}
+          cache-hash: ${{ matrix.pm }}-${{ matrix.os }}-${{ github.run_id }}
           expected-node-version: ${{ matrix.expected-node-version || '' }}
           expected-node-enabled: ${{ matrix.expected-node-enabled || '' }}
           expected-bun-enabled: ${{ matrix.expected-bun-enabled || '' }}
@@ -284,6 +285,7 @@ jobs:
           fixture: ${{ matrix.fixture }}
           title: ${{ matrix.title }}
           install-deps: ${{ matrix.install-deps }}
+          cache-hash: ${{ matrix.pm }}-${{ matrix.os }}-${{ github.run_id }}
           expected-node-version: ${{ matrix.expected-node-version || '' }}
           expected-node-enabled: ${{ matrix.expected-node-enabled || '' }}
           expected-bun-enabled: ${{ matrix.expected-bun-enabled || '' }}

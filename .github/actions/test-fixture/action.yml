@@ -39,6 +39,9 @@ inputs:
   turbo-team:
     description: Turbo team slug
     required: false
+  cache-hash:
+    description: Optional cache hash for testing
+    required: false
 
   # Expected output values for validation (all optional)
   expected-node-version:
@@ -270,7 +273,7 @@ runs:
         install-deps: ${{ inputs.install-deps }}
         turbo-token: ${{ inputs.turbo-token }}
         turbo-team: ${{ inputs.turbo-team }}
-        cache-hash: ${{ github.job }}-${{ github.run_id }}
+        cache-hash: ${{ inputs.cache-hash }}
 
     # Step 2a: First run for cache testing (cache miss expected)
     - name: First run (cache miss)
@@ -287,7 +290,7 @@ runs:
         install-deps: ${{ inputs.install-deps }}
         turbo-token: ${{ inputs.turbo-token }}
         turbo-team: ${{ inputs.turbo-team }}
-        cache-hash: ${{ github.job }}-${{ github.run_id }}
+        cache-hash: ${{ inputs.cache-hash }}
 
     # Step 2b: Verify dependencies installed after first run
     - name: Verify dependencies installed
@@ -339,7 +342,7 @@ runs:
         install-deps: ${{ inputs.install-deps }}
         turbo-token: ${{ inputs.turbo-token }}
         turbo-team: ${{ inputs.turbo-team }}
-        cache-hash: ${{ github.job }}-${{ github.run_id }}
+        cache-hash: ${{ inputs.cache-hash }}
 
     # Step 2e: Verify cache restoration
     - name: Verify cache restoration
