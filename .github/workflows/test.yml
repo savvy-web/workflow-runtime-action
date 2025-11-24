@@ -467,15 +467,15 @@ jobs:
           # Node.js + Biome fixture (auto-detect biome, no turbo)
           - runtime: node
             fixture: biome-enabled
-            node-version: "24.11.0"
+            node-version: "24.7.0"
             package-manager: npm
-            package-manager-version: "10.20.0"
+            package-manager-version: "11.6.1"
             expected-node-enabled: "true"
-            expected-node-version: "24.11.0"
+            expected-node-version: "24.7.0"
             expected-bun-enabled: "false"
             expected-deno-enabled: "false"
             expected-package-manager: npm
-            expected-package-manager-version: "10.20.0"
+            expected-package-manager-version: "11.6.1"
             expected-biome-enabled: "true"
             expected-biome-version: "2.3.6"
             expected-turbo-enabled: "false"
