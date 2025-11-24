@@ -51,6 +51,7 @@ jobs:
             expected-deno-enabled: "false"
             expected-bun-enabled: "false"
             expected-biome-enabled: "false"
+            expected-turbo-enabled: "false"
             test-command: "node --version && npm --version"
             title: "📦 NPM (Create Cache)"
 
@@ -66,6 +67,7 @@ jobs:
             expected-deno-enabled: "false"
             expected-bun-enabled: "false"
             expected-biome-enabled: "false"
+            expected-turbo-enabled: "false"
             test-command: "node --version && pnpm --version"
             title: "📦 PNPM (Create Cache)"
 
@@ -81,6 +83,7 @@ jobs:
             expected-deno-enabled: "false"
             expected-bun-enabled: "false"
             expected-biome-enabled: "false"
+            expected-turbo-enabled: "false"
             test-command: "node --version && yarn --version"
             title: "📦 Yarn (Create Cache)"
 
