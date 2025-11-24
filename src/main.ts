@@ -448,15 +448,13 @@ async function main(): Promise<void> {
 		}
 		// bun and deno are their own package managers, no setup needed
 
-		// 4. Restore cache before installing dependencies (using all active package managers)
-		if (config.installDeps) {
-			await restoreCache(
-				activePackageManagers,
-				installedVersions,
-				config.packageManagerVersion,
-				config.cacheHash || undefined,
-			);
-		}
+		// 4. Restore cache (always run to generate cache key state for post action)
+		await restoreCache(
+			activePackageManagers,
+			installedVersions,
+			config.packageManagerVersion,
+			config.cacheHash || undefined,
+		);
 
 		// 5. Install dependencies for each package manager
 		if (config.installDeps) {
