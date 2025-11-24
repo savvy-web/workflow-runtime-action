@@ -103,7 +103,7 @@ describe("restoreCache", () => {
 			expect(cache.restoreCache).toHaveBeenCalledWith(
 				["/home/user/.npm", "**/node_modules"],
 				"linux-abc123def456-abc123def456",
-				["linux-abc123def456-", "linux-"],
+				["linux-abc123def456-"],
 			);
 			expect(core.setOutput).toHaveBeenCalledWith("lockfiles", "package-lock.json");
 			expect(core.setOutput).toHaveBeenCalledWith("cache-paths", "/home/user/.npm,**/node_modules");
@@ -118,7 +118,7 @@ describe("restoreCache", () => {
 			expect(cache.restoreCache).toHaveBeenCalledWith(
 				["~/AppData/Local/npm-cache", "**/node_modules"],
 				"win32-abc123def456-abc123def456",
-				["win32-abc123def456-", "win32-"],
+				["win32-abc123def456-"],
 			);
 		});
 
@@ -149,7 +149,7 @@ describe("restoreCache", () => {
 			expect(cache.restoreCache).toHaveBeenCalledWith(
 				["/home/user/.local/share/pnpm/store", "**/node_modules"],
 				"linux-abc123def456-abc123def456",
-				["linux-abc123def456-", "linux-"],
+				["linux-abc123def456-"],
 			);
 		});
 
@@ -162,7 +162,7 @@ describe("restoreCache", () => {
 			expect(cache.restoreCache).toHaveBeenCalledWith(
 				["~/AppData/Local/pnpm/store", "**/node_modules"],
 				"win32-abc123def456-abc123def456",
-				["win32-abc123def456-", "win32-"],
+				["win32-abc123def456-"],
 			);
 		});
 
@@ -190,7 +190,7 @@ describe("restoreCache", () => {
 					"**/.yarn/install-state.gz",
 				],
 				"linux-abc123def456-abc123def456",
-				["linux-abc123def456-", "linux-"],
+				["linux-abc123def456-"],
 			);
 		});
 
@@ -203,7 +203,7 @@ describe("restoreCache", () => {
 			expect(cache.restoreCache).toHaveBeenCalledWith(
 				expect.arrayContaining(["~/AppData/Local/Yarn/Cache", "~/AppData/Local/Yarn/Berry/cache"]),
 				"win32-abc123def456-abc123def456",
-				["win32-abc123def456-", "win32-"],
+				["win32-abc123def456-"],
 			);
 		});
 
@@ -244,7 +244,7 @@ describe("restoreCache", () => {
 			expect(cache.restoreCache).toHaveBeenCalledWith(
 				expect.arrayContaining(["/home/user/.cache/yarn/v6"]),
 				"linux-abc123def456-abc123def456",
-				["linux-abc123def456-", "linux-"],
+				["linux-abc123def456-"],
 			);
 		});
 	});
@@ -278,7 +278,7 @@ describe("restoreCache", () => {
 			expect(cache.restoreCache).toHaveBeenCalledWith(
 				["/home/user/.bun/install/cache", "**/node_modules"],
 				"linux-abc123def456-abc123def456",
-				["linux-abc123def456-", "linux-"],
+				["linux-abc123def456-"],
 			);
 		});
 
@@ -291,7 +291,7 @@ describe("restoreCache", () => {
 			expect(cache.restoreCache).toHaveBeenCalledWith(
 				["~/AppData/Local/bun/install/cache", "**/node_modules"],
 				"win32-abc123def456-abc123def456",
-				["win32-abc123def456-", "win32-"],
+				["win32-abc123def456-"],
 			);
 		});
 
@@ -330,7 +330,6 @@ describe("restoreCache", () => {
 			expect(exec.exec).toHaveBeenCalledWith("deno", ["info", "--json"], expect.any(Object));
 			expect(cache.restoreCache).toHaveBeenCalledWith(["/home/user/.cache/deno"], "linux-abc123def456-abc123def456", [
 				"linux-abc123def456-",
-				"linux-",
 			]);
 			expect(core.setOutput).toHaveBeenCalledWith("lockfiles", "deno.lock");
 			expect(core.setOutput).toHaveBeenCalledWith("cache-paths", "/home/user/.cache/deno");
@@ -344,7 +343,6 @@ describe("restoreCache", () => {
 
 			expect(cache.restoreCache).toHaveBeenCalledWith(["~/AppData/Local/deno"], "win32-abc123def456-abc123def456", [
 				"win32-abc123def456-",
-				"win32-",
 			]);
 		});
 
@@ -370,7 +368,6 @@ describe("restoreCache", () => {
 			// Should fallback to default paths
 			expect(cache.restoreCache).toHaveBeenCalledWith(["~/.cache/deno"], "linux-abc123def456-abc123def456", [
 				"linux-abc123def456-",
-				"linux-",
 			]);
 		});
 	});
@@ -485,7 +482,6 @@ describe("restoreCache", () => {
 
 			expect(cache.restoreCache).toHaveBeenCalledWith(expect.any(Array), "linux-abc123def456-abc123def456", [
 				"linux-abc123def456-",
-				"linux-",
 			]);
 		});
 
@@ -496,7 +492,6 @@ describe("restoreCache", () => {
 
 			expect(cache.restoreCache).toHaveBeenCalledWith(expect.any(Array), "darwin-abc123def456-abc123def456", [
 				"darwin-abc123def456-",
-				"darwin-",
 			]);
 		});
 	});
@@ -717,7 +712,6 @@ describe("multi-package manager support", () => {
 			// Should use the primary package manager (first in array) for cache key
 			expect(cache.restoreCache).toHaveBeenCalledWith(expect.any(Array), "linux-multihash123-multihash123", [
 				"linux-multihash123-",
-				"linux-",
 			]);
 		});
 
@@ -779,7 +773,6 @@ describe("multi-package manager support", () => {
 			// Cache key should use the primary package manager (yarn, first in array)
 			expect(cache.restoreCache).toHaveBeenCalledWith(expect.any(Array), "linux-multihash123-multihash123", [
 				"linux-multihash123-",
-				"linux-",
 			]);
 		});
 
@@ -851,7 +844,6 @@ describe("multi-package manager support", () => {
 
 			expect(cache.restoreCache).toHaveBeenCalledWith(expect.any(Array), "linux-multihash123-multihash123", [
 				"linux-multihash123-",
-				"linux-",
 			]);
 		});
 	});
