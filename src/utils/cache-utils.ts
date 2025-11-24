@@ -36,6 +36,52 @@ interface CacheConfig {
 }
 
 /**
+ * Parses list input supporting multiple formats:
+ * - JSON arrays: '["one", "two", "three"]'
+ * - Newlines with bullets: '* one\n* two'
+ * - Newlines with dashes: '- one\n- two'
+ * - Plain newlines: 'one\ntwo'
+ * - Comma-separated: 'one, two, three'
+ * - Single item: 'just-one'
+ *
+ * @param input - Input string in any supported format
+ * @returns Array of trimmed, non-empty strings
+ */
+function parseListInput(input: string): string[] {
+	if (!input || !input.trim()) {
+		return [];
+	}
+
+	const trimmed = input.trim();
+
+	// Try JSON array first
+	if (trimmed.startsWith("[")) {
+		try {
+			const parsed = JSON.parse(trimmed) as unknown;
+			if (Array.isArray(parsed)) {
+				return parsed.map((item) => String(item).trim()).filter(Boolean);
+			}
+		} catch {
+			// Not valid JSON, fall through
+		}
+	}
+
+	// Check for newlines
+	if (trimmed.includes("\n")) {
+		return trimmed
+			.split("\n")
+			.map((line) => line.replace(/^[\s]*[-*][\s]+/, "").trim()) // Strip list markers (bullets/dashes with trailing space)
+			.filter(Boolean);
+	}
+
+	// Fall back to comma-separated
+	return trimmed
+		.split(",")
+		.map((item) => item.trim())
+		.filter(Boolean);
+}
+
+/**
  * Detects cache path for a package manager by querying it directly
  *
  * @param packageManager - Package manager to query
@@ -297,11 +343,15 @@ function getToolCachePaths(runtimeVersions: RuntimeVersions): string[] {
  *
  * @param packageManagers - Array of package managers to get combined config for
  * @param runtimeVersions - Runtime versions to include tool cache paths for
+ * @param additionalLockfiles - Additional lockfile patterns from user input
+ * @param additionalCachePaths - Additional cache paths from user input
  * @returns Combined cache configuration with deduplicated paths
  */
 async function getCombinedCacheConfig(
 	packageManagers: PackageManager[],
 	runtimeVersions: RuntimeVersions,
+	additionalLockfiles: string[] = [],
+	additionalCachePaths: string[] = [],
 ): Promise<CacheConfig> {
 	// Use Sets for deduplication
 	const cachePathsSet = new Set<string>();
@@ -330,6 +380,24 @@ async function getCombinedCacheConfig(
 
 	if (toolCachePaths.length > 0) {
 		core.info(`Tool cache paths: ${toolCachePaths.join(", ")}`);
+	}
+
+	// Add user-provided additional lockfile patterns
+	for (const pattern of additionalLockfiles) {
+		lockFilePatternsSet.add(pattern);
+	}
+
+	if (additionalLockfiles.length > 0) {
+		core.info(`Additional lockfile patterns: ${additionalLockfiles.join(", ")}`);
+	}
+
+	// Add user-provided additional cache paths
+	for (const path of additionalCachePaths) {
+		cachePathsSet.add(path);
+	}
+
+	if (additionalCachePaths.length > 0) {
+		core.info(`Additional cache paths: ${additionalCachePaths.join(", ")}`);
 	}
 
 	// Convert Sets back to arrays
@@ -438,6 +506,8 @@ function generateRestoreKeys(
  * @param runtimeVersions - Runtime versions installed
  * @param packageManagerVersion - Package manager version
  * @param cacheHash - Optional cache hash (for testing, typically github.run_id)
+ * @param additionalLockfiles - Optional multiline string of additional lockfile patterns
+ * @param additionalCachePaths - Optional multiline string of additional cache paths
  * @returns Cache key if restored, undefined if no cache found
  */
 export async function restoreCache(
@@ -445,6 +515,8 @@ export async function restoreCache(
 	runtimeVersions: RuntimeVersions,
 	packageManagerVersion: string,
 	cacheHash?: string,
+	additionalLockfiles?: string,
+	additionalCachePaths?: string,
 ): Promise<string | undefined> {
 	// Normalize to array
 	const pmArray = Array.isArray(packageManagers) ? packageManagers : [packageManagers];
@@ -456,7 +528,16 @@ export async function restoreCache(
 	core.startGroup(formatCache("Restoring", pmList));
 
 	try {
-		const config = await getCombinedCacheConfig(pmArray, runtimeVersions);
+		// Parse additional inputs
+		const additionalLockfilesList = parseListInput(additionalLockfiles || "");
+		const additionalCachePathsList = parseListInput(additionalCachePaths || "");
+
+		const config = await getCombinedCacheConfig(
+			pmArray,
+			runtimeVersions,
+			additionalLockfilesList,
+			additionalCachePathsList,
+		);
 
 		// Find lock files
 		const lockFiles = await findLockFiles(config.lockFilePatterns);

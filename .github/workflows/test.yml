@@ -704,6 +704,134 @@ jobs:
           sys.exit(1)
 
   # ============================================================================
+  # Additional Inputs Tests
+  # ============================================================================
+  test-additional-inputs:
+    name: additional inputs | ${{ matrix.format }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Test newline format
+          - format: newlines
+            additional-lockfiles: |
+              **/custom.lock
+              **/vendor.lock
+            additional-cache-paths: |
+              **/build
+              **/dist
+            title: "📝 Additional Inputs (Newlines)"
+
+          # Test bullet format
+          - format: bullets
+            additional-lockfiles: |
+              * **/custom.lock
+              * **/vendor.lock
+            additional-cache-paths: |
+              * **/build
+              * **/dist
+            title: "📝 Additional Inputs (Bullets)"
+
+          # Test comma-separated format
+          - format: comma
+            additional-lockfiles: "**/custom.lock, **/vendor.lock"
+            additional-cache-paths: "**/build, **/dist"
+            title: "📝 Additional Inputs (Comma)"
+
+          # Test JSON format
+          - format: json
+            additional-lockfiles: '["**/custom.lock", "**/vendor.lock"]'
+            additional-cache-paths: '["**/build", "**/dist"]'
+            title: "📝 Additional Inputs (JSON)"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Test fixture
+        id: test
+        uses: ./.github/actions/test-fixture
+        with:
+          fixture: additional-inputs
+          title: ${{ matrix.title }}
+          additional-lockfiles: ${{ matrix.additional-lockfiles }}
+          additional-cache-paths: ${{ matrix.additional-cache-paths }}
+          expected-node-enabled: "true"
+          expected-node-version: "24.9.0"
+          expected-package-manager: npm
+          expected-package-manager-version: "11.6.0"
+          expected-cache-hit: "false"
+
+      - name: Verify additional lockfiles in output
+        shell: bash
+        run: |
+          lockfiles="${{ steps.test.outputs.lockfiles }}"
+          echo "Lockfiles output: $lockfiles"
+
+          # Check that custom.lock and vendor.lock are in the output
+          if [[ ! "$lockfiles" =~ custom\.lock ]]; then
+            echo "::error::Expected custom.lock in lockfiles output"
+            exit 1
+          fi
+
+          if [[ ! "$lockfiles" =~ vendor\.lock ]]; then
+            echo "::error::Expected vendor.lock in lockfiles output"
+            exit 1
+          fi
+
+          echo "✅ Additional lockfiles found in output"
+
+      - name: Verify additional cache paths in output
+        shell: bash
+        run: |
+          cache_paths="${{ steps.test.outputs.cache-paths }}"
+          echo "Cache paths output: $cache_paths"
+
+          # Check that build and dist are in the output
+          if [[ ! "$cache_paths" =~ build ]]; then
+            echo "::error::Expected build in cache-paths output"
+            exit 1
+          fi
+
+          if [[ ! "$cache_paths" =~ dist ]]; then
+            echo "::error::Expected dist in cache-paths output"
+            exit 1
+          fi
+
+          echo "✅ Additional cache paths found in output"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: test-results-additional-inputs-${{ matrix.format }}
+          path: test-results/
+          retention-days: 1
+
+      - name: Fail job if test failed
+        if: always() && (steps.test.outputs.test-passed == 'false' || steps.test.outputs.test-passed == '')
+        shell: python
+        run: |
+          import sys
+
+          # Check test results
+          test_passed = "${{ steps.test.outputs.test-passed }}"
+          setup_error = "${{ steps.test.outputs.setup-error }}"
+
+          if setup_error:
+              print(f"::error::Test fixture setup failed: {setup_error}")
+          elif test_passed == "false":
+              print("::error::Test validation failed - check the 'Test fixture' step logs above for details")
+          elif not test_passed:
+              print("::error::Test fixture did not complete - no test-passed output set")
+          else:
+              print("::error::Unknown test failure - check logs above")
+
+          sys.exit(1)
+
+  # ============================================================================
   # Test Summary
   # ============================================================================
   summary:
@@ -711,7 +839,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     needs:
-      [test-node-create-cache, test-node-restore-cache, test-explicit-inputs]
+      [
+        test-node-create-cache,
+        test-node-restore-cache,
+        test-explicit-inputs,
+        test-additional-inputs,
+      ]
     if: always()
     steps:
       - name: Download all test results

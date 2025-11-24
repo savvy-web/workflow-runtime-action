@@ -906,3 +906,351 @@ describe("multi-package manager support", () => {
 		});
 	});
 });
+
+describe("additional lockfiles and cache paths", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+
+		// Setup default mocks
+		vi.mocked(platform).mockReturnValue("linux");
+		vi.mocked(arch).mockReturnValue("x64");
+
+		vi.mocked(core.info).mockImplementation(() => {});
+		vi.mocked(core.debug).mockImplementation(() => {});
+		vi.mocked(core.warning).mockImplementation(() => {});
+		vi.mocked(core.startGroup).mockImplementation(() => {});
+		vi.mocked(core.endGroup).mockImplementation(() => {});
+		vi.mocked(core.setOutput).mockImplementation(() => {});
+		vi.mocked(core.saveState).mockImplementation(() => {});
+
+		vi.mocked(cache.restoreCache).mockResolvedValue(undefined);
+
+		// Mock exec.exec for cache path detection
+		vi.mocked(exec.exec).mockImplementation(async (command, args, options) => {
+			const argsStr = args?.join(" ") || "";
+
+			if (command === "npm" && argsStr === "config get cache") {
+				if (options?.listeners?.stdout) {
+					options.listeners.stdout(Buffer.from("/home/user/.npm\n"));
+				}
+				return 0;
+			}
+
+			return 0;
+		});
+
+		// Mock globber
+		const globber = {
+			glob: vi.fn().mockResolvedValue(["package-lock.json"]),
+			getSearchPaths: vi.fn().mockReturnValue([]),
+			globGenerator: vi.fn(),
+		};
+		vi.mocked(glob.create).mockResolvedValue(globber as unknown as Globber);
+
+		// Mock file reading and hashing
+		vi.mocked(readFile).mockResolvedValue("lockfile content");
+
+		vi.mocked(createHash).mockImplementation(() => {
+			const mockHash = {
+				update: vi.fn().mockReturnThis(),
+				digest: vi.fn().mockReturnValue("abc123def456"),
+			};
+			return mockHash as never;
+		});
+	});
+
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	describe("input format support", () => {
+		it("should parse JSON array format", async () => {
+			const additionalLockfiles = '["**/some.lock", "**/custom.db"]';
+
+			await restoreCache("npm", { node: "24.11.0" }, "10.20.0", undefined, additionalLockfiles);
+
+			const createCallArg = vi.mocked(glob.create).mock.calls[0][0];
+			expect(createCallArg).toContain("**/some.lock");
+			expect(createCallArg).toContain("**/custom.db");
+		});
+
+		it("should parse newlines with bullets", async () => {
+			const additionalLockfiles = "* **/some.lock\n* **/custom.db";
+
+			await restoreCache("npm", { node: "24.11.0" }, "10.20.0", undefined, additionalLockfiles);
+
+			const createCallArg = vi.mocked(glob.create).mock.calls[0][0];
+			expect(createCallArg).toContain("**/some.lock");
+			expect(createCallArg).toContain("**/custom.db");
+		});
+
+		it("should parse newlines with dashes", async () => {
+			const additionalLockfiles = "- **/some.lock\n- **/custom.db";
+
+			await restoreCache("npm", { node: "24.11.0" }, "10.20.0", undefined, additionalLockfiles);
+
+			const createCallArg = vi.mocked(glob.create).mock.calls[0][0];
+			expect(createCallArg).toContain("**/some.lock");
+			expect(createCallArg).toContain("**/custom.db");
+		});
+
+		it("should parse plain newlines", async () => {
+			const additionalLockfiles = "**/some.lock\n**/custom.db";
+
+			await restoreCache("npm", { node: "24.11.0" }, "10.20.0", undefined, additionalLockfiles);
+
+			const createCallArg = vi.mocked(glob.create).mock.calls[0][0];
+			expect(createCallArg).toContain("**/some.lock");
+			expect(createCallArg).toContain("**/custom.db");
+		});
+
+		it("should parse comma-separated format", async () => {
+			const additionalLockfiles = "**/some.lock, **/custom.db";
+
+			await restoreCache("npm", { node: "24.11.0" }, "10.20.0", undefined, additionalLockfiles);
+
+			const createCallArg = vi.mocked(glob.create).mock.calls[0][0];
+			expect(createCallArg).toContain("**/some.lock");
+			expect(createCallArg).toContain("**/custom.db");
+		});
+
+		it("should parse single item", async () => {
+			const additionalLockfiles = "**/just-one.lock";
+
+			await restoreCache("npm", { node: "24.11.0" }, "10.20.0", undefined, additionalLockfiles);
+
+			const createCallArg = vi.mocked(glob.create).mock.calls[0][0];
+			expect(createCallArg).toContain("**/just-one.lock");
+		});
+
+		it("should handle invalid JSON gracefully", async () => {
+			const additionalLockfiles = '["invalid json';
+
+			await restoreCache("npm", { node: "24.11.0" }, "10.20.0", undefined, additionalLockfiles);
+
+			// Should fall back to comma-separated (single item since no commas)
+			const createCallArg = vi.mocked(glob.create).mock.calls[0][0];
+			expect(createCallArg).toContain('["invalid json');
+		});
+
+		it("should strip bullets and dashes with mixed whitespace", async () => {
+			const additionalLockfiles = "  * **/one.lock\n  - **/two.lock\n    **/three.lock";
+
+			await restoreCache("npm", { node: "24.11.0" }, "10.20.0", undefined, additionalLockfiles);
+
+			const createCallArg = vi.mocked(glob.create).mock.calls[0][0];
+			expect(createCallArg).toContain("**/one.lock");
+			expect(createCallArg).toContain("**/two.lock");
+			expect(createCallArg).toContain("**/three.lock");
+		});
+
+		it("should handle JSON with numbers and convert to strings", async () => {
+			const additionalCachePaths = '["**/build", 123, "**/dist"]';
+
+			await restoreCache("npm", { node: "24.11.0" }, "10.20.0", undefined, undefined, additionalCachePaths);
+
+			const cacheCall = vi.mocked(cache.restoreCache).mock.calls[0];
+			const cachePaths = cacheCall[0];
+			expect(cachePaths).toContain("**/build");
+			expect(cachePaths).toContain("123");
+			expect(cachePaths).toContain("**/dist");
+		});
+
+		it("should handle mixed format with comma in JSON", async () => {
+			const additionalLockfiles = '["**/one.lock", "**/two.lock"]';
+
+			await restoreCache("npm", { node: "24.11.0" }, "10.20.0", undefined, additionalLockfiles);
+
+			const createCallArg = vi.mocked(glob.create).mock.calls[0][0];
+			expect(createCallArg).toContain("**/one.lock");
+			expect(createCallArg).toContain("**/two.lock");
+		});
+	});
+
+	describe("additional lockfile patterns", () => {
+		it("should include additional lockfile patterns in glob", async () => {
+			const additionalLockfiles = "**/some.lock\n**/custom.db";
+
+			await restoreCache("npm", { node: "24.11.0" }, "10.20.0", undefined, additionalLockfiles);
+
+			// Check that glob.create was called with combined patterns
+			const createCallArg = vi.mocked(glob.create).mock.calls[0][0];
+			expect(createCallArg).toContain("**/package-lock.json");
+			expect(createCallArg).toContain("**/some.lock");
+			expect(createCallArg).toContain("**/custom.db");
+		});
+
+		it("should handle empty additional lockfiles", async () => {
+			await restoreCache("npm", { node: "24.11.0" }, "10.20.0", undefined, "");
+
+			// Should still work with just default patterns
+			const createCallArg = vi.mocked(glob.create).mock.calls[0][0];
+			expect(createCallArg).toContain("**/package-lock.json");
+		});
+
+		it("should trim whitespace from additional lockfile patterns", async () => {
+			const additionalLockfiles = "  **/some.lock  \n  **/custom.db  \n\n";
+
+			await restoreCache("npm", { node: "24.11.0" }, "10.20.0", undefined, additionalLockfiles);
+
+			const createCallArg = vi.mocked(glob.create).mock.calls[0][0];
+			expect(createCallArg).toContain("**/some.lock");
+			expect(createCallArg).toContain("**/custom.db");
+		});
+
+		it("should deduplicate lockfile patterns", async () => {
+			// Add a pattern that's already in npm's default patterns
+			const additionalLockfiles = "**/package-lock.json\n**/custom.lock";
+
+			await restoreCache("npm", { node: "24.11.0" }, "10.20.0", undefined, additionalLockfiles);
+
+			const createCallArg = vi.mocked(glob.create).mock.calls[0][0];
+			const patterns = createCallArg.split("\n");
+
+			// Count occurrences of package-lock.json pattern
+			const packageLockCount = patterns.filter((p: string) => p === "**/package-lock.json").length;
+			expect(packageLockCount).toBe(1);
+		});
+
+		it("should log additional lockfile patterns", async () => {
+			const additionalLockfiles = "**/some.lock\n**/custom.db";
+
+			await restoreCache("npm", { node: "24.11.0" }, "10.20.0", undefined, additionalLockfiles);
+
+			expect(core.info).toHaveBeenCalledWith(expect.stringContaining("Additional lockfile patterns"));
+			expect(core.info).toHaveBeenCalledWith(expect.stringContaining("**/some.lock"));
+		});
+	});
+
+	describe("additional cache paths", () => {
+		it("should include additional cache paths", async () => {
+			const additionalCachePaths = "**/build\n**/dist";
+
+			await restoreCache("npm", { node: "24.11.0" }, "10.20.0", undefined, undefined, additionalCachePaths);
+
+			const cacheCall = vi.mocked(cache.restoreCache).mock.calls[0];
+			const cachePaths = cacheCall[0];
+
+			// Should include default npm paths
+			expect(cachePaths).toContain("/home/user/.npm");
+			expect(cachePaths).toContain("**/node_modules");
+
+			// Should include additional paths
+			expect(cachePaths).toContain("**/build");
+			expect(cachePaths).toContain("**/dist");
+		});
+
+		it("should handle empty additional cache paths", async () => {
+			await restoreCache("npm", { node: "24.11.0" }, "10.20.0", undefined, undefined, "");
+
+			// Should still work with just default paths
+			const cacheCall = vi.mocked(cache.restoreCache).mock.calls[0];
+			const cachePaths = cacheCall[0];
+			expect(cachePaths).toContain("/home/user/.npm");
+		});
+
+		it("should trim whitespace from additional cache paths", async () => {
+			const additionalCachePaths = "  **/build  \n  **/dist  \n\n";
+
+			await restoreCache("npm", { node: "24.11.0" }, "10.20.0", undefined, undefined, additionalCachePaths);
+
+			const cacheCall = vi.mocked(cache.restoreCache).mock.calls[0];
+			const cachePaths = cacheCall[0];
+			expect(cachePaths).toContain("**/build");
+			expect(cachePaths).toContain("**/dist");
+		});
+
+		it("should deduplicate cache paths", async () => {
+			// Add a path that's already in npm's default paths
+			const additionalCachePaths = "**/node_modules\n**/custom";
+
+			await restoreCache("npm", { node: "24.11.0" }, "10.20.0", undefined, undefined, additionalCachePaths);
+
+			const cacheCall = vi.mocked(cache.restoreCache).mock.calls[0];
+			const cachePaths = cacheCall[0];
+
+			// Count occurrences of node_modules pattern
+			const nodeModulesCount = cachePaths.filter((p: string) => p === "**/node_modules").length;
+			expect(nodeModulesCount).toBe(1);
+		});
+
+		it("should log additional cache paths", async () => {
+			const additionalCachePaths = "**/build\n**/dist";
+
+			await restoreCache("npm", { node: "24.11.0" }, "10.20.0", undefined, undefined, additionalCachePaths);
+
+			expect(core.info).toHaveBeenCalledWith(expect.stringContaining("Additional cache paths"));
+			expect(core.info).toHaveBeenCalledWith(expect.stringContaining("**/build"));
+		});
+	});
+
+	describe("combined additional inputs", () => {
+		it("should handle both additional lockfiles and cache paths", async () => {
+			const additionalLockfiles = "**/some.lock\n**/custom.db";
+			const additionalCachePaths = "**/build\n**/dist";
+
+			await restoreCache("npm", { node: "24.11.0" }, "10.20.0", undefined, additionalLockfiles, additionalCachePaths);
+
+			// Check lockfile patterns
+			const createCallArg = vi.mocked(glob.create).mock.calls[0][0];
+			expect(createCallArg).toContain("**/some.lock");
+			expect(createCallArg).toContain("**/custom.db");
+
+			// Check cache paths
+			const cacheCall = vi.mocked(cache.restoreCache).mock.calls[0];
+			const cachePaths = cacheCall[0];
+			expect(cachePaths).toContain("**/build");
+			expect(cachePaths).toContain("**/dist");
+		});
+
+		it("should work with multiple package managers and additional inputs", async () => {
+			const additionalLockfiles = "**/custom.lock";
+			const additionalCachePaths = "**/build";
+
+			const globber = {
+				glob: vi.fn().mockResolvedValue(["pnpm-lock.yaml", "deno.lock"]),
+				getSearchPaths: vi.fn().mockReturnValue([]),
+				globGenerator: vi.fn(),
+			};
+			vi.mocked(glob.create).mockResolvedValue(globber as unknown as Globber);
+
+			vi.mocked(exec.exec).mockImplementation(async (command, args, options) => {
+				const argsStr = args?.join(" ") || "";
+
+				if (command === "pnpm" && argsStr === "store path") {
+					if (options?.listeners?.stdout) {
+						options.listeners.stdout(Buffer.from("/home/user/.local/share/pnpm/store\n"));
+					}
+					return 0;
+				}
+
+				if (command === "deno" && argsStr === "info --json") {
+					if (options?.listeners?.stdout) {
+						options.listeners.stdout(Buffer.from(JSON.stringify({ denoDir: "/home/user/.cache/deno" })));
+					}
+					return 0;
+				}
+
+				return 0;
+			});
+
+			await restoreCache(
+				["pnpm", "deno"],
+				{ node: "24.11.0", deno: "2.1.0" },
+				"10.20.0",
+				undefined,
+				additionalLockfiles,
+				additionalCachePaths,
+			);
+
+			// Check that additional patterns were included
+			const createCallArg = vi.mocked(glob.create).mock.calls[0][0];
+			expect(createCallArg).toContain("**/custom.lock");
+
+			// Check that additional paths were included
+			const cacheCall = vi.mocked(cache.restoreCache).mock.calls[0];
+			const cachePaths = cacheCall[0];
+			expect(cachePaths).toContain("**/build");
+		});
+	});
+});

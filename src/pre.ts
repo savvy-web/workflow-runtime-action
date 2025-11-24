@@ -26,6 +26,8 @@ async function pre(): Promise<void> {
 		const installDeps = core.getInput("install-deps") || "true";
 		const turboToken = core.getInput("turbo-token") ? "***" : "not provided";
 		const turboTeam = core.getInput("turbo-team") || "not provided";
+		const additionalLockfiles = core.getInput("additional-lockfiles") || "not provided";
+		const additionalCachePaths = core.getInput("additional-cache-paths") || "not provided";
 
 		core.debug(`Input - node-version: ${nodeVersion}`);
 		core.debug(`Input - bun-version: ${bunVersion}`);
@@ -36,6 +38,8 @@ async function pre(): Promise<void> {
 		core.debug(`Input - install-deps: ${installDeps}`);
 		core.debug(`Input - turbo-token: ${turboToken}`);
 		core.debug(`Input - turbo-team: ${turboTeam}`);
+		core.debug(`Input - additional-lockfiles: ${additionalLockfiles}`);
+		core.debug(`Input - additional-cache-paths: ${additionalCachePaths}`);
 
 		core.info("Pre-action hook completed");
 		core.endGroup();

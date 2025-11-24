@@ -64,6 +64,10 @@ interface SetupResult {
 	installDeps: boolean;
 	/** Optional cache hash for testing (typically github.run_id) */
 	cacheHash: string;
+	/** Additional lockfile patterns for cache key generation */
+	additionalLockfiles: string;
+	/** Additional cache paths to cache/restore */
+	additionalCachePaths: string;
 }
 
 /**
@@ -207,6 +211,8 @@ async function detectConfiguration(): Promise<SetupResult> {
 	const biomeVersionInput = getInput("biome-version");
 	const installDeps = getInput("install-deps") !== "false";
 	const cacheHash = getInput("cache-hash");
+	const additionalLockfiles = getInput("additional-lockfiles");
+	const additionalCachePaths = getInput("additional-cache-paths");
 
 	// Validate that package-manager and package-manager-version are used together
 	const hasExplicitRuntime = nodeVersionInput || bunVersionInput || denoVersionInput;
@@ -310,6 +316,8 @@ async function detectConfiguration(): Promise<SetupResult> {
 		biomeConfigFile: biome.configFile,
 		installDeps,
 		cacheHash,
+		additionalLockfiles,
+		additionalCachePaths,
 	};
 }
 
@@ -417,6 +425,8 @@ async function main(): Promise<void> {
 			config.runtimeVersions,
 			config.packageManagerVersion,
 			config.cacheHash || undefined,
+			config.additionalLockfiles || undefined,
+			config.additionalCachePaths || undefined,
 		);
 
 		// 3. Install all detected runtimes

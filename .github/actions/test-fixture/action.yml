@@ -42,6 +42,12 @@ inputs:
   cache-hash:
     description: Optional cache hash for testing
     required: false
+  additional-lockfiles:
+    description: Additional lockfile patterns to include in cache key generation
+    required: false
+  additional-cache-paths:
+    description: Additional paths to cache/restore
+    required: false
 
   # Expected output values for validation (all optional)
   expected-node-version:
@@ -274,6 +280,8 @@ runs:
         turbo-token: ${{ inputs.turbo-token }}
         turbo-team: ${{ inputs.turbo-team }}
         cache-hash: ${{ inputs.cache-hash }}
+        additional-lockfiles: ${{ inputs.additional-lockfiles }}
+        additional-cache-paths: ${{ inputs.additional-cache-paths }}
 
     # Step 2a: First run for cache testing (cache miss expected)
     - name: First run (cache miss)
@@ -291,6 +299,8 @@ runs:
         turbo-token: ${{ inputs.turbo-token }}
         turbo-team: ${{ inputs.turbo-team }}
         cache-hash: ${{ inputs.cache-hash }}
+        additional-lockfiles: ${{ inputs.additional-lockfiles }}
+        additional-cache-paths: ${{ inputs.additional-cache-paths }}
 
     # Step 2b: Verify dependencies installed after first run
     - name: Verify dependencies installed
@@ -343,6 +353,8 @@ runs:
         turbo-token: ${{ inputs.turbo-token }}
         turbo-team: ${{ inputs.turbo-team }}
         cache-hash: ${{ inputs.cache-hash }}
+        additional-lockfiles: ${{ inputs.additional-lockfiles }}
+        additional-cache-paths: ${{ inputs.additional-cache-paths }}
 
     # Step 2e: Verify cache restoration
     - name: Verify cache restoration

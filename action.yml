@@ -46,6 +46,14 @@ inputs:
     description: "Optional cache hash suffix for testing cache behavior. Example: '${{ github.job }}-${{ github.run_id }}'. Only use for testing - do not use in production!"
     required: false
     default: ""
+  additional-lockfiles:
+    description: "Additional lockfile patterns to include in cache key generation. Multiline string with glob patterns (e.g., '**/some.lock', '**/some.db')."
+    required: false
+    default: ""
+  additional-cache-paths:
+    description: "Additional paths to cache/restore. Multiline string with glob patterns (e.g., '**/build', '**/dist')."
+    required: false
+    default: ""
 
 outputs:
   node-version:

@@ -14,6 +14,8 @@ const VALID_INPUTS: Set<string> = new Set([
 	"turbo-team",
 	"install-deps",
 	"cache-hash",
+	"additional-lockfiles",
+	"additional-cache-paths",
 ] as const);
 
 /**
@@ -49,7 +51,9 @@ export type ActionInput =
 	| "turbo-token"
 	| "turbo-team"
 	| "install-deps"
-	| "cache-hash";
+	| "cache-hash"
+	| "additional-lockfiles"
+	| "additional-cache-paths";
 
 /**
  * Type-safe output key
