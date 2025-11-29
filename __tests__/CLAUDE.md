@@ -245,14 +245,16 @@ describe("validateRuntimeConfig", () => {
     expect(() => validateRuntimeConfig(config, 0)).not.toThrow();
   });
 
-  it("should reject missing onFail", () => {
+  it("should emit notice for missing onFail", () => {
     const config = { name: "node", version: "24.10.0" };
-    expect(() => validateRuntimeConfig(config, 0)).toThrow("onFail must be");
+    expect(() => validateRuntimeConfig(config, 0)).not.toThrow();
+    expect(core.notice).toHaveBeenCalledWith(expect.stringContaining("onFail"));
   });
 
-  it("should reject wrong onFail value", () => {
+  it("should emit notice for non-error onFail value", () => {
     const config = { name: "node", version: "24.10.0", onFail: "warn" };
-    expect(() => validateRuntimeConfig(config, 0)).toThrow('onFail must be "error"');
+    expect(() => validateRuntimeConfig(config, 0)).not.toThrow();
+    expect(core.notice).toHaveBeenCalledWith(expect.stringContaining("onFail"));
   });
 });
 ```

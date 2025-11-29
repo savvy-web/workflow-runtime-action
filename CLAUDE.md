@@ -25,17 +25,17 @@ This repository provides a **comprehensive JavaScript runtime setup GitHub Actio
 Repositories using this action **MUST** have a `package.json` in their root directory with a `devEngines` field containing:
 
 1. **`devEngines.packageManager` field** - Specifies the package manager and exact version
-   * Must be an object with `name`, `version`, and `onFail` properties
+   * Must be an object with `name` and `version` properties (and optionally `onFail`)
    * Supported package managers: `npm`, `pnpm`, `yarn`, `bun`
    * Version MUST be absolute (e.g., "10.20.0"), NOT semver ranges
-   * `onFail` MUST be set to `"error"` for strict validation
+   * `onFail` is optional but recommended to be set to `"error"` for strict validation (a notice is emitted if not set)
    * This follows the [Corepack devEngines format](https://github.com/nodejs/corepack)
 
 2. **`devEngines.runtime` field** - Specifies runtime(s) and exact versions
    * Can be a single runtime object or an array of runtimes
-   * Each runtime MUST have `name` (node|bun|deno), `version` (absolute version), and `onFail` properties
+   * Each runtime MUST have `name` (node|bun|deno) and `version` (absolute version) properties (and optionally `onFail`)
    * Versions MUST be absolute (e.g., "24.11.0"), NOT semver ranges (e.g., "^24.0.0")
-   * `onFail` MUST be set to `"error"` for strict validation
+   * `onFail` is optional but recommended to be set to `"error"` for strict validation (a notice is emitted if not set)
    * See [pnpm devEngines.runtime](https://pnpm.io/package_json#devenginesruntime) for format details
 
 **Example package.json:**
