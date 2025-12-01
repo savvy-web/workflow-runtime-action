@@ -1,0 +1,20 @@
+{
+	"name": "node-yarn-test",
+	"version": "1.0.0",
+	"description": "Node.js with Yarn test project",
+	"devEngines": {
+		"packageManager": {
+			"name": "yarn",
+			"version": "4.0.0",
+			"onFail": "error"
+		},
+		"runtime": {
+			"name": "node",
+			"version": "20.11.0",
+			"onFail": "error"
+		}
+	},
+	"dependencies": {
+		"isarray": "1.0.0"
+	}
+}

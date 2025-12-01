@@ -1,0 +1,20 @@
+{
+	"name": "additional-inputs-test",
+	"version": "1.0.0",
+	"description": "Test additional-lockfiles and additional-cache-paths inputs",
+	"devEngines": {
+		"packageManager": {
+			"name": "npm",
+			"version": "11.6.0",
+			"onFail": "error"
+		},
+		"runtime": {
+			"name": "node",
+			"version": "24.9.0",
+			"onFail": "error"
+		}
+	},
+	"dependencies": {
+		"isarray": "1.0.0"
+	}
+}

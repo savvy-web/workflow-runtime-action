@@ -1,4 +1,6 @@
 packages:
-  - "."
+  - .
+loglevel: info
 onlyBuiltDependencies:
+  - core-js
   - esbuild

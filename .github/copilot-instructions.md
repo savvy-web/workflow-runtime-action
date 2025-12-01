@@ -2,15 +2,15 @@
 
 ## Repository Overview
 
-This is a **private GitHub Actions and Workflows repository** (`@savvy-web/github-private`) that provides shared GitHub Actions, reusable workflows, and internal project automation for Savvy Web Systems projects. **This repository contains NO application code or packages to build** - it only contains GitHub Actions composite actions (YAML) and workflow definitions.
+This is a **Node.js runtime setup GitHub Action repository** (`@savvy-web/workflow-runtime-action`) that provides a comprehensive GitHub Action for setting up Node.js development environments with automatic package manager detection, dependency caching, and Turbo build cache configuration. **This repository will eventually be open-sourced** and provides a traditional GitHub Action that can be referenced from the root.
 
 **Key Characteristics:**
 
 * **Type:** GitHub Actions & Workflows repository (infrastructure as code)
 * **Languages:** YAML (GitHub Actions), Shell scripts, TypeScript configuration
 * **Size:** ~253MB with dependencies installed
-* **Package Manager:** pnpm 10.20.0 (strictly enforced)
-* **Node.js Version:** 24.11.0 (specified in `.nvmrc`)
+* **Package Manager:** pnpm 10.20.0 (strictly enforced via devEngines)
+* **Node.js Version:** 24.11.0 (specified in devEngines)
 * **No Build Output:** This repository does not produce artifacts or packages
 
 ## Critical: Bootstrap & Environment Setup
@@ -33,10 +33,10 @@ pnpm install
 
 ### Node.js Version
 
-The repository requires **Node.js 24.11.0** as specified in `.nvmrc`. If using nvm:
+The repository requires **Node.js 24.11.0** as specified in package.json devEngines. If using nvm:
 
 ```bash
-nvm install
+nvm install 24.11.0
 nvm use
 ```
 
@@ -259,7 +259,7 @@ npm install -g pnpm@10.20.0
 3. Test in a consuming repository by referencing your branch:
 
    ```yaml
-   uses: savvy-web/.github-private/.github/actions/node@your-branch
+   uses: savvy-web/workflow-runtime-action@your-branch
    ```
 
 4. Run `pnpm lint:fix` to format YAML
@@ -357,7 +357,7 @@ The repository has **instruction files** in `.github/instructions/` that provide
 **These instructions have been validated by running actual commands and inspecting output.** If you encounter discrepancies:
 
 1. First, verify you've run `pnpm install` after cloning
-2. Check Node.js version matches `.nvmrc` (24.11.0)
+2. Check Node.js version matches devEngines requirement (24.11.0)
 3. Verify pnpm version is 10.20.0
 4. Only perform additional searches if the information is incomplete or incorrect
 

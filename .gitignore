@@ -1,7 +1,6 @@
 **/.DS_Store
 **/node_modules
 **/*.tsbuildinfo
-**/dist
 **/build
 **/.rslib
 **/.artifacts
@@ -11,6 +10,10 @@
 **/.cache
 coverage/
 **/*.asc
+
+# NOTE: dist/ is NOT ignored - compiled GitHub Actions must be committed
+# The dist/ folder contains the compiled action code that GitHub Actions will execute
+# However, .github/actions/runtime/ is generated during build for local testing
 pnpm-publish-summary.json
 pnpm-release.json
 .changeset/status.json
@@ -35,3 +38,8 @@ pkgs/generators/test.ts
 test.ts
 .claude/settings.local.json
 **/coverage-debug
+test-summary-dev/
+!__fixtures__/turbo-enabled/.turbo
+!__fixtures__/additional-inputs/build
+!__fixtures__/additional-inputs/dist
+.claude/plugins-debug.log

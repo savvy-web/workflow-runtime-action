@@ -1,0 +1,605 @@
+name: Test Runtime Fixture
+description: Complete test workflow - setup fixture, run runtime action, and verify outputs
+
+inputs:
+  # Test configuration
+  fixture:
+    description: Name of the fixture directory in __fixtures__/
+    required: true
+  title:
+    description: Title for the test results section (including emoji)
+    required: true
+
+  # Runtime action inputs (all optional)
+  node-version:
+    description: Node.js version to install
+    required: false
+  bun-version:
+    description: Bun version to install
+    required: false
+  deno-version:
+    description: Deno version to install
+    required: false
+  package-manager:
+    description: Package manager name
+    required: false
+  package-manager-version:
+    description: Package manager version
+    required: false
+  biome-version:
+    description: Biome version to install
+    required: false
+  install-deps:
+    description: Whether to install dependencies
+    required: false
+    default: "true"
+  turbo-token:
+    description: Turbo remote cache token
+    required: false
+  turbo-team:
+    description: Turbo team slug
+    required: false
+  cache-bust:
+    description: Cache busting mode - "true" (auto-generate unique hash), "false" (normal cache), or custom string
+    required: false
+    default: "false"
+  additional-lockfiles:
+    description: Additional lockfile patterns to include in cache key generation
+    required: false
+  additional-cache-paths:
+    description: Additional paths to cache/restore
+    required: false
+
+  # Expected output values for validation (all optional)
+  expected-node-version:
+    description: Expected Node.js version
+    required: false
+  expected-node-enabled:
+    description: Expected node-enabled value (true/false)
+    required: false
+  expected-bun-version:
+    description: Expected Bun version
+    required: false
+  expected-bun-enabled:
+    description: Expected bun-enabled value (true/false)
+    required: false
+  expected-deno-version:
+    description: Expected Deno version
+    required: false
+  expected-deno-enabled:
+    description: Expected deno-enabled value (true/false)
+    required: false
+  expected-package-manager:
+    description: Expected package manager name
+    required: false
+  expected-package-manager-version:
+    description: Expected package manager version
+    required: false
+  expected-biome-version:
+    description: Expected Biome version
+    required: false
+  expected-biome-enabled:
+    description: Expected biome-enabled value (true/false)
+    required: false
+  expected-turbo-enabled:
+    description: Expected turbo-enabled value (true/false)
+    required: false
+  expected-cache-hit:
+    description: Expected cache hit status
+    required: false
+  expected-lockfiles:
+    description: Expected lockfiles (comma-separated patterns or regex)
+    required: false
+  expected-cache-paths:
+    description: Expected cache paths (comma-separated patterns or regex)
+    required: false
+
+  # Cache testing expectations
+  expected-first-run-cache-hit:
+    description: Expected cache hit status for first run (cache miss expected)
+    required: false
+  expected-second-run-cache-hit:
+    description: Expected cache hit status for second run (cache hit expected)
+    required: false
+  expected-dependencies-installed:
+    description: Expected dependencies installed verification status
+    required: false
+  expected-cache-restored:
+    description: Expected cache restoration verification status
+    required: false
+
+  # Cache testing
+  test-cache:
+    description: Whether to test cache effectiveness (runs action twice)
+    required: false
+    default: "false"
+
+outputs:
+  node-version:
+    description: Installed Node.js version
+    value: ${{ steps.setup.outputs.node-version || steps.setup1.outputs.node-version }}
+  node-enabled:
+    description: Whether Node.js was installed
+    value: ${{ steps.setup.outputs.node-enabled || steps.setup1.outputs.node-enabled }}
+  bun-version:
+    description: Installed Bun version
+    value: ${{ steps.setup.outputs.bun-version || steps.setup1.outputs.bun-version }}
+  bun-enabled:
+    description: Whether Bun was installed
+    value: ${{ steps.setup.outputs.bun-enabled || steps.setup1.outputs.bun-enabled }}
+  deno-version:
+    description: Installed Deno version
+    value: ${{ steps.setup.outputs.deno-version || steps.setup1.outputs.deno-version }}
+  deno-enabled:
+    description: Whether Deno was installed
+    value: ${{ steps.setup.outputs.deno-enabled || steps.setup1.outputs.deno-enabled }}
+  package-manager:
+    description: Package manager name
+    value: ${{ steps.setup.outputs.package-manager || steps.setup1.outputs.package-manager }}
+  package-manager-version:
+    description: Package manager version
+    value: ${{ steps.setup.outputs.package-manager-version || steps.setup1.outputs.package-manager-version }}
+  biome-version:
+    description: Installed Biome version
+    value: ${{ steps.setup.outputs.biome-version || steps.setup1.outputs.biome-version }}
+  biome-enabled:
+    description: Whether Biome was installed
+    value: ${{ steps.setup.outputs.biome-enabled || steps.setup1.outputs.biome-enabled }}
+  turbo-enabled:
+    description: Whether Turbo was detected
+    value: ${{ steps.setup.outputs.turbo-enabled || steps.setup1.outputs.turbo-enabled }}
+  cache-hit:
+    description: Cache status (from second run in cache test mode)
+    value: ${{ steps.setup.outputs.cache-hit || steps.setup2.outputs.cache-hit }}
+  lockfiles:
+    description: Detected lockfiles
+    value: ${{ steps.setup.outputs.lockfiles || steps.setup1.outputs.lockfiles }}
+  cache-paths:
+    description: Cache paths
+    value: ${{ steps.setup.outputs.cache-paths || steps.setup1.outputs.cache-paths }}
+  test-passed:
+    description: Whether all validations passed (true | false)
+    value: ${{ steps.verify.outputs.test-passed }}
+  test-results:
+    description: JSON string of test results
+    value: ${{ steps.verify.outputs.test-results }}
+
+runs:
+  using: composite
+  steps:
+    # Step 0: Compute cache bust value based on cache-bust input
+    - name: Compute cache bust value
+      id: compute-cache-bust
+      shell: bash
+      run: |
+        cache_bust="${{ inputs.cache-bust }}"
+
+        if [ "$cache_bust" = "true" ]; then
+          # Auto-generate unique hash using run_id and run_attempt
+          cache_bust_value="${{ github.run_id }}-${{ github.run_attempt }}"
+          echo "Generated cache bust value: $cache_bust_value"
+        elif [ "$cache_bust" = "false" ] || [ -z "$cache_bust" ]; then
+          # No cache busting
+          cache_bust_value=""
+          echo "Cache busting disabled"
+        else
+          # Use custom string
+          cache_bust_value="$cache_bust"
+          echo "Using custom cache bust value: $cache_bust_value"
+        fi
+
+        echo "cache-bust=$cache_bust_value" >> $GITHUB_OUTPUT
+
+    # Step 1: Setup the test fixture
+    - name: Setup fixture
+      id: setup-fixture
+      continue-on-error: true
+      shell: python
+      run: |
+        import os
+        import shutil
+        import sys
+        import traceback
+        from pathlib import Path
+
+        try:
+            github_output = Path(os.environ["GITHUB_OUTPUT"])
+
+            # Log all files before cleanup
+            print("::group::Files before cleanup")
+            cwd = Path(".")
+            for root, dirs, files in os.walk("."):
+                # Skip .git directory
+                if ".git" in root:
+                    continue
+                level = root.replace(".", "", 1).count(os.sep)
+                indent = " " * 2 * level
+                print(f"{indent}{os.path.basename(root)}/")
+                sub_indent = " " * 2 * (level + 1)
+                for file in files:
+                    print(f"{sub_indent}{file}")
+            print("::endgroup::")
+
+            # Remove ALL files/directories except .github, .git, and __fixtures__
+            print("::group::Cleaning workspace")
+            for item in cwd.iterdir():
+                # Skip .github, .git, and __fixtures__ directories
+                if item.name in [".github", ".git", "__fixtures__"]:
+                    print(f"Skipping: {item.name}")
+                    continue
+
+                # Remove everything else
+                if item.is_file() or item.is_symlink():
+                    print(f"Removing file: {item.name}")
+                    item.unlink()
+                elif item.is_dir():
+                    print(f"Removing directory: {item.name}")
+                    shutil.rmtree(item)
+            print("::endgroup::")
+
+            # Copy fixture files to current directory (including hidden files)
+            print("::group::Copying fixture files")
+            fixture_dir = Path("__fixtures__") / "${{ inputs.fixture }}"
+            if fixture_dir.exists():
+                for item in fixture_dir.iterdir():
+                    if item.is_file():
+                        print(f"Copying file: {item.name}")
+                        shutil.copy2(item, item.name)
+                    elif item.is_dir():
+                        print(f"Copying directory: {item.name}")
+                        shutil.copytree(item, item.name, dirs_exist_ok=True)
+            else:
+                print(f"::warning::Fixture directory not found: {fixture_dir}")
+            print("::endgroup::")
+
+            # Remove __fixtures__ directory to prevent glob pattern interference
+            print("::group::Removing __fixtures__ directory")
+            fixtures_dir = Path("__fixtures__")
+            if fixtures_dir.exists():
+                print(f"Removing: {fixtures_dir}")
+                shutil.rmtree(fixtures_dir)
+            print("::endgroup::")
+
+            # Log final workspace state
+            print("::group::Files after setup")
+            for root, dirs, files in os.walk("."):
+                # Skip .git directory
+                if ".git" in root:
+                    continue
+                level = root.replace(".", "", 1).count(os.sep)
+                indent = " " * 2 * level
+                print(f"{indent}{os.path.basename(root)}/")
+                sub_indent = " " * 2 * (level + 1)
+                for file in files:
+                    print(f"{sub_indent}{file}")
+            print("::endgroup::")
+
+            print("Fixture '${{ inputs.fixture }}' prepared")
+
+            # Write success status
+            with open(github_output, "a") as f:
+                f.write("setup-error=\n")
+
+        except Exception as e:
+            # Capture error and write to output
+            error_msg = f"Setup fixture failed: {str(e)}"
+            print(f"::error::{error_msg}")
+            traceback.print_exc()
+
+            github_output = Path(os.environ["GITHUB_OUTPUT"])
+            with open(github_output, "a") as f:
+                # Escape newlines and quotes in error message
+                escaped_error = str(e).replace("\n", " ").replace("'", "''")
+                f.write(f"setup-error={escaped_error}\n")
+
+            sys.exit(1)
+
+    # Step 2: Run the runtime setup action (single run mode)
+    - name: Setup runtime
+      id: setup
+      if: inputs.test-cache != 'true'
+      uses: ./.github/actions/runtime
+      with:
+        node-version: ${{ inputs.node-version }}
+        bun-version: ${{ inputs.bun-version }}
+        deno-version: ${{ inputs.deno-version }}
+        package-manager: ${{ inputs.package-manager }}
+        package-manager-version: ${{ inputs.package-manager-version }}
+        biome-version: ${{ inputs.biome-version }}
+        install-deps: ${{ inputs.install-deps }}
+        turbo-token: ${{ inputs.turbo-token }}
+        turbo-team: ${{ inputs.turbo-team }}
+        cache-bust: ${{ steps.compute-cache-bust.outputs.cache-bust }}
+        additional-lockfiles: ${{ inputs.additional-lockfiles }}
+        additional-cache-paths: ${{ inputs.additional-cache-paths }}
+
+    # Step 2a: First run for cache testing (cache miss expected)
+    - name: First run (cache miss)
+      id: setup1
+      if: inputs.test-cache == 'true'
+      uses: ./.github/actions/runtime
+      with:
+        node-version: ${{ inputs.node-version }}
+        bun-version: ${{ inputs.bun-version }}
+        deno-version: ${{ inputs.deno-version }}
+        package-manager: ${{ inputs.package-manager }}
+        package-manager-version: ${{ inputs.package-manager-version }}
+        biome-version: ${{ inputs.biome-version }}
+        install-deps: ${{ inputs.install-deps }}
+        turbo-token: ${{ inputs.turbo-token }}
+        turbo-team: ${{ inputs.turbo-team }}
+        cache-bust: ${{ steps.compute-cache-bust.outputs.cache-bust }}
+        additional-lockfiles: ${{ inputs.additional-lockfiles }}
+        additional-cache-paths: ${{ inputs.additional-cache-paths }}
+
+    # Step 2b: Verify dependencies installed after first run
+    - name: Verify dependencies installed
+      id: verify-deps
+      if: inputs.test-cache == 'true'
+      continue-on-error: true
+      shell: python
+      run: |
+        import os
+        import sys
+        from pathlib import Path
+
+        github_output = Path(os.environ["GITHUB_OUTPUT"])
+
+        # Check for common dependency marker (lodash is in cache-test fixture)
+        if not Path("node_modules/lodash").is_dir():
+            with open(github_output, "a") as f:
+                f.write("deps-verified=false\n")
+            sys.exit(1)
+
+        with open(github_output, "a") as f:
+            f.write("deps-verified=true\n")
+
+    # Step 2c: Clear node_modules for second run
+    - name: Clear node_modules for second run
+      if: inputs.test-cache == 'true'
+      shell: python
+      run: |
+        import shutil
+        from pathlib import Path
+
+        # Remove node_modules directory
+        node_modules = Path("node_modules")
+        if node_modules.exists():
+            shutil.rmtree(node_modules)
+
+    # Step 2d: Second run for cache testing (cache hit expected)
+    - name: Second run (cache hit expected)
+      id: setup2
+      if: inputs.test-cache == 'true'
+      uses: ./.github/actions/runtime
+      with:
+        node-version: ${{ inputs.node-version }}
+        bun-version: ${{ inputs.bun-version }}
+        deno-version: ${{ inputs.deno-version }}
+        package-manager: ${{ inputs.package-manager }}
+        package-manager-version: ${{ inputs.package-manager-version }}
+        biome-version: ${{ inputs.biome-version }}
+        install-deps: ${{ inputs.install-deps }}
+        turbo-token: ${{ inputs.turbo-token }}
+        turbo-team: ${{ inputs.turbo-team }}
+        cache-bust: ${{ steps.compute-cache-bust.outputs.cache-bust }}
+        additional-lockfiles: ${{ inputs.additional-lockfiles }}
+        additional-cache-paths: ${{ inputs.additional-cache-paths }}
+
+    # Step 2e: Verify cache restoration
+    - name: Verify cache restoration
+      id: verify-cache
+      if: inputs.test-cache == 'true'
+      continue-on-error: true
+      shell: python
+      run: |
+        import os
+        import sys
+        from pathlib import Path
+
+        github_output = Path(os.environ["GITHUB_OUTPUT"])
+        cache_hit = "${{ steps.setup2.outputs.cache-hit }}"
+
+        # Check cache hit status
+        if cache_hit != "true":
+            with open(github_output, "a") as f:
+                f.write("cache-verified=false\n")
+            sys.exit(1)
+
+        # Check dependencies were restored
+        if not Path("node_modules/lodash").is_dir():
+            with open(github_output, "a") as f:
+                f.write("cache-verified=false\n")
+            sys.exit(1)
+
+        with open(github_output, "a") as f:
+            f.write("cache-verified=true\n")
+
+    # Step 3: Verify outputs
+    - name: Verify outputs
+      id: verify
+      shell: python
+      run: |
+        import json
+        import os
+        import sys
+        import traceback
+        from pathlib import Path
+
+        try:
+            github_output = Path(os.environ["GITHUB_OUTPUT"])
+            failed = False
+            results = {}
+            test_cache = "${{ inputs.test-cache }}"
+            setup_error = "${{ steps.setup-fixture.outputs.setup-error }}"
+
+            # Check for setup fixture error first
+            if setup_error:
+                with open(github_output, "a") as f:
+                    f.write("test-passed=false\n")
+                    error_json = json.dumps({"error": setup_error})
+                    f.write(f"test-results={error_json}\n")
+                sys.exit(0)
+
+            # Check if runtime setup steps failed
+            if test_cache == "true":
+                setup1_outcome = "${{ steps.setup1.outcome }}"
+                setup2_outcome = "${{ steps.setup2.outcome }}"
+                if setup1_outcome == "failure":
+                    error_msg = "Runtime setup failed during first run (cache miss). Check the 'First run (cache miss)' step logs for details."
+                    print(f"::error::{error_msg}")
+                    traceback.print_stack()
+                    with open(github_output, "a") as f:
+                        f.write("test-passed=false\n")
+                        error_json = json.dumps({"error": error_msg})
+                        f.write(f"test-results={error_json}\n")
+                    sys.exit(0)
+                if setup2_outcome == "failure":
+                    error_msg = "Runtime setup failed during second run (cache hit expected). Check the 'Second run (cache hit expected)' step logs for details."
+                    print(f"::error::{error_msg}")
+                    traceback.print_stack()
+                    with open(github_output, "a") as f:
+                        f.write("test-passed=false\n")
+                        error_json = json.dumps({"error": error_msg})
+                        f.write(f"test-results={error_json}\n")
+                    sys.exit(0)
+            else:
+                setup_outcome = "${{ steps.setup.outcome }}"
+                if setup_outcome == "failure":
+                    error_msg = "Runtime setup failed. Check the 'Setup runtime' step logs for details."
+                    print(f"::error::{error_msg}")
+                    traceback.print_stack()
+                    with open(github_output, "a") as f:
+                        f.write("test-passed=false\n")
+                        error_json = json.dumps({"error": error_msg})
+                        f.write(f"test-results={error_json}\n")
+                    sys.exit(0)
+
+            def check_value(key: str, actual: str, expected: str) -> None:
+                global failed
+                # Skip if no actual value
+                if not actual:
+                    return
+
+                # Determine status
+                if expected:
+                    if actual == expected:
+                        status = "passed"
+                    else:
+                        status = "failed"
+                        failed = True
+                else:
+                    status = "info"
+
+                # Add to results
+                results[key] = {
+                    "actual": actual,
+                    "expected": expected,
+                    "status": status,
+                }
+
+            def check_contains(key: str, actual: str, expected: str) -> None:
+                global failed
+                # Skip if no actual value
+                if not actual:
+                    return
+
+                # Determine status - check if all expected items are in actual
+                if expected:
+                    # Parse both actual and expected as comma-separated lists
+                    actual_items = [item.strip() for item in actual.split(",") if item.strip()]
+                    expected_items = [item.strip() for item in expected.split(",") if item.strip()]
+
+                    # Check if each expected item is found in any actual item
+                    # This allows matching "custom.lock" against "/path/to/custom.lock"
+                    # or "**/build" against "**/build"
+                    missing_items = []
+                    for exp_item in expected_items:
+                        found = False
+                        for act_item in actual_items:
+                            # Check exact match first, then substring match
+                            if exp_item == act_item or exp_item in act_item:
+                                found = True
+                                break
+                        if not found:
+                            missing_items.append(exp_item)
+
+                    if not missing_items:
+                        status = "passed"
+                    else:
+                        status = "failed"
+                        failed = True
+                        print(f"::error::{key}: Missing expected items: {', '.join(sorted(missing_items))}")
+                        print(f"::error::{key}: Expected items: {', '.join(sorted(expected_items))}")
+                        print(f"::error::{key}: Actual items: {', '.join(sorted(actual_items))}")
+                else:
+                    status = "info"
+
+                # Add to results
+                results[key] = {
+                    "actual": actual,
+                    "expected": expected,
+                    "status": status,
+                }
+
+            # Check outputs based on mode
+            if test_cache == "true":
+                # Cache test mode - use first run outputs for standard checks
+                check_value("node-version", "${{ steps.setup1.outputs.node-version }}", "${{ inputs.expected-node-version }}")
+                check_value("node-enabled", "${{ steps.setup1.outputs.node-enabled }}", "${{ inputs.expected-node-enabled }}")
+                check_value("bun-version", "${{ steps.setup1.outputs.bun-version }}", "${{ inputs.expected-bun-version }}")
+                check_value("bun-enabled", "${{ steps.setup1.outputs.bun-enabled }}", "${{ inputs.expected-bun-enabled }}")
+                check_value("deno-version", "${{ steps.setup1.outputs.deno-version }}", "${{ inputs.expected-deno-version }}")
+                check_value("deno-enabled", "${{ steps.setup1.outputs.deno-enabled }}", "${{ inputs.expected-deno-enabled }}")
+                check_value("package-manager", "${{ steps.setup1.outputs.package-manager }}", "${{ inputs.expected-package-manager }}")
+                check_value("package-manager-version", "${{ steps.setup1.outputs.package-manager-version }}", "${{ inputs.expected-package-manager-version }}")
+                check_value("biome-version", "${{ steps.setup1.outputs.biome-version }}", "${{ inputs.expected-biome-version }}")
+                check_value("biome-enabled", "${{ steps.setup1.outputs.biome-enabled }}", "${{ inputs.expected-biome-enabled }}")
+                check_value("turbo-enabled", "${{ steps.setup1.outputs.turbo-enabled }}", "${{ inputs.expected-turbo-enabled }}")
+                check_contains("lockfiles", r"${{ steps.setup1.outputs.lockfiles }}", "${{ inputs.expected-lockfiles }}")
+                check_contains("cache-paths", r"${{ steps.setup1.outputs.cache-paths }}", "${{ inputs.expected-cache-paths }}")
+
+                # Cache-specific checks
+                check_value("first-run-cache-hit", "${{ steps.setup1.outputs.cache-hit }}", "${{ inputs.expected-first-run-cache-hit }}")
+                check_value("second-run-cache-hit", "${{ steps.setup2.outputs.cache-hit }}", "${{ inputs.expected-second-run-cache-hit }}")
+                check_value("dependencies-installed", "${{ steps.verify-deps.outputs.deps-verified || 'false' }}", "${{ inputs.expected-dependencies-installed }}")
+                check_value("cache-restored", "${{ steps.verify-cache.outputs.cache-verified || 'false' }}", "${{ inputs.expected-cache-restored }}")
+            else:
+                # Standard test mode - use setup outputs
+                check_value("node-version", "${{ steps.setup.outputs.node-version }}", "${{ inputs.expected-node-version }}")
+                check_value("node-enabled", "${{ steps.setup.outputs.node-enabled }}", "${{ inputs.expected-node-enabled }}")
+                check_value("bun-version", "${{ steps.setup.outputs.bun-version }}", "${{ inputs.expected-bun-version }}")
+                check_value("bun-enabled", "${{ steps.setup.outputs.bun-enabled }}", "${{ inputs.expected-bun-enabled }}")
+                check_value("deno-version", "${{ steps.setup.outputs.deno-version }}", "${{ inputs.expected-deno-version }}")
+                check_value("deno-enabled", "${{ steps.setup.outputs.deno-enabled }}", "${{ inputs.expected-deno-enabled }}")
+                check_value("package-manager", "${{ steps.setup.outputs.package-manager }}", "${{ inputs.expected-package-manager }}")
+                check_value("package-manager-version", "${{ steps.setup.outputs.package-manager-version }}", "${{ inputs.expected-package-manager-version }}")
+                check_value("biome-version", "${{ steps.setup.outputs.biome-version }}", "${{ inputs.expected-biome-version }}")
+                check_value("biome-enabled", "${{ steps.setup.outputs.biome-enabled }}", "${{ inputs.expected-biome-enabled }}")
+                check_value("turbo-enabled", "${{ steps.setup.outputs.turbo-enabled }}", "${{ inputs.expected-turbo-enabled }}")
+                check_value("cache-hit", "${{ steps.setup.outputs.cache-hit }}", "${{ inputs.expected-cache-hit }}")
+                check_contains("lockfiles", r"${{ steps.setup.outputs.lockfiles }}", "${{ inputs.expected-lockfiles }}")
+                check_contains("cache-paths", r"${{ steps.setup.outputs.cache-paths }}", "${{ inputs.expected-cache-paths }}")
+
+            # Set outputs
+            test_passed = "true" if not failed else "false"
+            results_json = json.dumps(results)
+
+            with open(github_output, "a") as f:
+                f.write(f"test-passed={test_passed}\n")
+                f.write(f"test-results={results_json}\n")
+
+        except Exception as e:
+            # Error handling - write error outputs
+            error_msg = f"Script failed: {str(e)}"
+            print(f"::error::{error_msg}")
+            traceback.print_exc()
+
+            github_output = Path(os.environ["GITHUB_OUTPUT"])
+            with open(github_output, "a") as f:
+                f.write("test-passed=false\n")
+                error_json = json.dumps({"error": error_msg})
+                f.write(f"test-results={error_json}\n")
+
+        # Always exit 0 - don't fail the job
+        sys.exit(0)

@@ -1,0 +1,11 @@
+{
+    "name": "pkg-deno",
+    "version": "1.0.0",
+    "description": "Node.js with npm test project",
+    "scripts": {
+        "postinstall": "deno install"
+    },
+    "dependencies": {
+        "isarray": "1.0.0"
+    }
+}

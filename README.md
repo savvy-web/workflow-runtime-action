@@ -1,22 +1,28 @@
-# Savvy Web Systems - GitHub Actions & Workflows
+# 🚀 JavaScript Runtime Setup Action
 
-Private repository for shared GitHub Actions, reusable workflows, and project automation
+Automatically detect and setup JavaScript runtime environments in GitHub Actions
+from your `package.json` or explicit configuration. One action for Node.js,
+Bun, and Deno with intelligent package manager detection and dependency caching.
 
-This repository provides centralized GitHub automation tooling for all Savvy Web Systems projects, including:
+## ✨ Why This Action?
 
-* **Composite Actions** - Reusable setup and utility actions
-* **Reusable Workflows** - Standardized CI/CD patterns
-* **Project Automation** - Organization-wide issue/PR routing
-* **Claude Integration** - AI-assisted code review and support
+Setting up JavaScript environments in CI should be simple. This action:
 
-## Quick Start
+* 🔍 **Detects your environment** from `package.json` `devEngines` configuration
+* 📌 **Installs exact versions** of runtimes and package managers
+* ⚡ **Caches dependencies** automatically for faster builds
+* 🎯 **Supports multiple runtimes** simultaneously (Node.js + Deno, Node.js + Bun)
+* 🛠️ **Works with explicit inputs** when you don't have a `package.json`
 
-### Using the Node.js Setup Action
+**No configuration needed** - just add the action and it figures everything out!
 
-The most commonly used action in this repository. It handles Node.js setup, package manager configuration, and dependency caching.
+## 🚀 Quick Start
+
+### 🔮 Auto-Detect from package.json
+
+The simplest setup - let the action detect everything:
 
 ```yaml
-# .github/workflows/ci.yml
 name: CI
 
 on: [push, pull_request]
@@ -25,335 +31,312 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-
-      - uses: savvy-web/.github-private/.github/actions/node@main
-        with:
-          package_manager: pnpm
-          turbo_token: ${{ secrets.TURBO_TOKEN }}
-          turbo_team: ${{ vars.TURBO_TEAM }}
-
+      - uses: actions/checkout@v6
+      - uses: savvy-web/workflow-runtime-action@v1
       - run: pnpm test
       - run: pnpm build
 ```
 
-**Features:**
+### ⚙️ Explicit Configuration
 
-* Auto-detects Node.js version from `.nvmrc` or `.node-version`
-* Configures package manager (pnpm, yarn, or npm) with caching
-* Sets up Turbo remote caching (local + optional Vercel)
-* Validates environment and provides debug info
-
-**Common Input Configurations:**
+Use explicit inputs when you don't have or want to override `package.json`:
 
 ```yaml
-# Use default settings (pnpm, auto-detect Node version)
-- uses: savvy-web/.github-private/.github/actions/node@main
-
-# Specify package manager and Node version
-- uses: savvy-web/.github-private/.github/actions/node@main
+- uses: savvy-web/workflow-runtime-action@v1
   with:
-    package_manager: yarn
-    node-version: '20.x'
+    node-version: '24.10.0'
+    package-manager: pnpm
+    package-manager-version: '10.20.0'
+```
 
-# Enable Turbo remote caching
-- uses: savvy-web/.github-private/.github/actions/node@main
+## 🎯 How It Works
+
+### 🔍 Auto-Detection Mode
+
+The action reads configuration from your `package.json` `devEngines` field:
+
+```json
+{
+  "devEngines": {
+    "runtime": {
+      "name": "node",
+      "version": "24.10.0",
+      "onFail": "error"
+    },
+    "packageManager": {
+      "name": "pnpm",
+      "version": "10.20.0",
+      "onFail": "error"
+    }
+  }
+}
+```
+
+**Requirements:**
+
+* Versions must be **exact** (e.g., `24.10.0`, not `^24.0.0`)
+* `onFail` must be set to `"error"` for strict validation
+* Supports single or multiple runtimes
+
+### 📦 What Gets Installed
+
+1. ⚡ **Runtime(s)** - Node.js, Bun, and/or Deno at specified versions
+2. 📦 **Package Manager** - pnpm, yarn, npm, bun, or deno at specified version
+3. 🔧 **Dependencies** - Automatically installs with appropriate lockfile flags
+4. 💾 **Caching** - Sets up dependency caching optimized for your package manager
+
+## 📥 Inputs
+
+All inputs are optional. The action uses auto-detection if not provided.
+
+| Input | Description | Default |
+| ----- | ----------- | ------- |
+| `node-version` | Node.js version (e.g., `24.10.0`) | Auto-detect from `devEngines.runtime` |
+| `bun-version` | Bun version (e.g., `1.3.3`) | Auto-detect from `devEngines.runtime` |
+| `deno-version` | Deno version (e.g., `2.5.6`) | Auto-detect from `devEngines.runtime` |
+| `package-manager` | Package manager (`npm` \| `pnpm` \| `yarn` \| `bun` \| `deno`) | Auto-detect from `devEngines.packageManager` |
+| `package-manager-version` | Package manager version | Auto-detect from `devEngines.packageManager` |
+| `install-deps` | Install dependencies (`true` \| `false`) | `"true"` |
+
+## 📤 Outputs
+
+| Output | Description |
+| ------ | ----------- |
+| `node-version` | Installed Node.js version or empty |
+| `node-enabled` | Whether Node.js was installed (`true` \| `false`) |
+| `bun-version` | Installed Bun version or empty |
+| `bun-enabled` | Whether Bun was installed (`true` \| `false`) |
+| `deno-version` | Installed Deno version or empty |
+| `deno-enabled` | Whether Deno was installed (`true` \| `false`) |
+| `package-manager` | Package manager name |
+| `package-manager-version` | Package manager version |
+| `cache-hit` | Cache status (`true` \| `partial` \| `false` \| `n/a`) |
+
+## 💡 Usage Examples
+
+### 🟢 Basic Node.js Project
+
+```yaml
+# Automatically detects Node.js version and pnpm from package.json
+- uses: savvy-web/workflow-runtime-action@v1
+- run: pnpm ci:test
+```
+
+### 🎭 Multi-Runtime Project
+
+```yaml
+# Sets up both Node.js and Deno from package.json devEngines
+- uses: savvy-web/workflow-runtime-action@v1
+
+- name: Test with Node.js
+  run: npm ci:test
+
+- name: Test with Deno
+  run: deno ci:test
+```
+
+### 🛠️ Custom Dependency Installation
+
+```yaml
+# Skip automatic installation
+- uses: savvy-web/workflow-runtime-action@v1
   with:
-    package_manager: pnpm
-    turbo_token: ${{ secrets.TURBO_TOKEN }}
-    turbo_team: ${{ vars.TURBO_TEAM }}
+    install-deps: false
+
+# Install with custom flags
+- run: pnpm install --no-frozen-lockfile --prefer-offline
 ```
 
-See [Node Action Documentation](./.github/actions/node/README.md) for all available inputs.
-
-## Available Workflows
-
-### PR Validation
-
-Comprehensive pull request validation with linting, testing, and automated code review.
+### 📊 Using Outputs
 
 ```yaml
-# .github/workflows/validate.yml
-name: Validate PR
+- name: Setup runtime
+  id: setup
+  uses: savvy-web/workflow-runtime-action@v1
 
-on:
-  pull_request:
-    types: [opened, synchronize, reopened]
-
-jobs:
-  validate:
-    uses: savvy-web/.github-private/.github/workflows/validate.yml@main
-    secrets: inherit
+- name: Display environment
+  run: |
+    echo "Node.js: ${{ steps.setup.outputs.node-version }}"
+    echo "Package Manager: ${{ steps.setup.outputs.package-manager }} v${{ steps.setup.outputs.package-manager-version }}"
+    echo "Cache Hit: ${{ steps.setup.outputs.cache-hit }}"
 ```
 
-**What it checks:**
-
-* PR title format (Conventional Commits)
-* Commit message format
-* Code quality (Biome linting)
-* Type checking (TypeScript)
-* Tests
-* Automated Claude Code review
-
-**Required Secrets:**
-
-* `APP_ID` / `APP_PRIVATE_KEY` - GitHub App for check runs
-* `CLAUDE_CODE_OAUTH_TOKEN` - Claude Code integration
-* `CLAUDE_REVIEW_PAT` - Personal access token for review operations
-
-### Claude Code Integration
-
-Enable `@claude` mentions in issues and PRs for AI assistance.
+### ⚡ Explicit Configuration (No package.json Required)
 
 ```yaml
-# .github/workflows/claude.yml
-name: Claude Code
-
-on:
-  issue_comment:
-    types: [created]
-  pull_request_review_comment:
-    types: [created]
-  pull_request_review:
-    types: [submitted]
-  issues:
-    types: [opened, assigned]
-
-jobs:
-  claude:
-    uses: savvy-web/.github-private/.github/workflows/claude.yml@main
-    secrets:
-      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+# Perfect for projects without package.json
+- uses: savvy-web/workflow-runtime-action@v1
+  with:
+    node-version: '24.10.0'
+    package-manager: npm
+    package-manager-version: '11.0.0'
 ```
 
-**Usage:** Mention `@claude` in any issue or PR comment to get assistance.
+## 📦 Supported Package Managers
 
-### Automated Release Management
+### 📦 pnpm
 
-Manage releases using Changesets with automatic versioning and changelog generation.
+* Installed via corepack with exact version
+* Install command: `pnpm install --frozen-lockfile` (or `pnpm install` without
+  lockfile)
+
+### 🧶 Yarn
+
+* Installed via corepack with exact version
+* Supports Yarn Classic (1.x) and Berry (2.x+)
+* Install command: `yarn install --immutable` (or `yarn install --no-immutable`
+  without lockfile)
+
+### 📦 npm
+
+* Installed via corepack with exact version
+* Install command: `npm ci` (or `npm install` without lockfile)
+
+### 🥟 bun
+
+* Downloaded from official releases
+* Install command: `bun install --frozen-lockfile` (or `bun install` without
+  lockfile)
+
+### 🦕 deno
+
+* Downloaded from official releases
+* Install command: `deno install` (respects `deno.lock` automatically)
+
+## 💾 Dependency Caching
+
+The action automatically caches dependencies based on your package manager and
+lockfile:
+
+* 🔑 **Cache key** includes lockfile hash for invalidation on changes
+* 🖥️ **Platform-specific** cache paths for each package manager
+* 🔄 **Restore keys** for partial cache hits
+* ⚡ **Automatic setup** - no configuration needed
+* 🦀 **Polyglot support** - Cache Rust, Python, Go dependencies alongside JavaScript
+
+Cache hit status is available in the `cache-hit` output.
+
+📚 **See [Caching Strategy Documentation](docs/CACHING.md)** for:
+
+* How cache keys are generated
+* Default lockfiles and cache paths for each package manager
+* Caching Rust/Cargo, Python, and Go dependencies
+* Advanced caching strategies for monorepos
+* Debugging cache issues
+
+## 🔧 Troubleshooting
+
+### ❌ Missing devEngines Configuration
+
+**Error:** `devEngines.runtime or devEngines.packageManager not found`
+
+**Solution:** Add `devEngines` to your `package.json`:
+
+```json
+{
+  "devEngines": {
+    "runtime": {
+      "name": "node",
+      "version": "24.10.0",
+      "onFail": "error"
+    },
+    "packageManager": {
+      "name": "pnpm",
+      "version": "10.20.0",
+      "onFail": "error"
+    }
+  }
+}
+```
+
+Or use explicit inputs:
 
 ```yaml
-# .github/workflows/release.yml
-name: Release
-
-on:
-  push:
-    branches: [main]
-  workflow_dispatch:
-
-jobs:
-  release:
-    uses: savvy-web/.github-private/.github/workflows/release.yml@main
-    secrets: inherit
+- uses: savvy-web/workflow-runtime-action@v1
+  with:
+    node-version: '24.10.0'
+    package-manager: pnpm
+    package-manager-version: '10.20.0'
 ```
 
-**How it works:**
+### ⚠️ Version Must Be Exact
 
-1. Detects changesets in `.changeset/*.md`
-2. Creates/updates a release PR with version bumps
-3. Generates changelog entries
-4. Creates GitHub releases when PR is merged
+**Error:** `Must be an absolute version, not a semver range`
 
-**Required Secrets:**
+**Solution:** Use exact versions (e.g., `24.10.0`) instead of ranges (e.g.,
+`^24.0.0`):
 
-* `APP_ID` / `APP_PRIVATE_KEY` - GitHub App for commits
-* `NPM_TOKEN` - (Optional) For publishing to npm
+```json
+{
+  "devEngines": {
+    "runtime": {
+      "name": "node",
+      "version": "24.10.0",  // ✅ Exact version
+      // NOT: "version": "^24.0.0"  // ❌ Semver range
+      "onFail": "error"
+    }
+  }
+}
+```
 
-### Organization Issue Routing
+### 💥 Dependency Installation Fails
 
-**For organization administrators:** Automatically route issues and PRs to GitHub Projects across all repositories.
-
-**Setup (in `.github-private` repository):**
+**Solution:** Skip automatic installation and install manually:
 
 ```yaml
-# .github/workflows/org-issue-router.yml
-name: Route Issues to Projects
+- uses: savvy-web/workflow-runtime-action@v1
+  with:
+    install-deps: false
 
-on:
-  issues:
-    types: [opened, reopened]
-  pull_request:
-    types: [opened, reopened]
-
-jobs:
-  route:
-    uses: savvy-web/.github-private/.github/workflows/org-issue-router.yml@main
-    secrets: inherit
+- run: pnpm install --no-frozen-lockfile
 ```
 
-**Configure target repositories:**
+## 🎭 Multiple Runtimes
 
-Set custom properties on each repository:
+You can set up multiple runtimes simultaneously by specifying an array in
+`devEngines.runtime`:
 
-* `project-tracking` (boolean) - Enable auto-routing: `true`
-* `project-number` (string) - Organization project number: `"1"`
-* `client-id` (string, optional) - For client-specific routing
-
-**Access:** Settings → Custom properties (organization level)
-
-### Project Listener (Reusable)
-
-Alternative to org-issue-router for single-repository setups.
-
-```yaml
-jobs:
-  add-to-project:
-    uses: savvy-web/.github-private/.github/workflows/project-listener.yml@main
-    secrets: inherit
+```json
+{
+  "devEngines": {
+    "runtime": [
+      {
+        "name": "node",
+        "version": "24.10.0",
+        "onFail": "error"
+      },
+      {
+        "name": "deno",
+        "version": "2.5.6",
+        "onFail": "error"
+      }
+    ],
+    "packageManager": {
+      "name": "pnpm",
+      "version": "10.20.0",
+      "onFail": "error"
+    }
+  }
+}
 ```
 
-## GitHub App Setup
+The action will install all specified runtimes and make them available in your
+workflow.
 
-Most workflows require a GitHub App for authentication (preferred over PATs).
+## 🤝 Contributing
 
-**Required App Permissions:**
+We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for development
+setup, testing, and contribution guidelines.
 
-**Repository:**
+## 📄 License
 
-* Actions: Read
-* Checks: Read & Write
-* Contents: Read & Write
-* Issues: Read & Write
-* Pull Requests: Read & Write
+MIT License - See [LICENSE](LICENSE) for details.
 
-**Organization:**
+## 💬 Support
 
-* Projects: Read & Write
+* 🐛 **Issues:** [GitHub Issues](https://github.com/savvy-web/workflow-runtime-action/issues)
+* 💭 **Discussions:** [GitHub Discussions](https://github.com/savvy-web/workflow-runtime-action/discussions)
 
-**Configure Secrets:**
+---
 
-```bash
-# Organization or repository secrets
-APP_ID=123456
-APP_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----\n..."
-CLAUDE_CODE_OAUTH_TOKEN="oauth_token_here"
-CLAUDE_REVIEW_PAT="github_pat_..."
-TURBO_TOKEN="vercel_token_here"  # Optional
-```
-
-**Configure Variables:**
-
-```bash
-# Organization or repository variables
-TURBO_TEAM="team-slug"  # Optional
-```
-
-## Common Patterns
-
-### Basic CI Workflow
-
-```yaml
-name: CI
-
-on: [push, pull_request]
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: savvy-web/.github-private/.github/actions/node@main
-      - run: pnpm lint
-      - run: pnpm typecheck
-      - run: pnpm test
-      - run: pnpm build
-```
-
-### Monorepo CI with Turbo
-
-```yaml
-name: CI
-
-on: [push, pull_request]
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-
-      - uses: savvy-web/.github-private/.github/actions/node@main
-        with:
-          package_manager: pnpm
-          turbo_token: ${{ secrets.TURBO_TOKEN }}
-          turbo_team: ${{ vars.TURBO_TEAM }}
-
-      - name: Build
-        run: pnpm turbo build
-
-      - name: Test
-        run: pnpm turbo test
-
-      - name: Lint
-        run: pnpm turbo lint
-```
-
-### Full PR Workflow
-
-```yaml
-name: PR Validation
-
-on:
-  pull_request:
-    types: [opened, synchronize, reopened]
-
-jobs:
-  # Use the shared validation workflow
-  validate:
-    uses: savvy-web/.github-private/.github/workflows/validate.yml@main
-    secrets: inherit
-
-  # Add custom checks
-  custom:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: savvy-web/.github-private/.github/actions/node@main
-      - run: pnpm custom-check
-```
-
-## Repository Structure
-
-```text
-.github/
-├── actions/
-│   └── node/              # Node.js setup action
-│       ├── action.yml     # Action definition
-│       └── README.md      # Detailed documentation
-└── workflows/
-    ├── claude.yml         # Claude Code integration
-    ├── org-issue-router.yml  # Organization-wide routing
-    ├── project-listener.yml  # Single-repo routing
-    ├── release.yml        # Changesets release automation
-    └── validate.yml       # PR validation reference
-```
-
-## Contributing
-
-This is a private repository for Savvy Web Systems internal use.
-
-**Adding new actions or workflows:**
-
-1. Create in appropriate directory (`.github/actions/` or `.github/workflows/`)
-2. Add comprehensive documentation
-3. Test in a real repository
-4. Create a changeset: `pnpm changeset`
-5. Submit PR with examples
-
-**Testing changes:**
-
-Reference your branch when testing:
-
-```yaml
-- uses: savvy-web/.github-private/.github/actions/node@your-branch
-```
-
-## Support
-
-* **Issues:** Report bugs or request features via GitHub Issues
-* **Claude Assistance:** Mention `@claude` in issues/PRs (if enabled)
-* **Internal:** Contact the DevOps team
-
-## License
-
-Private - Savvy Web Systems © 2024
+**Made with ❤️ by [Savvy Web Systems](https://github.com/savvy-web)**
