@@ -4,6 +4,7 @@ import { join } from "node:path";
 import * as core from "@actions/core";
 import * as exec from "@actions/exec";
 import * as tc from "@actions/tool-cache";
+import { STATE, formatDetection, formatInstallation, formatRuntime, formatSuccess } from "./emoji.js";
 
 /**
  * Bun version configuration
@@ -100,7 +101,7 @@ async function downloadBun(version: string): Promise<string> {
  * @returns Installed Bun version
  */
 export async function installBun(config: BunVersionConfig): Promise<string> {
-	core.startGroup("📦 Installing Bun");
+	core.startGroup(formatInstallation(formatRuntime("bun")));
 
 	try {
 		const { version } = config;
@@ -113,9 +114,9 @@ export async function installBun(config: BunVersionConfig): Promise<string> {
 		let toolPath = tc.find("bun", version);
 
 		if (toolPath) {
-			core.info(`✓ Found Bun ${version} in tool cache: ${toolPath}`);
+			core.info(formatDetection(`Bun ${version} in tool cache: ${toolPath}`, true));
 		} else {
-			core.info(`Bun ${version} not found in cache, downloading...`);
+			core.info(`${STATE.neutral} Bun ${version} not found in cache, downloading...`);
 			toolPath = await downloadBun(version);
 		}
 
@@ -125,7 +126,7 @@ export async function installBun(config: BunVersionConfig): Promise<string> {
 		// Verify installation
 		await exec.exec("bun", ["--version"]);
 
-		core.info(`✓ Bun ${version} installed successfully`);
+		core.info(formatSuccess(`Bun ${version} installed successfully`));
 		core.endGroup();
 
 		return version;

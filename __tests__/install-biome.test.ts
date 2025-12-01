@@ -39,7 +39,7 @@ describe("installBiome", () => {
 		it("should skip installation when version is empty", async () => {
 			await installBiome("");
 
-			expect(core.info).toHaveBeenCalledWith("No Biome version specified, skipping installation");
+			expect(core.info).toHaveBeenCalledWith("⚪ No Biome version specified, skipping installation");
 			expect(tc.find).not.toHaveBeenCalled();
 			expect(tc.downloadTool).not.toHaveBeenCalled();
 		});
@@ -68,7 +68,7 @@ describe("installBiome", () => {
 
 			await installBiome("2.3.6");
 
-			expect(core.info).toHaveBeenCalledWith(expect.stringContaining("Found Biome 2.3.6 in tool cache"));
+			expect(core.info).toHaveBeenCalledWith(expect.stringContaining("🟢 Detected Biome 2.3.6 in tool cache"));
 			expect(tc.downloadTool).not.toHaveBeenCalled();
 			expect(core.addPath).toHaveBeenCalledWith("/cached/biome/2.3.6");
 		});
@@ -78,7 +78,7 @@ describe("installBiome", () => {
 
 			await installBiome("2.3.6");
 
-			expect(core.info).toHaveBeenCalledWith(expect.stringContaining("not found in cache, downloading"));
+			expect(core.info).toHaveBeenCalledWith(expect.stringContaining("⚪ Biome 2.3.6 not found in cache"));
 			expect(tc.downloadTool).toHaveBeenCalled();
 			expect(tc.cacheFile).toHaveBeenCalledWith("/tmp/biome", "biome", "biome", "2.3.6");
 			expect(core.addPath).toHaveBeenCalledWith("/cached/biome");
@@ -147,7 +147,7 @@ describe("installBiome", () => {
 
 			await installBiome("2.3.6");
 
-			expect(core.warning).toHaveBeenCalledWith(expect.stringContaining("Failed to install Biome"));
+			expect(core.warning).toHaveBeenCalledWith(expect.stringContaining("🔴 Failed to install Biome"));
 		});
 	});
 
@@ -202,7 +202,7 @@ describe("installBiome", () => {
 
 			await installBiome("2.3.6");
 
-			expect(core.warning).toHaveBeenCalledWith(expect.stringContaining("Failed to install Biome"));
+			expect(core.warning).toHaveBeenCalledWith(expect.stringContaining("🔴 Failed to install Biome"));
 			expect(core.warning).toHaveBeenCalledWith(expect.stringContaining("404 Not Found"));
 		});
 
@@ -211,7 +211,7 @@ describe("installBiome", () => {
 
 			await installBiome("2.3.6");
 
-			expect(core.warning).toHaveBeenCalledWith(expect.stringContaining("Failed to install Biome"));
+			expect(core.warning).toHaveBeenCalledWith(expect.stringContaining("🔴 Failed to install Biome"));
 		});
 
 		it("should handle non-Error exceptions", async () => {
@@ -237,7 +237,7 @@ describe("installBiome", () => {
 
 			await installBiome("2.3.6");
 
-			expect(core.info).toHaveBeenCalledWith("✓ Biome 2.3.6 installed successfully");
+			expect(core.info).toHaveBeenCalledWith("✅ Biome 2.3.6 installed successfully");
 		});
 
 		it("should group output", async () => {
@@ -245,7 +245,7 @@ describe("installBiome", () => {
 
 			await installBiome("2.3.6");
 
-			expect(core.startGroup).toHaveBeenCalledWith("🔧 Installing Biome 2.3.6");
+			expect(core.startGroup).toHaveBeenCalledWith("⚙️ Installing Biome 2.3.6");
 			expect(core.endGroup).toHaveBeenCalled();
 		});
 	});

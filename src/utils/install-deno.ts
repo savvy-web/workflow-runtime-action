@@ -3,6 +3,7 @@ import { arch, platform } from "node:os";
 import * as core from "@actions/core";
 import * as exec from "@actions/exec";
 import * as tc from "@actions/tool-cache";
+import { formatDetection, formatInstallation, formatRuntime, formatSuccess } from "./emoji.js";
 
 /**
  * Deno version configuration
@@ -87,7 +88,7 @@ async function downloadDeno(version: string): Promise<string> {
  * @returns Installed Deno version
  */
 export async function installDeno(config: DenoVersionConfig): Promise<string> {
-	core.startGroup("📦 Installing Deno");
+	core.startGroup(formatInstallation(formatRuntime("deno")));
 
 	try {
 		const { version } = config;
@@ -100,9 +101,9 @@ export async function installDeno(config: DenoVersionConfig): Promise<string> {
 		let toolPath = tc.find("deno", version);
 
 		if (toolPath) {
-			core.info(`✓ Found Deno ${version} in tool cache: ${toolPath}`);
+			core.info(formatDetection(`Deno ${version} in tool cache: ${toolPath}`, true));
 		} else {
-			core.info(`Deno ${version} not found in cache, downloading...`);
+			core.info(formatDetection(`Deno ${version} in cache`, false));
 			toolPath = await downloadDeno(version);
 		}
 
@@ -112,7 +113,7 @@ export async function installDeno(config: DenoVersionConfig): Promise<string> {
 		// Verify installation
 		await exec.exec("deno", ["--version"]);
 
-		core.info(`✓ Deno ${version} installed successfully`);
+		core.info(formatSuccess(`Deno ${version} installed successfully`));
 		core.endGroup();
 
 		return version;

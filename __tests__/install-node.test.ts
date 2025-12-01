@@ -1,19 +1,15 @@
 import { readdirSync } from "node:fs";
-import { readFile } from "node:fs/promises";
 import { arch, platform } from "node:os";
 import * as core from "@actions/core";
 import * as exec from "@actions/exec";
-import { HttpClient } from "@actions/http-client";
 import * as tc from "@actions/tool-cache";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { installNode, setupPackageManager } from "../src/utils/install-node.js";
+import { installNode, setupNpm, setupPackageManager } from "../src/utils/install-node.js";
 
 // Mock all modules
 vi.mock("@actions/core");
 vi.mock("@actions/exec");
-vi.mock("@actions/http-client");
 vi.mock("@actions/tool-cache");
-vi.mock("node:fs/promises");
 vi.mock("node:fs");
 vi.mock("node:os");
 
@@ -35,22 +31,6 @@ describe("installNode", () => {
 		vi.mocked(tc.extractZip).mockResolvedValue("/tmp/extracted");
 		vi.mocked(tc.cacheDir).mockResolvedValue("/cached/node");
 		vi.mocked(readdirSync).mockReturnValue(["node-v20.11.0-linux-x64"] as unknown as ReturnType<typeof readdirSync>);
-		vi.mocked(readFile).mockResolvedValue("20.11.0\n");
-
-		// Mock HttpClient for version resolution
-		const mockGet = vi.fn().mockResolvedValue({
-			readBody: vi.fn().mockResolvedValue(
-				JSON.stringify([
-					{ version: "v20.19.5", lts: "Iron" },
-					{ version: "v20.19.4", lts: "Iron" },
-					{ version: "v20.18.0", lts: false },
-					{ version: "v18.20.0", lts: "Hydrogen" },
-				]),
-			),
-		});
-		vi.mocked(HttpClient).mockImplementation(function (this: InstanceType<typeof HttpClient>) {
-			return { get: mockGet } as unknown as InstanceType<typeof HttpClient>;
-		} as unknown as typeof HttpClient);
 	});
 
 	afterEach(() => {
@@ -61,20 +41,20 @@ describe("installNode", () => {
 		it("should use cached Node.js when available", async () => {
 			vi.mocked(tc.find).mockReturnValue("/cached/node-20.11.0");
 
-			await installNode({ version: "20.11.0", versionFile: "" });
+			await installNode({ version: "20.11.0" });
 
 			expect(tc.find).toHaveBeenCalledWith("node", "20.11.0");
-			expect(core.info).toHaveBeenCalledWith(expect.stringContaining("Found Node.js 20.11.0 in tool cache"));
+			expect(core.info).toHaveBeenCalledWith(expect.stringContaining("🟢 Detected Node.js 20.11.0 in tool cache"));
 			expect(tc.downloadTool).not.toHaveBeenCalled();
 		});
 
 		it("should download Node.js when not cached", async () => {
 			vi.mocked(tc.find).mockReturnValue("");
 
-			await installNode({ version: "20.11.0", versionFile: "" });
+			await installNode({ version: "20.11.0" });
 
 			expect(tc.find).toHaveBeenCalledWith("node", "20.11.0");
-			expect(core.info).toHaveBeenCalledWith(expect.stringContaining("not found in cache, downloading"));
+			expect(core.info).toHaveBeenCalledWith(expect.stringContaining("⚪ No Node.js 20.11.0 in cache"));
 			expect(tc.downloadTool).toHaveBeenCalled();
 			expect(tc.extractTar).toHaveBeenCalled();
 			expect(tc.cacheDir).toHaveBeenCalled();
@@ -83,7 +63,7 @@ describe("installNode", () => {
 		it("should add correct path on Linux", async () => {
 			vi.mocked(tc.find).mockReturnValue("/cached/node");
 
-			await installNode({ version: "20.11.0", versionFile: "" });
+			await installNode({ version: "20.11.0" });
 
 			expect(core.addPath).toHaveBeenCalledWith("/cached/node/bin");
 		});
@@ -92,7 +72,7 @@ describe("installNode", () => {
 			vi.mocked(platform).mockReturnValue("win32");
 			vi.mocked(tc.find).mockReturnValue("/cached/node");
 
-			await installNode({ version: "20.11.0", versionFile: "" });
+			await installNode({ version: "20.11.0" });
 
 			expect(core.addPath).toHaveBeenCalledWith("/cached/node");
 		});
@@ -100,113 +80,10 @@ describe("installNode", () => {
 		it("should verify installation", async () => {
 			vi.mocked(tc.find).mockReturnValue("/cached/node");
 
-			await installNode({ version: "20.11.0", versionFile: "" });
+			await installNode({ version: "20.11.0" });
 
 			expect(exec.exec).toHaveBeenCalledWith("node", ["--version"]);
 			expect(exec.exec).toHaveBeenCalledWith("npm", ["--version"]);
-		});
-	});
-
-	describe("version file handling", () => {
-		it("should read version from .nvmrc", async () => {
-			vi.mocked(tc.find).mockReturnValue("/cached/node");
-			vi.mocked(readFile).mockResolvedValue("20.11.0\n");
-
-			await installNode({ version: "", versionFile: ".nvmrc" });
-
-			expect(core.info).toHaveBeenCalledWith(expect.stringContaining("Reading Node.js version from .nvmrc"));
-			expect(readFile).toHaveBeenCalledWith(".nvmrc", "utf-8");
-		});
-
-		it("should strip v prefix from version file", async () => {
-			vi.mocked(tc.find).mockReturnValue("/cached/node");
-			vi.mocked(readFile).mockResolvedValue("v20.11.0\n");
-
-			await installNode({ version: "", versionFile: ".nvmrc" });
-
-			expect(tc.find).toHaveBeenCalledWith("node", "20.11.0");
-		});
-
-		it("should handle multiline version files", async () => {
-			vi.mocked(tc.find).mockReturnValue("/cached/node");
-			vi.mocked(readFile).mockResolvedValue("20.11.0\n# comment\nmore text");
-
-			await installNode({ version: "", versionFile: ".nvmrc" });
-
-			expect(tc.find).toHaveBeenCalledWith("node", "20.11.0");
-		});
-	});
-
-	describe("version resolution", () => {
-		it("should resolve lts/* from input version", async () => {
-			vi.mocked(tc.find).mockReturnValue("/cached/node");
-
-			await installNode({ version: "lts/*", versionFile: "" });
-
-			expect(core.info).toHaveBeenCalledWith(expect.stringContaining("Using Node.js version from input: lts/*"));
-			expect(tc.find).toHaveBeenCalledWith("node", "20.19.5");
-		});
-
-		it("should resolve lts from input version", async () => {
-			vi.mocked(tc.find).mockReturnValue("/cached/node");
-
-			await installNode({ version: "lts", versionFile: "" });
-
-			expect(tc.find).toHaveBeenCalledWith("node", "20.19.5");
-		});
-
-		it("should resolve version range (20.x) from input", async () => {
-			vi.mocked(tc.find).mockReturnValue("/cached/node");
-
-			await installNode({ version: "20.x", versionFile: "" });
-
-			expect(core.info).toHaveBeenCalledWith(expect.stringContaining("Using Node.js version from input: 20.x"));
-			expect(tc.find).toHaveBeenCalledWith("node", "20.19.5");
-		});
-
-		it("should resolve version range (20) from input", async () => {
-			vi.mocked(tc.find).mockReturnValue("/cached/node");
-
-			await installNode({ version: "20", versionFile: "" });
-
-			expect(tc.find).toHaveBeenCalledWith("node", "20.19.5");
-		});
-
-		it("should resolve lts/* from version file", async () => {
-			vi.mocked(tc.find).mockReturnValue("/cached/node");
-			vi.mocked(readFile).mockResolvedValue("lts/*\n");
-
-			await installNode({ version: "", versionFile: ".nvmrc" });
-
-			expect(core.info).toHaveBeenCalledWith(expect.stringContaining("Reading Node.js version from .nvmrc"));
-			expect(tc.find).toHaveBeenCalledWith("node", "20.19.5");
-		});
-
-		it("should resolve version range (20.x) from version file", async () => {
-			vi.mocked(tc.find).mockReturnValue("/cached/node");
-			vi.mocked(readFile).mockResolvedValue("20.x\n");
-
-			await installNode({ version: "", versionFile: ".nvmrc" });
-
-			expect(tc.find).toHaveBeenCalledWith("node", "20.19.5");
-		});
-
-		it("should resolve lts from version file", async () => {
-			vi.mocked(tc.find).mockReturnValue("/cached/node");
-			vi.mocked(readFile).mockResolvedValue("lts\n");
-
-			await installNode({ version: "", versionFile: ".nvmrc" });
-
-			expect(tc.find).toHaveBeenCalledWith("node", "20.19.5");
-		});
-
-		it("should default to lts/* when no version or file specified", async () => {
-			vi.mocked(tc.find).mockReturnValue("/cached/node");
-
-			await installNode({ version: "", versionFile: "" });
-
-			expect(core.info).toHaveBeenCalledWith(expect.stringContaining("No version specified, defaulting to lts/*"));
-			expect(tc.find).toHaveBeenCalledWith("node", "20.19.5");
 		});
 	});
 
@@ -216,7 +93,7 @@ describe("installNode", () => {
 			vi.mocked(tc.find).mockReturnValue("");
 			vi.mocked(readdirSync).mockReturnValue(["node-v20.11.0-win32-x64"] as unknown as ReturnType<typeof readdirSync>);
 
-			await installNode({ version: "20.11.0", versionFile: "" });
+			await installNode({ version: "20.11.0" });
 
 			expect(tc.extractZip).toHaveBeenCalledWith("/tmp/download");
 			expect(tc.extractTar).not.toHaveBeenCalled();
@@ -228,21 +105,21 @@ describe("installNode", () => {
 			vi.mocked(tc.find).mockReturnValue("");
 			vi.mocked(tc.downloadTool).mockRejectedValue(new Error("Network error"));
 
-			await expect(installNode({ version: "20.11.0", versionFile: "" })).rejects.toThrow("Failed to install Node.js");
+			await expect(installNode({ version: "20.11.0" })).rejects.toThrow("Failed to install Node.js");
 		});
 
 		it("should throw error on extraction failure", async () => {
 			vi.mocked(tc.find).mockReturnValue("");
 			vi.mocked(tc.extractTar).mockRejectedValue(new Error("Extraction failed"));
 
-			await expect(installNode({ version: "20.11.0", versionFile: "" })).rejects.toThrow("Failed to install Node.js");
+			await expect(installNode({ version: "20.11.0" })).rejects.toThrow("Failed to install Node.js");
 		});
 
 		it("should throw error when node directory not found in extraction", async () => {
 			vi.mocked(tc.find).mockReturnValue("");
 			vi.mocked(readdirSync).mockReturnValue(["some-other-file"] as unknown as ReturnType<typeof readdirSync>);
 
-			await expect(installNode({ version: "20.11.0", versionFile: "" })).rejects.toThrow("Failed to install Node.js");
+			await expect(installNode({ version: "20.11.0" })).rejects.toThrow("Failed to install Node.js");
 		});
 	});
 });
@@ -261,51 +138,284 @@ describe("setupPackageManager", () => {
 		vi.restoreAllMocks();
 	});
 
+	describe("Node.js version detection", () => {
+		it("should install corepack globally when Node.js >= 25", async () => {
+			// Mock node --version to return v25.0.0
+			vi.mocked(exec.exec).mockImplementation(async (command, args, options) => {
+				if (command === "node" && args?.[0] === "--version") {
+					options?.listeners?.stdout?.(Buffer.from("v25.0.0\n"));
+				}
+				return 0;
+			});
+
+			await setupPackageManager("pnpm", "10.20.0");
+
+			expect(core.info).toHaveBeenCalledWith("Node.js v25.0.0 detected - corepack not bundled, installing globally...");
+			expect(exec.exec).toHaveBeenCalledWith("npm", ["install", "-g", "--force", "corepack@latest"]);
+			expect(core.info).toHaveBeenCalledWith("✅ corepack installed successfully");
+		});
+
+		it("should install corepack globally when Node.js > 25", async () => {
+			// Mock node --version to return v26.1.0
+			vi.mocked(exec.exec).mockImplementation(async (command, args, options) => {
+				if (command === "node" && args?.[0] === "--version") {
+					options?.listeners?.stdout?.(Buffer.from("v26.1.0\n"));
+				}
+				return 0;
+			});
+
+			await setupPackageManager("pnpm", "10.20.0");
+
+			expect(core.info).toHaveBeenCalledWith("Node.js v26.1.0 detected - corepack not bundled, installing globally...");
+			expect(exec.exec).toHaveBeenCalledWith("npm", ["install", "-g", "--force", "corepack@latest"]);
+		});
+
+		it("should NOT install corepack globally when Node.js < 25", async () => {
+			// Mock node --version to return v24.11.0
+			vi.mocked(exec.exec).mockImplementation(async (command, args, options) => {
+				if (command === "node" && args?.[0] === "--version") {
+					options?.listeners?.stdout?.(Buffer.from("v24.11.0\n"));
+				}
+				return 0;
+			});
+
+			await setupPackageManager("pnpm", "10.20.0");
+
+			// Should NOT install corepack
+			expect(core.info).not.toHaveBeenCalledWith(expect.stringContaining("corepack not bundled"));
+			expect(exec.exec).not.toHaveBeenCalledWith("npm", ["install", "-g", "--force", "corepack@latest"]);
+		});
+
+		it("should handle malformed Node.js version gracefully", async () => {
+			// Mock node --version to return something unexpected
+			vi.mocked(exec.exec).mockImplementation(async (command, args, options) => {
+				if (command === "node" && args?.[0] === "--version") {
+					options?.listeners?.stdout?.(Buffer.from("invalid-version\n"));
+				}
+				return 0;
+			});
+
+			// Should not throw, just skip corepack installation
+			await setupPackageManager("pnpm", "10.20.0");
+
+			expect(exec.exec).not.toHaveBeenCalledWith("npm", ["install", "-g", "--force", "corepack@latest"]);
+		});
+	});
+
 	describe("pnpm setup", () => {
-		it("should enable corepack and install pnpm", async () => {
-			await setupPackageManager("pnpm");
+		it("should enable corepack and prepare package manager with explicit version", async () => {
+			// Mock node --version to return v24.11.0
+			vi.mocked(exec.exec).mockImplementation(async (command, args, options) => {
+				if (command === "node" && args?.[0] === "--version") {
+					options?.listeners?.stdout?.(Buffer.from("v24.11.0\n"));
+				}
+				return 0;
+			});
+
+			await setupPackageManager("pnpm", "10.20.0");
 
 			expect(core.info).toHaveBeenCalledWith("Enabling corepack...");
 			expect(exec.exec).toHaveBeenCalledWith("corepack", ["enable"]);
-			expect(core.info).toHaveBeenCalledWith("Preparing pnpm...");
-			expect(exec.exec).toHaveBeenCalledWith("corepack", ["prepare", "pnpm@latest", "--activate"]);
+			expect(core.info).toHaveBeenCalledWith("Preparing package manager pnpm@10.20.0...");
+			expect(exec.exec).toHaveBeenCalledWith("corepack", ["prepare", "pnpm@10.20.0", "--activate"]);
 			expect(exec.exec).toHaveBeenCalledWith("pnpm", ["--version"]);
 		});
 	});
 
 	describe("yarn setup", () => {
-		it("should enable corepack and install yarn", async () => {
-			await setupPackageManager("yarn");
+		it("should enable corepack and prepare package manager with explicit version", async () => {
+			// Mock node --version to return v24.11.0
+			vi.mocked(exec.exec).mockImplementation(async (command, args, options) => {
+				if (command === "node" && args?.[0] === "--version") {
+					options?.listeners?.stdout?.(Buffer.from("v24.11.0\n"));
+				}
+				return 0;
+			});
+
+			await setupPackageManager("yarn", "4.0.0");
 
 			expect(core.info).toHaveBeenCalledWith("Enabling corepack...");
 			expect(exec.exec).toHaveBeenCalledWith("corepack", ["enable"]);
-			expect(core.info).toHaveBeenCalledWith("Preparing yarn...");
-			expect(exec.exec).toHaveBeenCalledWith("corepack", ["prepare", "yarn@stable", "--activate"]);
+			expect(core.info).toHaveBeenCalledWith("Preparing package manager yarn@4.0.0...");
+			expect(exec.exec).toHaveBeenCalledWith("corepack", ["prepare", "yarn@4.0.0", "--activate"]);
 			expect(exec.exec).toHaveBeenCalledWith("yarn", ["--version"]);
 		});
 	});
 
 	describe("error handling", () => {
 		it("should throw error when corepack enable fails", async () => {
-			vi.mocked(exec.exec).mockRejectedValueOnce(new Error("Corepack not found"));
+			// Mock node --version to return v24.11.0
+			let callCount = 0;
+			vi.mocked(exec.exec).mockImplementation(async (command, args, options) => {
+				if (command === "node" && args?.[0] === "--version") {
+					options?.listeners?.stdout?.(Buffer.from("v24.11.0\n"));
+					return 0;
+				}
+				callCount++;
+				if (callCount === 1) {
+					throw new Error("Corepack not found");
+				}
+				return 0;
+			});
 
-			await expect(setupPackageManager("pnpm")).rejects.toThrow("Failed to setup pnpm");
+			await expect(setupPackageManager("pnpm", "10.20.0")).rejects.toThrow("Failed to setup package manager");
 			expect(core.endGroup).toHaveBeenCalled();
 		});
 
 		it("should throw error when prepare fails", async () => {
-			vi.mocked(exec.exec).mockResolvedValueOnce(0); // corepack enable
-			vi.mocked(exec.exec).mockRejectedValueOnce(new Error("Network error")); // prepare fails
+			// Mock node --version to return v24.11.0
+			let callCount = 0;
+			vi.mocked(exec.exec).mockImplementation(async (command, args, options) => {
+				if (command === "node" && args?.[0] === "--version") {
+					options?.listeners?.stdout?.(Buffer.from("v24.11.0\n"));
+					return 0;
+				}
+				callCount++;
+				if (callCount === 2) {
+					throw new Error("Network error");
+				}
+				return 0;
+			});
 
-			await expect(setupPackageManager("yarn")).rejects.toThrow("Failed to setup yarn");
+			await expect(setupPackageManager("yarn", "4.0.0")).rejects.toThrow("Failed to setup package manager");
 		});
 
 		it("should throw error when verification fails", async () => {
-			vi.mocked(exec.exec).mockResolvedValueOnce(0); // corepack enable
-			vi.mocked(exec.exec).mockResolvedValueOnce(0); // prepare
-			vi.mocked(exec.exec).mockRejectedValueOnce(new Error("Command not found")); // version check
+			// Mock node --version to return v24.11.0
+			let callCount = 0;
+			vi.mocked(exec.exec).mockImplementation(async (command, args, options) => {
+				if (command === "node" && args?.[0] === "--version") {
+					options?.listeners?.stdout?.(Buffer.from("v24.11.0\n"));
+					return 0;
+				}
+				callCount++;
+				if (callCount === 3) {
+					throw new Error("Command not found");
+				}
+				return 0;
+			});
 
-			await expect(setupPackageManager("pnpm")).rejects.toThrow("Failed to setup pnpm");
+			await expect(setupPackageManager("pnpm", "10.20.0")).rejects.toThrow("Failed to setup package manager");
+		});
+	});
+});
+
+describe("setupNpm", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+
+		vi.mocked(core.info).mockImplementation(() => {});
+		vi.mocked(core.startGroup).mockImplementation(() => {});
+		vi.mocked(core.endGroup).mockImplementation(() => {});
+		vi.mocked(exec.exec).mockResolvedValue(0);
+	});
+
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	describe("npm version management", () => {
+		it("should skip installation when npm version matches", async () => {
+			// Mock npm --version to return 10.0.0
+			vi.mocked(exec.exec).mockImplementation(async (command, args, options) => {
+				if (command === "npm" && args?.[0] === "--version") {
+					options?.listeners?.stdout?.(Buffer.from("10.0.0"));
+				}
+				return 0;
+			});
+
+			await setupNpm("10.0.0");
+
+			expect(core.info).toHaveBeenCalledWith("Current npm version: 10.0.0");
+			expect(core.info).toHaveBeenCalledWith("Required npm version: 10.0.0");
+			expect(core.info).toHaveBeenCalledWith("✅ npm version 10.0.0 already matches required version");
+			expect(exec.exec).not.toHaveBeenCalledWith("npm", ["install", "-g", expect.any(String)]);
+		});
+
+		it("should install npm when version does not match", async () => {
+			// Mock platform to return linux (triggers sudo usage)
+			vi.mocked(platform).mockReturnValue("linux");
+
+			let versionCallCount = 0;
+			// Mock npm --version to return 9.0.0 first, then 10.0.0 after install
+			vi.mocked(exec.exec).mockImplementation(async (command, args, options) => {
+				if (command === "npm" && args?.[0] === "--version") {
+					versionCallCount++;
+					const version = versionCallCount === 1 ? "9.0.0" : "10.0.0";
+					options?.listeners?.stdout?.(Buffer.from(version));
+				}
+				return 0;
+			});
+
+			await setupNpm("10.0.0");
+
+			expect(core.info).toHaveBeenCalledWith("Current npm version: 9.0.0");
+			expect(core.info).toHaveBeenCalledWith("Required npm version: 10.0.0");
+			expect(core.info).toHaveBeenCalledWith("Installing npm@10.0.0...");
+			// On Linux/macOS, uses sudo
+			expect(exec.exec).toHaveBeenCalledWith("sudo", ["npm", "install", "-g", "npm@10.0.0"]);
+			expect(core.info).toHaveBeenCalledWith("✅ npm@10.0.0 installed successfully");
+		});
+
+		it("should verify installation after installing", async () => {
+			let versionCallCount = 0;
+			// Mock npm --version to return 9.0.0 first, then 10.0.0 after install
+			vi.mocked(exec.exec).mockImplementation(async (command, args, options) => {
+				if (command === "npm" && args?.[0] === "--version") {
+					versionCallCount++;
+					const version = versionCallCount === 1 ? "9.0.0" : "10.0.0";
+					options?.listeners?.stdout?.(Buffer.from(version));
+				}
+				return 0;
+			});
+
+			await setupNpm("10.0.0");
+
+			// Should call npm --version twice: once to check, once to verify
+			expect(versionCallCount).toBe(2);
+		});
+	});
+
+	describe("error handling", () => {
+		it("should throw error when version check fails", async () => {
+			vi.mocked(exec.exec).mockRejectedValueOnce(new Error("npm not found"));
+
+			await expect(setupNpm("10.0.0")).rejects.toThrow("Failed to setup npm");
+			expect(core.endGroup).toHaveBeenCalled();
+		});
+
+		it("should throw error when installation fails", async () => {
+			let callCount = 0;
+			vi.mocked(exec.exec).mockImplementation(async (command, args, options) => {
+				if (command === "npm" && args?.[0] === "--version") {
+					options?.listeners?.stdout?.(Buffer.from("9.0.0"));
+					return 0;
+				}
+				callCount++;
+				if (callCount === 1) {
+					throw new Error("Network error");
+				}
+				return 0;
+			});
+
+			await expect(setupNpm("10.0.0")).rejects.toThrow("Failed to setup npm");
+		});
+
+		it("should throw error when verification fails", async () => {
+			let callCount = 0;
+			vi.mocked(exec.exec).mockImplementation(async (command, args, options) => {
+				callCount++;
+				if (command === "npm" && args?.[0] === "--version") {
+					if (callCount === 1) {
+						options?.listeners?.stdout?.(Buffer.from("9.0.0"));
+						return 0;
+					}
+					throw new Error("Verification failed");
+				}
+				return 0;
+			});
+
+			await expect(setupNpm("10.0.0")).rejects.toThrow("Failed to setup npm");
 		});
 	});
 });

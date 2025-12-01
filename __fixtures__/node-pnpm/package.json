@@ -2,8 +2,19 @@
 	"name": "node-pnpm-test",
 	"version": "1.0.0",
 	"description": "Node.js with pnpm test project",
-	"packageManager": "pnpm@10.20.0",
-    "dependencies": {
+	"devEngines": {
+		"packageManager": {
+			"name": "pnpm",
+			"version": "10.20.0",
+			"onFail": "error"
+		},
+		"runtime": {
+			"name": "node",
+			"version": "20.11.0",
+			"onFail": "error"
+		}
+	},
+	"dependencies": {
 		"isarray": "1.0.0"
 	}
 }

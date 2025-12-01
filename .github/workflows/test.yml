@@ -1,0 +1,787 @@
+name: Tests
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "dist/**"
+      - "action.yml"
+      - "__fixtures__/**"
+      - ".github/actions/runtime/**"
+      - ".github/actions/test-fixture/**"
+      - ".github/workflows/test.yml"
+  pull_request:
+    paths:
+      - "src/**"
+      - "dist/**"
+      - "action.yml"
+      - "__fixtures__/**"
+      - ".github/actions/runtime/**"
+      - ".github/actions/test-fixture/**"
+      - ".github/workflows/test.yml"
+
+concurrency:
+  group: "tests-${{ github.ref }}"
+  cancel-in-progress: true
+
+jobs:
+  # ============================================================================
+  # Node.js Tests - Create Cache
+  # ============================================================================
+  test-node-create-cache:
+    name: node | ${{ matrix.pm }} | create cache | ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        pm: [npm, pnpm, yarn, multi]
+        include:
+          # NPM - create cache
+          - pm: npm
+            fixture: node-npm
+            install-deps: "true"
+            expected-cache-hit: "false"
+            expected-node-enabled: "true"
+            expected-node-version: "24.9.0"
+            expected-package-manager: npm
+            expected-package-manager-version: "11.6.0"
+            expected-deno-enabled: "false"
+            expected-bun-enabled: "false"
+            expected-biome-enabled: "false"
+            expected-turbo-enabled: "false"
+            test-command: "node --version && npm --version"
+            title: "📦 NPM (Create Cache)"
+
+          # PNPM - create cache
+          - pm: pnpm
+            fixture: node-pnpm
+            install-deps: "true"
+            expected-cache-hit: "false"
+            expected-node-enabled: "true"
+            expected-node-version: "20.11.0"
+            expected-package-manager: pnpm
+            expected-package-manager-version: "10.20.0"
+            expected-deno-enabled: "false"
+            expected-bun-enabled: "false"
+            expected-biome-enabled: "false"
+            expected-turbo-enabled: "false"
+            test-command: "node --version && pnpm --version"
+            title: "📦 PNPM (Create Cache)"
+
+          # Yarn - create cache
+          - pm: yarn
+            fixture: node-yarn
+            install-deps: "true"
+            expected-cache-hit: "false"
+            expected-node-enabled: "true"
+            expected-node-version: "20.11.0"
+            expected-package-manager: yarn
+            expected-package-manager-version: "4.0.0"
+            expected-deno-enabled: "false"
+            expected-bun-enabled: "false"
+            expected-biome-enabled: "false"
+            expected-turbo-enabled: "false"
+            test-command: "node --version && yarn --version"
+            title: "📦 Yarn (Create Cache)"
+
+          # Multi-runtime - create cache
+          - pm: multi
+            fixture: node-multi
+            install-deps: "true"
+            expected-cache-hit: "false"
+            expected-node-enabled: "true"
+            expected-node-version: "25.0.0"
+            expected-bun-enabled: "true"
+            expected-bun-version: "1.3.3"
+            expected-deno-enabled: "true"
+            expected-deno-version: "2.5.6"
+            expected-package-manager: pnpm
+            expected-package-manager-version: "10.23.0"
+            expected-biome-enabled: "false"
+            expected-turbo-enabled: "false"
+            test-command: "node --version && bun --version && deno --version && pnpm --version"
+            title: "📦 Multi-Runtime (Create Cache)"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Test fixture
+        id: test
+        continue-on-error: true
+        uses: ./.github/actions/test-fixture
+        with:
+          fixture: ${{ matrix.fixture }}
+          title: ${{ matrix.title }}
+          install-deps: ${{ matrix.install-deps }}
+          cache-bust: ${{ matrix.pm }}-${{ matrix.os }}-${{ github.run_id }}
+          expected-node-version: ${{ matrix.expected-node-version || '' }}
+          expected-node-enabled: ${{ matrix.expected-node-enabled || '' }}
+          expected-bun-version: ${{ matrix.expected-bun-version || '' }}
+          expected-bun-enabled: ${{ matrix.expected-bun-enabled || '' }}
+          expected-deno-version: ${{ matrix.expected-deno-version || '' }}
+          expected-deno-enabled: ${{ matrix.expected-deno-enabled || '' }}
+          expected-package-manager: ${{ matrix.expected-package-manager || '' }}
+          expected-package-manager-version: ${{ matrix.expected-package-manager-version || '' }}
+          expected-biome-enabled: ${{ matrix.expected-biome-enabled || '' }}
+          expected-turbo-enabled: ${{ matrix.expected-turbo-enabled || '' }}
+          expected-cache-hit: ${{ matrix.expected-cache-hit || '' }}
+
+      - name: Test runtime
+        if: matrix.test-command != ''
+        continue-on-error: true
+        run: ${{ matrix.test-command }}
+
+      - name: Save test results
+        if: always()
+        uses: ./.github/actions/save-test-results
+        with:
+          test-passed: ${{ steps.test.outputs.test-passed }}
+          test-results: ${{ steps.test.outputs.test-results }}
+          test-name: ${{ matrix.pm }}-create-cache
+          os: ${{ matrix.os }}
+          title: ${{ matrix.title }}
+          fixture: ${{ matrix.fixture }}
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: test-results-node-create-cache-${{ matrix.os }}-${{ strategy.job-index }}
+          path: test-results/
+          retention-days: 1
+
+      - name: Fail job if test failed
+        if: always()
+        uses: ./.github/actions/fail-if-test-failed
+        with:
+          test-passed: ${{ steps.test.outputs.test-passed }}
+          test-outcome: ${{ steps.test.outcome }}
+          test-conclusion: ${{ steps.test.conclusion }}
+
+  # ============================================================================
+  # Node.js Tests - Restore Cache
+  # ============================================================================
+  test-node-restore-cache:
+    name: node | ${{ matrix.pm }} | restore cache | ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 5
+    needs: [test-node-create-cache]
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        pm: [npm, pnpm, yarn, multi]
+        include:
+          # NPM - restore cache
+          - pm: npm
+            fixture: node-npm
+            install-deps: "true"
+            expected-cache-hit: "true"
+            expected-node-enabled: "true"
+            expected-node-version: "24.9.0"
+            expected-package-manager: npm
+            expected-package-manager-version: "11.6.0"
+            expected-deno-enabled: "false"
+            expected-bun-enabled: "false"
+            expected-biome-enabled: "false"
+            expected-turbo-enabled: "false"
+            test-command: "node --version && npm --version"
+            title: "📦 NPM (Restore Cache)"
+
+          # PNPM - restore cache
+          - pm: pnpm
+            fixture: node-pnpm
+            install-deps: "true"
+            expected-cache-hit: "true"
+            expected-node-enabled: "true"
+            expected-node-version: "20.11.0"
+            expected-package-manager: pnpm
+            expected-package-manager-version: "10.20.0"
+            expected-biome-enabled: "false"
+            expected-turbo-enabled: "false"
+            test-command: "node --version && pnpm --version"
+            title: "📦 PNPM (Restore Cache)"
+
+          # Yarn - restore cache
+          - pm: yarn
+            fixture: node-yarn
+            install-deps: "true"
+            expected-cache-hit: "true"
+            expected-node-enabled: "true"
+            expected-node-version: "20.11.0"
+            expected-package-manager: yarn
+            expected-package-manager-version: "4.0.0"
+            expected-deno-enabled: "false"
+            expected-bun-enabled: "false"
+            expected-biome-enabled: "false"
+            expected-turbo-enabled: "false"
+            test-command: "node --version && yarn --version"
+            title: "📦 Yarn (Restore Cache)"
+
+          # Multi-runtime - restore cache
+          - pm: multi
+            fixture: node-multi
+            install-deps: "true"
+            expected-cache-hit: "true"
+            expected-node-enabled: "true"
+            expected-node-version: "25.0.0"
+            expected-bun-enabled: "true"
+            expected-bun-version: "1.3.3"
+            expected-deno-enabled: "true"
+            expected-deno-version: "2.5.6"
+            expected-package-manager: pnpm
+            expected-package-manager-version: "10.23.0"
+            expected-biome-enabled: "false"
+            expected-turbo-enabled: "false"
+            test-command: "node --version && bun --version && deno --version && pnpm --version"
+            title: "📦 Multi-Runtime (Restore Cache)"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Test fixture
+        id: test
+        continue-on-error: true
+        uses: ./.github/actions/test-fixture
+        with:
+          fixture: ${{ matrix.fixture }}
+          title: ${{ matrix.title }}
+          install-deps: ${{ matrix.install-deps }}
+          cache-bust: ${{ matrix.pm }}-${{ matrix.os }}-${{ github.run_id }}
+          expected-node-version: ${{ matrix.expected-node-version || '' }}
+          expected-node-enabled: ${{ matrix.expected-node-enabled || '' }}
+          expected-bun-version: ${{ matrix.expected-bun-version || '' }}
+          expected-bun-enabled: ${{ matrix.expected-bun-enabled || '' }}
+          expected-deno-version: ${{ matrix.expected-deno-version || '' }}
+          expected-deno-enabled: ${{ matrix.expected-deno-enabled || '' }}
+          expected-package-manager: ${{ matrix.expected-package-manager || '' }}
+          expected-package-manager-version: ${{ matrix.expected-package-manager-version || '' }}
+          expected-biome-enabled: ${{ matrix.expected-biome-enabled || '' }}
+          expected-turbo-enabled: ${{ matrix.expected-turbo-enabled || '' }}
+          expected-cache-hit: ${{ matrix.expected-cache-hit || '' }}
+
+      - name: Test runtime
+        if: matrix.test-command != ''
+        continue-on-error: true
+        run: ${{ matrix.test-command }}
+
+      - name: Save test results
+        if: always()
+        uses: ./.github/actions/save-test-results
+        with:
+          test-passed: ${{ steps.test.outputs.test-passed }}
+          test-results: ${{ steps.test.outputs.test-results }}
+          test-name: ${{ matrix.pm }}-restore-cache
+          os: ${{ matrix.os }}
+          title: ${{ matrix.title }}
+          fixture: ${{ matrix.fixture }}
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: test-results-node-restore-cache-${{ matrix.os }}-${{ strategy.job-index }}
+          path: test-results/
+          retention-days: 1
+
+      - name: Fail job if test failed
+        if: always()
+        uses: ./.github/actions/fail-if-test-failed
+        with:
+          test-passed: ${{ steps.test.outputs.test-passed }}
+          test-outcome: ${{ steps.test.outcome }}
+          test-conclusion: ${{ steps.test.conclusion }}
+
+  # ============================================================================
+  # Explicit Inputs Tests - Test explicit version inputs + feature detection
+  # ============================================================================
+  test-explicit-inputs:
+    name: explicit | ${{ matrix.runtime }} | ${{ matrix.fixture }} | ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        runtime: [node, bun, deno]
+        fixture: [biome-enabled, turbo-enabled]
+        include:
+          # Node.js + Biome fixture (auto-detect biome, no turbo)
+          - runtime: node
+            fixture: biome-enabled
+            node-version: "24.7.0"
+            package-manager: npm
+            package-manager-version: "11.6.1"
+            expected-node-enabled: "true"
+            expected-node-version: "24.7.0"
+            expected-package-manager: npm
+            expected-package-manager-version: "11.6.1"
+            expected-bun-enabled: "false"
+            expected-bun-version: ""
+            expected-deno-enabled: "false"
+            expected-deno-version: ""
+            expected-biome-enabled: "true"
+            expected-biome-version: "2.3.6"
+            expected-turbo-enabled: "false"
+            test-command: "node --version && npm --version"
+            title: "🔧 Node + Biome (auto-detect)"
+
+          # Node.js + Turbo fixture (auto-detect turbo, install biome)
+          - runtime: node
+            fixture: turbo-enabled
+            node-version: "24.11.0"
+            package-manager: pnpm
+            package-manager-version: "10.20.0"
+            biome-version: "2.3.6"
+            expected-node-enabled: "true"
+            expected-node-version: "24.11.0"
+            expected-package-manager: pnpm
+            expected-package-manager-version: "10.20.0"
+            expected-bun-enabled: "false"
+            expected-bun-version: ""
+            expected-deno-enabled: "false"
+            expected-deno-version: ""
+            expected-biome-enabled: "true"
+            expected-biome-version: "2.3.6"
+            expected-turbo-enabled: "true"
+            test-command: "node --version && pnpm --version"
+            title: "🔧 Node + Turbo (install biome)"
+
+          # Bun + Biome fixture (auto-detect biome, no turbo)
+          - runtime: bun
+            fixture: biome-enabled
+            bun-version: "1.3.3"
+            package-manager: bun
+            package-manager-version: "1.3.3"
+            expected-node-enabled: "false"
+            expected-node-version: ""
+            expected-bun-enabled: "true"
+            expected-bun-version: "1.3.3"
+            expected-deno-enabled: "false"
+            expected-deno-version: ""
+            expected-package-manager: bun
+            expected-package-manager-version: "1.3.3"
+            expected-biome-enabled: "true"
+            expected-biome-version: "2.3.6"
+            expected-turbo-enabled: "false"
+            test-command: "bun --version"
+            title: "🔧 Bun + Biome (auto-detect)"
+
+          # Bun + Turbo fixture (auto-detect turbo, install biome)
+          - runtime: bun
+            fixture: turbo-enabled
+            bun-version: "1.3.3"
+            package-manager: bun
+            package-manager-version: "1.3.3"
+            biome-version: "2.3.6"
+            expected-node-enabled: "false"
+            expected-bun-enabled: "true"
+            expected-bun-version: "1.3.3"
+            expected-deno-enabled: "false"
+            expected-package-manager: bun
+            expected-package-manager-version: "1.3.3"
+            expected-biome-enabled: "true"
+            expected-biome-version: "2.3.6"
+            expected-turbo-enabled: "true"
+            test-command: "bun --version"
+            title: "🔧 Bun + Turbo (install biome)"
+
+          # Deno + Biome fixture (auto-detect biome, no turbo)
+          - runtime: deno
+            fixture: biome-enabled
+            deno-version: "2.5.6"
+            package-manager: deno
+            package-manager-version: "2.5.6"
+            expected-node-enabled: "false"
+            expected-bun-enabled: "false"
+            expected-deno-enabled: "true"
+            expected-deno-version: "2.5.6"
+            expected-package-manager: deno
+            expected-package-manager-version: "2.5.6"
+            expected-biome-enabled: "true"
+            expected-biome-version: "2.3.6"
+            expected-turbo-enabled: "false"
+            test-command: "deno --version"
+            title: "🔧 Deno + Biome (auto-detect)"
+
+          # Deno + Turbo fixture (auto-detect turbo, install biome)
+          - runtime: deno
+            fixture: turbo-enabled
+            deno-version: "2.5.6"
+            package-manager: deno
+            package-manager-version: "2.5.6"
+            biome-version: "2.3.6"
+            expected-node-enabled: "false"
+            expected-bun-enabled: "false"
+            expected-deno-enabled: "true"
+            expected-deno-version: "2.5.6"
+            expected-package-manager: deno
+            expected-package-manager-version: "2.5.6"
+            expected-biome-enabled: "true"
+            expected-biome-version: "2.3.6"
+            expected-turbo-enabled: "true"
+            test-command: "deno --version"
+            title: "🔧 Deno + Turbo (install biome)"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Test fixture
+        id: test
+        continue-on-error: true
+        uses: ./.github/actions/test-fixture
+        with:
+          fixture: ${{ matrix.fixture }}
+          title: ${{ matrix.title }}
+          node-version: ${{ matrix.node-version || '' }}
+          bun-version: ${{ matrix.bun-version || '' }}
+          deno-version: ${{ matrix.deno-version || '' }}
+          package-manager: ${{ matrix.package-manager || '' }}
+          package-manager-version: ${{ matrix.package-manager-version || '' }}
+          biome-version: ${{ matrix.biome-version || '' }}
+          install-deps: "false"
+          expected-node-version: ${{ matrix.expected-node-version || '' }}
+          expected-node-enabled: ${{ matrix.expected-node-enabled || '' }}
+          expected-bun-version: ${{ matrix.expected-bun-version || '' }}
+          expected-bun-enabled: ${{ matrix.expected-bun-enabled || '' }}
+          expected-deno-version: ${{ matrix.expected-deno-version || '' }}
+          expected-deno-enabled: ${{ matrix.expected-deno-enabled || '' }}
+          expected-package-manager: ${{ matrix.expected-package-manager || '' }}
+          expected-package-manager-version: ${{ matrix.expected-package-manager-version || '' }}
+          expected-biome-enabled: ${{ matrix.expected-biome-enabled || '' }}
+          expected-biome-version: ${{ matrix.expected-biome-version || '' }}
+          expected-turbo-enabled: ${{ matrix.expected-turbo-enabled || '' }}
+
+      - name: Test runtime
+        if: matrix.test-command != ''
+        continue-on-error: true
+        run: ${{ matrix.test-command }}
+
+      - name: Save test results
+        if: always()
+        uses: ./.github/actions/save-test-results
+        with:
+          test-passed: ${{ steps.test.outputs.test-passed }}
+          test-results: ${{ steps.test.outputs.test-results }}
+          test-name: ${{ matrix.runtime }}-${{ matrix.fixture }}
+          os: ${{ matrix.os }}
+          title: ${{ matrix.title }}
+          fixture: ${{ matrix.fixture }}
+          runtime: ${{ matrix.runtime }}
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: test-results-explicit-inputs-${{ matrix.os }}-${{ strategy.job-index }}
+          path: test-results/
+          retention-days: 1
+
+      - name: Fail job if test failed
+        if: always()
+        uses: ./.github/actions/fail-if-test-failed
+        with:
+          test-passed: ${{ steps.test.outputs.test-passed }}
+          test-outcome: ${{ steps.test.outcome }}
+          setup-error: ${{ steps.test.outputs.setup-error }}
+
+  # ============================================================================
+  # Additional Inputs Tests
+  # ============================================================================
+  test-additional-inputs:
+    name: additional inputs | ${{ matrix.format }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Test newline format
+          - format: newlines
+            additional-lockfiles: |
+              **/custom.lock
+              **/vendor.lock
+            additional-cache-paths: |
+              **/build
+              **/dist
+            title: "📝 Additional Inputs (Newlines)"
+
+          # Test bullet format
+          - format: bullets
+            additional-lockfiles: |
+              * **/custom.lock
+              * **/vendor.lock
+            additional-cache-paths: |
+              * **/build
+              * **/dist
+            title: "📝 Additional Inputs (Bullets)"
+
+          # Test comma-separated format
+          - format: comma
+            additional-lockfiles: "**/custom.lock, **/vendor.lock"
+            additional-cache-paths: "**/build, **/dist"
+            title: "📝 Additional Inputs (Comma)"
+
+          # Test JSON format
+          - format: json
+            additional-lockfiles: '["**/custom.lock", "**/vendor.lock"]'
+            additional-cache-paths: '["**/build", "**/dist"]'
+            title: "📝 Additional Inputs (JSON)"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Test fixture
+        id: test
+        uses: ./.github/actions/test-fixture
+        with:
+          fixture: additional-inputs
+          title: ${{ matrix.title }}
+          additional-lockfiles: ${{ matrix.additional-lockfiles }}
+          additional-cache-paths: ${{ matrix.additional-cache-paths }}
+          expected-node-enabled: "true"
+          expected-node-version: "24.9.0"
+          expected-package-manager: npm
+          expected-package-manager-version: "11.6.0"
+          expected-deno-enabled: "false"
+          expected-bun-version: "1.3.3"
+          expected-bun-enabled: "false"
+          expected-biome-enabled: "false"
+          expected-turbo-enabled: "false"
+          expected-lockfiles: "custom.lock, vendor.lock"
+          expected-cache-paths: "build, dist"
+
+      - name: Save test results
+        if: always()
+        uses: ./.github/actions/save-test-results
+        with:
+          test-passed: ${{ steps.test.outputs.test-passed }}
+          test-results: ${{ steps.test.outputs.test-results }}
+          test-name: additional-inputs-${{ matrix.format }}
+          os: ubuntu-latest
+          title: ${{ matrix.title }}
+          fixture: additional-inputs
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: test-results-additional-inputs-${{ matrix.format }}
+          path: test-results/
+          retention-days: 1
+
+      - name: Fail job if test failed
+        if: always()
+        uses: ./.github/actions/fail-if-test-failed
+        with:
+          test-passed: ${{ steps.test.outputs.test-passed }}
+          test-outcome: ${{ steps.test.outcome }}
+          setup-error: ${{ steps.test.outputs.setup-error }}
+
+  # ============================================================================
+  # Test Summary
+  # ============================================================================
+  summary:
+    name: Test Summary
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    needs:
+      [
+        test-node-create-cache,
+        test-node-restore-cache,
+        test-explicit-inputs,
+        test-additional-inputs,
+      ]
+    if: always()
+    steps:
+      - name: Download all test results
+        continue-on-error: true
+        uses: actions/download-artifact@v5
+        with:
+          pattern: test-results-*
+          path: all-results
+          merge-multiple: true
+
+      - name: Generate aggregated summary
+        shell: python
+        run: |
+          import json
+          import os
+          import sys
+          from pathlib import Path
+          from collections import defaultdict
+
+          # Get summary file path
+          summary_file = Path(os.environ["GITHUB_STEP_SUMMARY"])
+
+          # Write header
+          summary_file.write_text("## 🧪 Test Results\n\n")
+
+          # Create results directory if it doesn't exist
+          results_dir = Path("all-results")
+          results_dir.mkdir(exist_ok=True)
+
+          # Check if there are any test results
+          result_files = list(results_dir.glob("*.json"))
+          if not result_files:
+              with open(summary_file, "a") as f:
+                  f.write("⚠️ No test results found - all test jobs may have failed before uploading results.\n")
+              sys.exit(1)
+
+          # Group results by test title
+          tests_by_title = defaultdict(list)
+          parse_errors = []
+
+          # Parse and group all test results
+          for file_path in sorted(result_files):
+              try:
+                  data = json.loads(file_path.read_text())
+                  title = data.get("title", "Unknown")
+                  tests_by_title[title].append(data)
+              except json.JSONDecodeError:
+                  parse_errors.append(file_path.name)
+                  print(f"⚠️ Skipping malformed JSON: {file_path.name}", file=sys.stderr)
+
+          # Track overall stats
+          total_tests = 0
+          total_passed = 0
+          total_failed = 0
+
+          # Generate summary for each test type
+          for title in sorted(tests_by_title.keys()):
+              os_results = tests_by_title[title]
+
+              # Determine overall status for this test type
+              all_passed = all(r.get("passed", False) for r in os_results)
+              any_failed = any(not r.get("passed", False) for r in os_results)
+              overall_status = "✅" if all_passed else "❌"
+
+              total_tests += 1
+              if all_passed:
+                  total_passed += 1
+              else:
+                  total_failed += 1
+
+              # Write test header
+              summary_content = f"### {overall_status} {title}\n\n"
+
+              # Add each OS as its own details section
+              for os_data in sorted(os_results, key=lambda x: x.get("os", "")):
+                  os_name = os_data.get("os", "Unknown")
+                  fixture = os_data.get("fixture", "Unknown")
+                  passed = os_data.get("passed", False)
+                  results = os_data.get("results", {})
+                  os_status = "✅" if passed else "❌"
+
+                  # Auto-expand if this OS failed
+                  os_open = " open" if not passed else ""
+                  summary_content += f"<details{os_open}>\n"
+                  summary_content += f"<summary>{os_status} <code>{os_name}</code></summary>\n\n"
+                  summary_content += f"**Fixture:** `{fixture}`\n\n"
+
+                  # Show error if exists
+                  error = os_data.get("error", "")
+                  if error:
+                      summary_content += f"**⚠️ Error:**\n```\n{error}\n```\n\n"
+
+                  # Show test results table
+                  if results:
+                      summary_content += "**Results:**\n\n"
+                      summary_content += "| Output | Actual | Expected | Status |\n"
+                      summary_content += "|--------|--------|----------|--------|\n"
+
+                      for key, value in results.items():
+                          actual = value.get("actual", "")
+                          expected = value.get("expected", "")
+                          result_status = value.get("status", "")
+                          status_icons = {"passed": "✅", "failed": "❌", "info": "ℹ️"}
+                          status_icon = status_icons.get(result_status, "—")
+                          expected_display = expected if expected else "—"
+
+                          # Format lockfiles and cache-paths with line breaks for readability
+                          if key in ["lockfiles", "cache-paths"] and actual:
+                              actual_display = "<br>".join(item.strip() for item in actual.split(",") if item.strip())
+                          else:
+                              actual_display = actual
+
+                          summary_content += f"| `{key}` | {actual_display} | `{expected_display}` | {status_icon} |\n"
+
+                  # Show additional verifications
+                  lockfile_verified = os_data.get("lockfile_verified", "n/a")
+                  no_modules_verified = os_data.get("no_modules_verified", "n/a")
+                  deps_verified = os_data.get("deps_verified", "n/a")
+                  cache_verified = os_data.get("cache_verified", "n/a")
+
+                  if any(v != "n/a" for v in [lockfile_verified, no_modules_verified, deps_verified, cache_verified]):
+                      summary_content += "\n**Additional Verifications:**\n"
+                      if lockfile_verified != "n/a":
+                          summary_content += f"- Lockfile verified: {lockfile_verified}\n"
+                      if no_modules_verified != "n/a":
+                          summary_content += f"- No modules verified: {no_modules_verified}\n"
+                      if deps_verified != "n/a":
+                          summary_content += f"- Dependencies verified: {deps_verified}\n"
+                      if cache_verified != "n/a":
+                          summary_content += f"- Cache verified: {cache_verified}\n"
+
+                  # Show raw JSON data
+                  summary_content += "\n<details>\n"
+                  summary_content += "<summary>📄 Raw JSON Data</summary>\n\n"
+                  summary_content += "```json\n"
+                  summary_content += json.dumps(os_data, indent=2)
+                  summary_content += "\n```\n\n"
+                  summary_content += "</details>\n"
+
+                  summary_content += "\n</details>\n\n"
+
+              with open(summary_file, "a") as f:
+                  f.write(summary_content)
+
+          # Add separator
+          with open(summary_file, "a") as f:
+              f.write("---\n\n")
+
+          # Report parse errors if any
+          if parse_errors:
+              error_summary = "### ⚠️ Parse Errors\n\n"
+              error_summary += "The following test result files could not be parsed (likely due to job failures):\n\n"
+              for error_file in parse_errors:
+                  error_summary += f"- `{error_file}`\n"
+              error_summary += "\n"
+              with open(summary_file, "a") as f:
+                  f.write(error_summary)
+
+          # Final summary
+          if total_tests == 0 and len(parse_errors) == 0:
+              with open(summary_file, "a") as f:
+                  f.write("### ⚠️ No test results found\n\n")
+                  f.write("This usually means all test jobs failed before uploading results.\n")
+              sys.exit(1)
+          elif total_tests == 0:
+              with open(summary_file, "a") as f:
+                  f.write("### ⚠️ No valid test results\n\n")
+                  f.write(f"**Parse Errors:** {len(parse_errors)}\n\n")
+                  f.write("All test result files were malformed. Check individual job logs for details.\n")
+              sys.exit(1)
+          elif total_failed == 0:
+              with open(summary_file, "a") as f:
+                  if len(parse_errors) == 0:
+                      f.write(f"### ✅ All {total_tests} test types passed across all platforms!\n")
+                  else:
+                      f.write(f"### ✅ All {total_tests} valid test types passed\n\n")
+                      f.write(f"⚠️ **Note:** {len(parse_errors)} test(s) had parse errors - check above for details\n")
+              sys.exit(0)
+          else:
+              with open(summary_file, "a") as f:
+                  f.write(f"### ❌ {total_failed} of {total_tests} test types failed\n\n")
+                  f.write(f"**Passed:** {total_passed} / **Failed:** {total_failed} / **Total:** {total_tests}\n")
+                  if len(parse_errors) > 0:
+                      f.write(f"\n⚠️ **Parse Errors:** {len(parse_errors)} test(s) - check above for details\n")
+              sys.exit(1)

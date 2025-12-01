@@ -70,7 +70,7 @@ describe("installDeno", () => {
 
 			await installDeno({ version: "1.40.0" });
 
-			expect(core.info).toHaveBeenCalledWith(expect.stringContaining("Found Deno 1.40.0 in tool cache"));
+			expect(core.info).toHaveBeenCalledWith(expect.stringContaining("Detected Deno 1.40.0 in tool cache"));
 			expect(tc.downloadTool).not.toHaveBeenCalled();
 			expect(core.addPath).toHaveBeenCalledWith("/cached/deno/1.40.0");
 		});
@@ -80,7 +80,7 @@ describe("installDeno", () => {
 
 			await installDeno({ version: "1.40.0" });
 
-			expect(core.info).toHaveBeenCalledWith(expect.stringContaining("not found in cache, downloading"));
+			expect(core.info).toHaveBeenCalledWith(expect.stringContaining("No Deno 1.40.0 in cache"));
 			expect(tc.downloadTool).toHaveBeenCalled();
 			expect(tc.extractZip).toHaveBeenCalledWith("/tmp/deno.zip");
 			expect(tc.cacheDir).toHaveBeenCalled();
@@ -218,9 +218,9 @@ describe("installDeno", () => {
 		});
 
 		it("should prepend v to version in URL", async () => {
-			await installDeno({ version: "1.46.3" });
+			await installDeno({ version: "1.3.3" });
 
-			expect(tc.downloadTool).toHaveBeenCalledWith(expect.stringContaining("/v1.46.3/"));
+			expect(tc.downloadTool).toHaveBeenCalledWith(expect.stringContaining("/v1.3.3/"));
 		});
 	});
 
@@ -262,13 +262,13 @@ describe("installDeno", () => {
 		it("should log success message", async () => {
 			await installDeno({ version: "1.40.0" });
 
-			expect(core.info).toHaveBeenCalledWith("✓ Deno 1.40.0 installed successfully");
+			expect(core.info).toHaveBeenCalledWith("✅ Deno 1.40.0 installed successfully");
 		});
 
 		it("should group output", async () => {
 			await installDeno({ version: "1.40.0" });
 
-			expect(core.startGroup).toHaveBeenCalledWith("📦 Installing Deno");
+			expect(core.startGroup).toHaveBeenCalledWith("⚙️ Installing 🦕 Deno");
 			expect(core.endGroup).toHaveBeenCalled();
 		});
 

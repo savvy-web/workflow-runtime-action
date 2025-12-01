@@ -1,0 +1,51 @@
+name: Fail If Test Failed
+description: Fail the job if test fixture did not pass
+
+inputs:
+  test-passed:
+    description: Test passed output from test-fixture
+    required: true
+  test-outcome:
+    description: Test step outcome
+    required: true
+  test-conclusion:
+    description: Test step conclusion
+    required: false
+  setup-error:
+    description: Setup error from test-fixture
+    required: false
+
+runs:
+  using: composite
+  steps:
+    - name: Fail job if test failed
+      if: always() && (inputs.test-passed == 'false' || inputs.test-passed == '')
+      shell: python
+      run: |
+        import sys
+
+        print("::group::Test Failure Details")
+        print("Test Step Outcome: ${{ inputs.test-outcome }}")
+        test_conclusion = "${{ inputs.test-conclusion }}"
+        if test_conclusion:
+            print("Test Step Conclusion: ${{ inputs.test-conclusion }}")
+        print("Test Passed Output: '${{ inputs.test-passed }}'")
+        print("::endgroup::")
+
+        # Determine failure reason
+        outcome = "${{ inputs.test-outcome }}"
+        test_passed = "${{ inputs.test-passed }}"
+        setup_error = "${{ inputs.setup-error }}"
+
+        if setup_error:
+            print(f"::error::Test fixture setup failed: {setup_error}")
+        elif outcome == "failure":
+            print("::error::Test fixture step failed - check logs above for details")
+        elif test_passed == "false":
+            print("::error::Tests ran but failed - check test results above")
+        elif not test_passed:
+            print("::error::Test fixture did not complete - no test-passed output set")
+        else:
+            print("::error::Unknown test failure - check logs above")
+
+        sys.exit(1)

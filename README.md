@@ -1,20 +1,26 @@
-# Node.js Runtime Setup Action
+# 🚀 JavaScript Runtime Setup Action
 
-A comprehensive GitHub Action for setting up Node.js development environments with automatic package manager detection, dependency caching, and Turbo build cache configuration.
+Automatically detect and setup JavaScript runtime environments in GitHub Actions
+from your `package.json` or explicit configuration. One action for Node.js,
+Bun, and Deno with intelligent package manager detection and dependency caching.
 
-## Features
+## ✨ Why This Action?
 
-* **Automatic Node.js version detection** from `.nvmrc` or `.node-version` files
-* **Package manager auto-detection** (pnpm, yarn, npm) from `package.json` or lockfiles
-* **Dependency caching** optimized for each package manager
-* **Turbo remote cache support** with optional Vercel integration
-* **Optional dependency installation** - skip if you want to control installation timing
-* **Rich output information** including detected versions and cache status
-* **Smart defaults** that work out of the box
+Setting up JavaScript environments in CI should be simple. This action:
 
-## Quick Start
+* 🔍 **Detects your environment** from `package.json` `devEngines` configuration
+* 📌 **Installs exact versions** of runtimes and package managers
+* ⚡ **Caches dependencies** automatically for faster builds
+* 🎯 **Supports multiple runtimes** simultaneously (Node.js + Deno, Node.js + Bun)
+* 🛠️ **Works with explicit inputs** when you don't have a `package.json`
 
-### Basic Usage
+**No configuration needed** - just add the action and it figures everything out!
+
+## 🚀 Quick Start
+
+### 🔮 Auto-Detect from package.json
+
+The simplest setup - let the action detect everything:
 
 ```yaml
 name: CI
@@ -25,278 +31,257 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: savvy-web/workflow-runtime-action@v1
       - run: pnpm test
       - run: pnpm build
 ```
 
-### With Custom Configuration
+### ⚙️ Explicit Configuration
+
+Use explicit inputs when you don't have or want to override `package.json`:
 
 ```yaml
 - uses: savvy-web/workflow-runtime-action@v1
   with:
+    node-version: '24.10.0'
     package-manager: pnpm
-    node-version: '20.x'
-    turbo-token: ${{ secrets.TURBO_TOKEN }}
-    turbo-team: ${{ vars.TURBO_TEAM }}
+    package-manager-version: '10.20.0'
 ```
 
-### Skip Dependency Installation
+## 🎯 How It Works
 
-```yaml
-- uses: savvy-web/workflow-runtime-action@v1
-  with:
-    install-deps: false
+### 🔍 Auto-Detection Mode
 
-# Install dependencies later with custom options
-- run: pnpm install --frozen-lockfile
+The action reads configuration from your `package.json` `devEngines` field:
+
+```json
+{
+  "devEngines": {
+    "runtime": {
+      "name": "node",
+      "version": "24.10.0",
+      "onFail": "error"
+    },
+    "packageManager": {
+      "name": "pnpm",
+      "version": "10.20.0",
+      "onFail": "error"
+    }
+  }
+}
 ```
 
-## Inputs
+**Requirements:**
 
-| Input | Description | Required | Default |
-|-------|-------------|----------|---------|
-| `package-manager` | Package manager to use (`npm` \| `pnpm` \| `yarn`). If omitted, will be auto-detected. | No | `""` (auto-detect) |
-| `node-version` | Node.js version in SemVer notation. Supports aliases like `lts/*`, `latest`, `20.x`. | No | `"lts/*"` |
-| `turbo-token` | Turbo remote cache token for Vercel Remote Cache (optional). | No | `""` |
-| `turbo-team` | Turbo team slug for Vercel Remote Cache (optional). | No | `""` |
-| `install-deps` | Whether to install dependencies (`true` \| `false`). Set to `false` to skip installation. | No | `"true"` |
+* Versions must be **exact** (e.g., `24.10.0`, not `^24.0.0`)
+* `onFail` must be set to `"error"` for strict validation
+* Supports single or multiple runtimes
 
-## Outputs
+### 📦 What Gets Installed
+
+1. ⚡ **Runtime(s)** - Node.js, Bun, and/or Deno at specified versions
+2. 📦 **Package Manager** - pnpm, yarn, npm, bun, or deno at specified version
+3. 🔧 **Dependencies** - Automatically installs with appropriate lockfile flags
+4. 💾 **Caching** - Sets up dependency caching optimized for your package manager
+
+## 📥 Inputs
+
+All inputs are optional. The action uses auto-detection if not provided.
+
+| Input | Description | Default |
+| ----- | ----------- | ------- |
+| `node-version` | Node.js version (e.g., `24.10.0`) | Auto-detect from `devEngines.runtime` |
+| `bun-version` | Bun version (e.g., `1.3.3`) | Auto-detect from `devEngines.runtime` |
+| `deno-version` | Deno version (e.g., `2.5.6`) | Auto-detect from `devEngines.runtime` |
+| `package-manager` | Package manager (`npm` \| `pnpm` \| `yarn` \| `bun` \| `deno`) | Auto-detect from `devEngines.packageManager` |
+| `package-manager-version` | Package manager version | Auto-detect from `devEngines.packageManager` |
+| `install-deps` | Install dependencies (`true` \| `false`) | `"true"` |
+
+## 📤 Outputs
 
 | Output | Description |
-|--------|-------------|
-| `runtime-version` | The Node.js runtime version that was installed (e.g., `20.10.0`) |
-| `node-version-manager-file` | The version manager file that was detected (`.nvmrc` \| `.node-version` \| empty if using input) |
-| `package-manager` | The package manager that was detected or configured (`npm` \| `pnpm` \| `yarn`) |
+| ------ | ----------- |
+| `node-version` | Installed Node.js version or empty |
+| `node-enabled` | Whether Node.js was installed (`true` \| `false`) |
+| `bun-version` | Installed Bun version or empty |
+| `bun-enabled` | Whether Bun was installed (`true` \| `false`) |
+| `deno-version` | Installed Deno version or empty |
+| `deno-enabled` | Whether Deno was installed (`true` \| `false`) |
+| `package-manager` | Package manager name |
+| `package-manager-version` | Package manager version |
+| `cache-hit` | Cache status (`true` \| `partial` \| `false` \| `n/a`) |
 
-## How It Works
+## 💡 Usage Examples
 
-### 1. Node.js Version Detection
-
-The action determines which Node.js version to install using this priority:
-
-1. **Input parameter** (`node-version`) if provided
-2. **`.nvmrc` file** in repository root
-3. **`.node-version` file** in repository root
-4. **Default** (`lts/*`) if nothing else is specified
-
-### 2. Package Manager Detection
-
-The action auto-detects your package manager using this logic:
-
-1. **Input parameter** (`package-manager`) if provided
-2. **`packageManager` field** in `package.json` (e.g., `"packageManager": "pnpm@8.0.0"`)
-3. **Lockfile detection**:
-   * `pnpm-lock.yaml` → pnpm
-   * `yarn.lock` → yarn
-   * `package-lock.json` → npm
-4. **Default** to npm if nothing is detected
-
-### 3. Dependency Caching
-
-Each package manager gets optimized caching:
-
-* **pnpm**: Caches `pnpm-lock.yaml`, `pnpm-workspace.yaml`, `.pnpmfile.cjs`, `turbo.json`
-* **yarn**: Caches `yarn.lock`, `turbo.json`
-* **npm**: Caches `package-lock.json`, `turbo.json`
-
-### 4. Turbo Configuration
-
-If `turbo.json` is detected:
-
-* Automatically recognizes Turbo-enabled projects
-* Configures remote caching if `turbo-token` and `turbo-team` are provided
-* Sets up telemetry opt-out for CI environments
-
-### 5. Dependency Installation
-
-By default, the action runs the appropriate install command for your package manager:
-
-* **pnpm**: `pnpm install --frozen-lockfile`
-* **yarn**: `yarn install --immutable`
-* **npm**: `npm ci`
-
-Set `install-deps: false` to skip this step and control installation yourself.
-
-## Usage Examples
-
-### Monorepo with Turbo
+### 🟢 Basic Node.js Project
 
 ```yaml
-name: CI
-
-on: [push, pull_request]
-
-jobs:
-  build-and-test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-
-      - uses: savvy-web/workflow-runtime-action@v1
-        with:
-          package-manager: pnpm
-          turbo-token: ${{ secrets.TURBO_TOKEN }}
-          turbo-team: ${{ vars.TURBO_TEAM }}
-
-      - name: Build packages
-        run: pnpm turbo build
-
-      - name: Run tests
-        run: pnpm turbo test
-
-      - name: Lint code
-        run: pnpm turbo lint
+# Automatically detects Node.js version and pnpm from package.json
+- uses: savvy-web/workflow-runtime-action@v1
+- run: pnpm ci:test
 ```
 
-### Matrix Testing Across Node Versions
+### 🎭 Multi-Runtime Project
 
 ```yaml
-name: Test
+# Sets up both Node.js and Deno from package.json devEngines
+- uses: savvy-web/workflow-runtime-action@v1
 
-on: [push, pull_request]
+- name: Test with Node.js
+  run: npm ci:test
 
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        node-version: ['18.x', '20.x', '22.x']
-    steps:
-      - uses: actions/checkout@v5
-
-      - uses: savvy-web/workflow-runtime-action@v1
-        with:
-          node-version: ${{ matrix.node-version }}
-
-      - run: pnpm test
+- name: Test with Deno
+  run: deno ci:test
 ```
 
-### Using Action Outputs
+### 🛠️ Custom Dependency Installation
 
 ```yaml
-- name: Setup Node.js
-  id: setup
-  uses: savvy-web/workflow-runtime-action@v1
-
-- name: Display environment
-  run: |
-    echo "Node.js version: ${{ steps.setup.outputs.runtime-version }}"
-    echo "Package manager: ${{ steps.setup.outputs.package-manager }}"
-    echo "Version file: ${{ steps.setup.outputs.node-version-manager-file }}"
-```
-
-### Custom Dependency Installation
-
-```yaml
+# Skip automatic installation
 - uses: savvy-web/workflow-runtime-action@v1
   with:
     install-deps: false
 
 # Install with custom flags
 - run: pnpm install --no-frozen-lockfile --prefer-offline
-
-# Or install only specific workspaces
-- run: pnpm install --filter ./packages/core
 ```
 
-## Package Manager Support
-
-### pnpm
-
-* Automatically installed via `pnpm/action-setup@v4`
-* Version detected from `package.json` `packageManager` field or uses latest
-* Runs in standalone mode (no global installation required)
-* Install command: `pnpm install --frozen-lockfile`
-
-### Yarn
-
-* Enabled via `corepack enable yarn`
-* Supports both Yarn 1.x (Classic) and 2.x+ (Berry)
-* Version controlled via `package.json` `packageManager` field
-* Install command: `yarn install --immutable`
-
-### npm
-
-* Pre-installed with Node.js (no additional setup needed)
-* Uses native npm caching from `actions/setup-node`
-* Install command: `npm ci` (enforces clean install from lockfile)
-
-## Turbo Remote Cache
-
-If you're using [Turborepo](https://turbo.build/repo) for your monorepo, you can enable remote caching:
-
-1. **Create a Turbo account** at [https://vercel.com/turborepo](https://vercel.com/turborepo)
-2. **Get your token**: `npx turbo login`
-3. **Add secrets to your repository**:
-   * `TURBO_TOKEN`: Your Turbo token
-   * `TURBO_TEAM`: Your team slug (or set as a variable)
+### 📊 Using Outputs
 
 ```yaml
-- uses: savvy-web/workflow-runtime-action@v1
-  with:
-    turbo-token: ${{ secrets.TURBO_TOKEN }}
-    turbo-team: ${{ vars.TURBO_TEAM }}
+- name: Setup runtime
+  id: setup
+  uses: savvy-web/workflow-runtime-action@v1
+
+- name: Display environment
+  run: |
+    echo "Node.js: ${{ steps.setup.outputs.node-version }}"
+    echo "Package Manager: ${{ steps.setup.outputs.package-manager }} v${{ steps.setup.outputs.package-manager-version }}"
+    echo "Cache Hit: ${{ steps.setup.outputs.cache-hit }}"
 ```
 
-The action will automatically configure remote caching if:
-
-* `turbo.json` exists in your repository
-* Both `turbo-token` and `turbo-team` are provided
-
-## Troubleshooting
-
-### Package manager not detected correctly
-
-**Solution:** Explicitly specify the package manager:
+### ⚡ Explicit Configuration (No package.json Required)
 
 ```yaml
+# Perfect for projects without package.json
 - uses: savvy-web/workflow-runtime-action@v1
   with:
-    package-manager: pnpm
+    node-version: '24.10.0'
+    package-manager: npm
+    package-manager-version: '11.0.0'
 ```
 
-Or add `packageManager` to your `package.json`:
+## 📦 Supported Package Managers
+
+### 📦 pnpm
+
+* Installed via corepack with exact version
+* Install command: `pnpm install --frozen-lockfile` (or `pnpm install` without
+  lockfile)
+
+### 🧶 Yarn
+
+* Installed via corepack with exact version
+* Supports Yarn Classic (1.x) and Berry (2.x+)
+* Install command: `yarn install --immutable` (or `yarn install --no-immutable`
+  without lockfile)
+
+### 📦 npm
+
+* Installed via corepack with exact version
+* Install command: `npm ci` (or `npm install` without lockfile)
+
+### 🥟 bun
+
+* Downloaded from official releases
+* Install command: `bun install --frozen-lockfile` (or `bun install` without
+  lockfile)
+
+### 🦕 deno
+
+* Downloaded from official releases
+* Install command: `deno install` (respects `deno.lock` automatically)
+
+## 💾 Dependency Caching
+
+The action automatically caches dependencies based on your package manager and
+lockfile:
+
+* 🔑 **Cache key** includes lockfile hash for invalidation on changes
+* 🖥️ **Platform-specific** cache paths for each package manager
+* 🔄 **Restore keys** for partial cache hits
+* ⚡ **Automatic setup** - no configuration needed
+* 🦀 **Polyglot support** - Cache Rust, Python, Go dependencies alongside JavaScript
+
+Cache hit status is available in the `cache-hit` output.
+
+📚 **See [Caching Strategy Documentation](docs/CACHING.md)** for:
+
+* How cache keys are generated
+* Default lockfiles and cache paths for each package manager
+* Caching Rust/Cargo, Python, and Go dependencies
+* Advanced caching strategies for monorepos
+* Debugging cache issues
+
+## 🔧 Troubleshooting
+
+### ❌ Missing devEngines Configuration
+
+**Error:** `devEngines.runtime or devEngines.packageManager not found`
+
+**Solution:** Add `devEngines` to your `package.json`:
 
 ```json
 {
-  "packageManager": "pnpm@8.15.0"
+  "devEngines": {
+    "runtime": {
+      "name": "node",
+      "version": "24.10.0",
+      "onFail": "error"
+    },
+    "packageManager": {
+      "name": "pnpm",
+      "version": "10.20.0",
+      "onFail": "error"
+    }
+  }
 }
 ```
 
-### Node.js version mismatch
-
-**Solution:** Add a `.nvmrc` or `.node-version` file to your repository:
-
-```bash
-echo "20.10.0" > .nvmrc
-```
-
-Or specify explicitly:
+Or use explicit inputs:
 
 ```yaml
 - uses: savvy-web/workflow-runtime-action@v1
   with:
-    node-version: '20.x'
+    node-version: '24.10.0'
+    package-manager: pnpm
+    package-manager-version: '10.20.0'
 ```
 
-### Cache not working
+### ⚠️ Version Must Be Exact
 
-**Possible causes:**
+**Error:** `Must be an absolute version, not a semver range`
 
-1. **Lockfile changed**: Cache is keyed to lockfile content
-2. **Turbo configuration changed**: `turbo.json` is part of cache key
-3. **Package manager changed**: Each PM has separate cache
+**Solution:** Use exact versions (e.g., `24.10.0`) instead of ranges (e.g.,
+`^24.0.0`):
 
-**Solution:** This is expected behavior. Cache will rebuild on first run after changes.
+```json
+{
+  "devEngines": {
+    "runtime": {
+      "name": "node",
+      "version": "24.10.0",  // ✅ Exact version
+      // NOT: "version": "^24.0.0"  // ❌ Semver range
+      "onFail": "error"
+    }
+  }
+}
+```
 
-### Dependency installation fails
+### 💥 Dependency Installation Fails
 
-**Solution 1:** Check your lockfile is committed and up-to-date
-
-**Solution 2:** Skip automatic installation and install manually:
+**Solution:** Skip automatic installation and install manually:
 
 ```yaml
 - uses: savvy-web/workflow-runtime-action@v1
@@ -306,99 +291,51 @@ Or specify explicitly:
 - run: pnpm install --no-frozen-lockfile
 ```
 
-## Contributing
+## 🎭 Multiple Runtimes
 
-This action is part of Savvy Web Systems' open-source toolkit.
+You can set up multiple runtimes simultaneously by specifying an array in
+`devEngines.runtime`:
 
-To contribute:
-
-1. Fork the repository
-2. Create a feature branch
-3. Add tests for new functionality
-4. Ensure all tests pass: `pnpm test`
-5. Submit a pull request
-
-## Development
-
-### Prerequisites
-
-* Node.js 20+ (specified in `.nvmrc`)
-* pnpm 8+ (specified in `package.json`)
-
-### Setup
-
-```bash
-pnpm install
+```json
+{
+  "devEngines": {
+    "runtime": [
+      {
+        "name": "node",
+        "version": "24.10.0",
+        "onFail": "error"
+      },
+      {
+        "name": "deno",
+        "version": "2.5.6",
+        "onFail": "error"
+      }
+    ],
+    "packageManager": {
+      "name": "pnpm",
+      "version": "10.20.0",
+      "onFail": "error"
+    }
+  }
+}
 ```
 
-### Running Tests
+The action will install all specified runtimes and make them available in your
+workflow.
 
-```bash
-pnpm test          # Run tests once
-pnpm test --watch  # Run in watch mode
-pnpm ci:test       # Run with CI reporter
-```
+## 🤝 Contributing
 
-### Linting
+We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for development
+setup, testing, and contribution guidelines.
 
-```bash
-pnpm lint          # Check for issues
-pnpm lint:fix      # Auto-fix issues
-```
+## 📄 License
 
-### Type Checking
+MIT License - See [LICENSE](LICENSE) for details.
 
-```bash
-pnpm typecheck
-```
+## 💬 Support
 
-### Testing the Action
-
-This repository includes workflows for testing the action in a real GitHub Actions environment:
-
-#### Quick Demo (`.github/workflows/demo.yml`)
-
-Demonstrates three usage patterns:
-
-* **Auto-detect:** Let the action detect everything automatically
-* **Explicit:** Specify all configuration explicitly
-* **Skip deps:** Setup runtime but install dependencies manually
-
-**To run:** Go to Actions → "Demo - Quick Test" → Run workflow
-
-#### Comprehensive Test (`.github/workflows/test-action.yml`)
-
-Full test suite with:
-
-* **Manual test:** Trigger with custom inputs to test specific configurations
-* **Matrix test:** Automatically tests across multiple OS (Ubuntu, macOS, Windows) and package managers (pnpm, yarn, npm)
-
-**To run:** Go to Actions → "Test Runtime Action" → Run workflow
-
-**Available inputs:**
-
-* `package-manager`: Choose npm, pnpm, or yarn (or leave empty for auto-detect)
-* `node-version`: Specify Node.js version (or leave empty to use `.nvmrc`)
-* `biome-version`: Specify Biome version (or leave empty for auto-detect)
-* `install-deps`: Enable/disable dependency installation
-* `turbo-token`: Optional Turbo remote cache token
-* `turbo-team`: Optional Turbo team slug
-
-The test workflow provides detailed output including:
-
-* Action outputs (runtime version, package manager, etc.)
-* Environment verification (Node.js, package manager versions)
-* Command tests (typecheck, lint, test)
-* Beautiful summary in the GitHub Actions UI
-
-## License
-
-MIT License - See [LICENSE](LICENSE) for details
-
-## Support
-
-* **Issues**: [GitHub Issues](https://github.com/savvy-web/workflow-runtime-action/issues)
-* **Discussions**: [GitHub Discussions](https://github.com/savvy-web/workflow-runtime-action/discussions)
+* 🐛 **Issues:** [GitHub Issues](https://github.com/savvy-web/workflow-runtime-action/issues)
+* 💭 **Discussions:** [GitHub Discussions](https://github.com/savvy-web/workflow-runtime-action/discussions)
 
 ---
 

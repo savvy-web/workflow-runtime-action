@@ -1,8 +1,0 @@
-{
-	"name": "turbo-monorepo-test",
-	"version": "1.0.0",
-	"packageManager": "pnpm@10.20.0",
-	"devDependencies": {
-		"turbo": "^2.6.1"
-	}
-}

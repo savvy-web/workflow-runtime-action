@@ -38,3 +38,8 @@ pkgs/generators/test.ts
 test.ts
 .claude/settings.local.json
 **/coverage-debug
+test-summary-dev/
+!__fixtures__/turbo-enabled/.turbo
+!__fixtures__/additional-inputs/build
+!__fixtures__/additional-inputs/dist
+.claude/plugins-debug.log
