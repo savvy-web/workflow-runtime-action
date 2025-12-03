@@ -30,15 +30,9 @@ interface BiomeConfig {
 
 /**
  * Runtime version map for tracking installed versions
+ * Supports node, bun, deno, biome, and any future tools
  */
-interface RuntimeVersions {
-	/** Node.js version if installed */
-	node?: string;
-	/** Bun version if installed */
-	bun?: string;
-	/** Deno version if installed */
-	deno?: string;
-}
+type RuntimeVersions = Record<string, string | undefined>;
 
 /**
  * Complete runtime setup configuration result
@@ -303,6 +297,11 @@ async function detectConfiguration(): Promise<SetupResult> {
 	// Detect Biome (works in both modes)
 	const biome = await detectBiome(biomeVersionInput);
 
+	// Add biome to runtimeVersions for tool cache inclusion
+	if (biome.version) {
+		runtimeVersions.biome = biome.version;
+	}
+
 	core.endGroup();
 
 	return {
@@ -420,13 +419,18 @@ async function main(): Promise<void> {
 
 		// 2. Restore cache before installing runtimes (always run to generate cache key state for post action)
 		// This allows us to restore both dependencies AND runtime installations from cache
+		// Include .turbo directories in cache when Turbo is detected
+		const additionalCachePaths = config.turboEnabled
+			? [config.additionalCachePaths, "**/.turbo"].filter(Boolean).join("\n")
+			: config.additionalCachePaths;
+
 		await restoreCache(
 			activePackageManagers,
 			config.runtimeVersions,
 			config.packageManagerVersion,
 			config.cacheBust || undefined,
 			config.additionalLockfiles || undefined,
-			config.additionalCachePaths || undefined,
+			additionalCachePaths || undefined,
 		);
 
 		// 3. Install all detected runtimes

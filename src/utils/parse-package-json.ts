@@ -19,7 +19,7 @@ export interface RuntimeConfig {
 	name: RuntimeName;
 	/** Absolute version (e.g., "24.11.0") - no semver ranges allowed */
 	version: string;
-	/** onFail behavior - recommended to be "error" for strict validation */
+	/** onFail behavior (optional) */
 	onFail?: string;
 }
 
@@ -31,7 +31,7 @@ export interface PackageManagerConfig {
 	name: PackageManagerName;
 	/** Exact version */
 	version: string;
-	/** onFail behavior - recommended to be "error" for strict validation */
+	/** onFail behavior (optional) */
 	onFail?: string;
 }
 
@@ -120,13 +120,6 @@ function validatePackageManagerConfig(
 			`devEngines.packageManager[${index}].version must be an absolute version (e.g., "10.20.0"), not a semver range. Got: "${pm.version}"`,
 		);
 	}
-
-	// Emit notice if onFail is not "error" (recommended but not required)
-	if (!("onFail" in pm) || pm.onFail !== "error") {
-		core.notice(
-			`devEngines.packageManager[${index}].onFail is ${JSON.stringify(pm.onFail ?? undefined)} - consider setting it to "error" for strict validation`,
-		);
-	}
 }
 
 /**
@@ -186,13 +179,6 @@ function validateRuntimeConfig(runtime: unknown, index: number): asserts runtime
 	if (!isAbsoluteVersion(rt.version)) {
 		throw new Error(
 			`devEngines.runtime[${index}].version must be an absolute version (e.g., "24.11.0"), not a semver range. Got: "${rt.version}"`,
-		);
-	}
-
-	// Emit notice if onFail is not "error" (recommended but not required)
-	if (!("onFail" in rt) || rt.onFail !== "error") {
-		core.notice(
-			`devEngines.runtime[${index}].onFail is ${JSON.stringify(rt.onFail ?? undefined)} - consider setting it to "error" for strict validation`,
 		);
 	}
 }

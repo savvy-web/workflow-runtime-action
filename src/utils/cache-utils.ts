@@ -15,15 +15,9 @@ export type PackageManager = "npm" | "pnpm" | "yarn" | "bun" | "deno";
 
 /**
  * Runtime versions for cache key generation
+ * Supports node, bun, deno, biome, and any future tools
  */
-export interface RuntimeVersions {
-	/** Node.js version if installed */
-	node?: string;
-	/** Bun version if installed */
-	bun?: string;
-	/** Deno version if installed */
-	deno?: string;
-}
+export type RuntimeVersions = Record<string, string | undefined>;
 
 /**
  * Cache configuration for a package manager
@@ -338,6 +332,11 @@ function getToolCachePaths(runtimeVersions: RuntimeVersions): string[] {
 		paths.push(`${toolCacheBase}/deno/${runtimeVersions.deno}/*`);
 	}
 
+	if (runtimeVersions.biome) {
+		paths.push(`${toolCacheBase}/biome/${runtimeVersions.biome}`);
+		paths.push(`${toolCacheBase}/biome/${runtimeVersions.biome}/*`);
+	}
+
 	return paths;
 }
 
@@ -571,7 +570,7 @@ export async function restoreCache(
 		const restoreKeys = generateRestoreKeys(runtimeVersions, primaryPm, packageManagerVersion, cacheBust);
 
 		core.info(`Primary key: ${primaryKey}`);
-		core.info(`Restore keys: ${restoreKeys.join(", ")}`);
+		core.info(`Restore keys: ${restoreKeys.length > 0 ? restoreKeys.join(", ") : "(none - exact match only)"}`);
 
 		// Attempt to restore cache
 		const cacheKey = await cache.restoreCache(config.cachePaths, primaryKey, restoreKeys);
