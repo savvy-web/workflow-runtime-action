@@ -4,6 +4,7 @@ import { platform } from "node:os";
 import * as cache from "@actions/cache";
 import * as core from "@actions/core";
 import * as exec from "@actions/exec";
+import { context } from "@actions/github";
 import * as glob from "@actions/glob";
 import { setOutput } from "./action-io.js";
 import { formatCache, formatSuccess, getPackageManagerEmoji } from "./emoji.js";
@@ -458,6 +459,43 @@ function generateVersionHash(
 }
 
 /**
+ * Gets the current branch name from GitHub Actions context
+ *
+ * @returns Branch name or empty string if not available
+ */
+function getBranchName(): string {
+	// For PRs, use the head ref from the payload (PR branch name)
+	const prHeadRef = context.payload.pull_request?.head?.ref;
+	if (prHeadRef && typeof prHeadRef === "string") {
+		return prHeadRef;
+	}
+
+	// For pushes, extract branch name from the ref (e.g., "refs/heads/main" -> "main")
+	const ref = context.ref;
+	if (ref?.startsWith("refs/heads/")) {
+		return ref.replace("refs/heads/", "");
+	}
+
+	return "";
+}
+
+/**
+ * Generates a short hash of the branch name for cache key
+ *
+ * Branch names can contain special characters (hyphens, slashes) that could
+ * interfere with cache key parsing, so we hash them for consistency.
+ * When no branch is available, hashes "null" to maintain consistent key format.
+ *
+ * @param branch - Branch name to hash
+ * @returns 8-character hash of the branch name (or "null" if no branch)
+ */
+function hashBranch(branch: string): string {
+	const hash = createHash("sha256");
+	hash.update(branch || "null");
+	return hash.digest("hex").substring(0, 8);
+}
+
+/**
  * Generates cache key from runtime versions, package manager, and lock files
  *
  * @param runtimeVersions - Runtime versions being cached
@@ -465,7 +503,7 @@ function generateVersionHash(
  * @param packageManagerVersion - Package manager version
  * @param lockFiles - Lock file paths
  * @param cacheBust - Optional cache hash (for testing, typically github.run_id)
- * @returns Cache key string in format: {os}-{version-hash}-{lockfile-hash}
+ * @returns Cache key string in format: {os}-{version-hash}-{branch-hash}-{lockfile-hash}
  */
 async function generateCacheKey(
 	runtimeVersions: RuntimeVersions,
@@ -476,19 +514,24 @@ async function generateCacheKey(
 ): Promise<string> {
 	const plat = platform();
 	const versionHash = generateVersionHash(runtimeVersions, packageManager, packageManagerVersion, cacheBust);
+	const branchHash = hashBranch(getBranchName());
 	const lockfileHash = await hashFiles(lockFiles);
 
-	return `${plat}-${versionHash}-${lockfileHash}`;
+	// Format: {os}-{versionHash}-{branchHash}-{lockfileHash}
+	return `${plat}-${versionHash}-${branchHash}-${lockfileHash}`;
 }
 
 /**
  * Generates restore keys for cache fallback
  *
+ * Restore keys are tried in order, with the first match being used.
+ * This prioritizes branch-specific caches while falling back to cross-branch caches.
+ *
  * @param runtimeVersions - Runtime versions being cached
  * @param packageManager - Package manager name
  * @param packageManagerVersion - Package manager version
  * @param cacheBust - Optional cache hash (for testing)
- * @returns Array of restore key prefixes
+ * @returns Array of restore key prefixes in priority order
  */
 function generateRestoreKeys(
 	runtimeVersions: RuntimeVersions,
@@ -504,10 +547,15 @@ function generateRestoreKeys(
 
 	const plat = platform();
 	const versionHash = generateVersionHash(runtimeVersions, packageManager, packageManagerVersion, cacheBust);
+	const branchHash = hashBranch(getBranchName());
 
 	// Restore keys in order of specificity:
-	// 1. Match OS + version hash (any lockfile for same runtime/pm versions)
-	return [`${plat}-${versionHash}-`];
+	// 1. Same branch + same runtime/pm versions (any lockfile)
+	// 2. Any branch + same runtime/pm versions (cross-branch fallback)
+	return [
+		`${plat}-${versionHash}-${branchHash}-`, // Same branch, any lockfile
+		`${plat}-${versionHash}-`, // Any branch, any lockfile
+	];
 }
 
 /**

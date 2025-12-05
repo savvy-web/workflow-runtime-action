@@ -13,6 +13,12 @@ import { restoreCache, saveCache } from "../src/utils/cache-utils.js";
 vi.mock("@actions/core");
 vi.mock("@actions/cache");
 vi.mock("@actions/exec");
+vi.mock("@actions/github", () => ({
+	context: {
+		ref: "refs/heads/main",
+		payload: {},
+	},
+}));
 vi.mock("@actions/glob");
 vi.mock("node:fs/promises");
 vi.mock("node:crypto");
@@ -107,8 +113,8 @@ describe("restoreCache", () => {
 					"/opt/hostedtoolcache/node/24.11.0",
 					"/opt/hostedtoolcache/node/24.11.0/*",
 				]),
-				"linux-abc123de-abc123de",
-				["linux-abc123de-"],
+				"linux-abc123de-abc123de-abc123de",
+				["linux-abc123de-abc123de-", "linux-abc123de-"],
 			);
 			expect(core.setOutput).toHaveBeenCalledWith("lockfiles", "package-lock.json");
 			expect(core.setOutput).toHaveBeenCalledWith(
@@ -130,8 +136,8 @@ describe("restoreCache", () => {
 					"C:\\hostedtoolcache/node/24.11.0",
 					"C:\\hostedtoolcache/node/24.11.0/*",
 				]),
-				"win32-abc123de-abc123de",
-				["win32-abc123de-"],
+				"win32-abc123de-abc123de-abc123de",
+				["win32-abc123de-abc123de-", "win32-abc123de-"],
 			);
 		});
 
@@ -169,8 +175,8 @@ describe("restoreCache", () => {
 					"/opt/hostedtoolcache/node/24.11.0",
 					"/opt/hostedtoolcache/node/24.11.0/*",
 				]),
-				"linux-abc123de-abc123de",
-				["linux-abc123de-"],
+				"linux-abc123de-abc123de-abc123de",
+				["linux-abc123de-abc123de-", "linux-abc123de-"],
 			);
 		});
 
@@ -187,8 +193,8 @@ describe("restoreCache", () => {
 					"C:\\hostedtoolcache/node/24.11.0",
 					"C:\\hostedtoolcache/node/24.11.0/*",
 				]),
-				"win32-abc123de-abc123de",
-				["win32-abc123de-"],
+				"win32-abc123de-abc123de-abc123de",
+				["win32-abc123de-abc123de-", "win32-abc123de-"],
 			);
 		});
 
@@ -217,8 +223,8 @@ describe("restoreCache", () => {
 					"/opt/hostedtoolcache/node/24.11.0",
 					"/opt/hostedtoolcache/node/24.11.0/*",
 				]),
-				"linux-abc123de-abc123de",
-				["linux-abc123de-"],
+				"linux-abc123de-abc123de-abc123de",
+				["linux-abc123de-abc123de-", "linux-abc123de-"],
 			);
 		});
 
@@ -235,8 +241,8 @@ describe("restoreCache", () => {
 					"C:\\hostedtoolcache/node/24.11.0",
 					"C:\\hostedtoolcache/node/24.11.0/*",
 				]),
-				"win32-abc123de-abc123de",
-				["win32-abc123de-"],
+				"win32-abc123de-abc123de-abc123de",
+				["win32-abc123de-abc123de-", "win32-abc123de-"],
 			);
 		});
 
@@ -279,8 +285,8 @@ describe("restoreCache", () => {
 			expect(exec.exec).toHaveBeenCalledWith("yarn", ["cache", "dir"], expect.any(Object));
 			expect(cache.restoreCache).toHaveBeenCalledWith(
 				expect.arrayContaining(["/home/user/.cache/yarn/v6"]),
-				"linux-abc123de-abc123de",
-				["linux-abc123de-"],
+				"linux-abc123de-abc123de-abc123de",
+				["linux-abc123de-abc123de-", "linux-abc123de-"],
 			);
 		});
 	});
@@ -318,8 +324,8 @@ describe("restoreCache", () => {
 					"/opt/hostedtoolcache/bun/1.3.3",
 					"/opt/hostedtoolcache/bun/1.3.3/*",
 				]),
-				"linux-abc123de-abc123de",
-				["linux-abc123de-"],
+				"linux-abc123de-abc123de-abc123de",
+				["linux-abc123de-abc123de-", "linux-abc123de-"],
 			);
 		});
 
@@ -336,8 +342,8 @@ describe("restoreCache", () => {
 					"C:\\hostedtoolcache/bun/1.3.3",
 					"C:\\hostedtoolcache/bun/1.3.3/*",
 				]),
-				"win32-abc123de-abc123de",
-				["win32-abc123de-"],
+				"win32-abc123de-abc123de-abc123de",
+				["win32-abc123de-abc123de-", "win32-abc123de-"],
 			);
 		});
 
@@ -380,8 +386,8 @@ describe("restoreCache", () => {
 					"/opt/hostedtoolcache/deno/2.1.0",
 					"/opt/hostedtoolcache/deno/2.1.0/*",
 				]),
-				"linux-abc123de-abc123de",
-				["linux-abc123de-"],
+				"linux-abc123de-abc123de-abc123de",
+				["linux-abc123de-abc123de-", "linux-abc123de-"],
 			);
 			expect(core.setOutput).toHaveBeenCalledWith("lockfiles", "deno.lock");
 			expect(core.setOutput).toHaveBeenCalledWith(
@@ -402,8 +408,8 @@ describe("restoreCache", () => {
 					"C:\\hostedtoolcache/deno/2.1.0",
 					"C:\\hostedtoolcache/deno/2.1.0/*",
 				]),
-				"win32-abc123de-abc123de",
-				["win32-abc123de-"],
+				"win32-abc123de-abc123de-abc123de",
+				["win32-abc123de-abc123de-", "win32-abc123de-"],
 			);
 		});
 
@@ -433,8 +439,8 @@ describe("restoreCache", () => {
 					"/opt/hostedtoolcache/deno/2.1.0",
 					"/opt/hostedtoolcache/deno/2.1.0/*",
 				]),
-				"linux-abc123de-abc123de",
-				["linux-abc123de-"],
+				"linux-abc123de-abc123de-abc123de",
+				["linux-abc123de-abc123de-", "linux-abc123de-"],
 			);
 		});
 	});
@@ -483,18 +489,20 @@ describe("restoreCache", () => {
 
 		it("should set cache-hit to true on exact match", async () => {
 			// Mock createHash to return a fresh hash object for each call
+			// Now we have 3 hashes: versionHash, branchHash, lockfileHash
 			let callCount = 0;
 			vi.mocked(createHash).mockImplementation(() => {
 				callCount++;
 				const mockHash = {
 					update: vi.fn().mockReturnThis(),
-					digest: vi.fn().mockReturnValue(callCount === 1 ? "abc12345" : "def67890"),
+					digest: vi.fn().mockReturnValue(callCount === 1 ? "version1" : callCount === 2 ? "branch12" : "lockfile"),
 				};
 				return mockHash as never;
 			});
 
 			// Mock the exact key that will be generated (8-char hashes)
-			const exactKey = "linux-abc12345-def67890";
+			// Format: {os}-{versionHash}-{branchHash}-{lockfileHash}
+			const exactKey = "linux-version1-branch12-lockfile";
 			vi.mocked(cache.restoreCache).mockResolvedValue(exactKey);
 
 			await restoreCache("npm", { node: "24.11.0" }, "10.20.0");
@@ -504,18 +512,20 @@ describe("restoreCache", () => {
 
 		it("should set cache-hit to partial on restore key match", async () => {
 			// Mock createHash to return a fresh hash object for each call
+			// Now we have 3 hashes: versionHash, branchHash, lockfileHash
 			let callCount = 0;
 			vi.mocked(createHash).mockImplementation(() => {
 				callCount++;
 				const mockHash = {
 					update: vi.fn().mockReturnThis(),
-					digest: vi.fn().mockReturnValue(callCount === 1 ? "abc12345" : "def67890"),
+					digest: vi.fn().mockReturnValue(callCount === 1 ? "version1" : callCount === 2 ? "branch12" : "lockfile"),
 				};
 				return mockHash as never;
 			});
 
 			// Mock a partial match (different lockfile hash)
-			const partialKey = "linux-abc12345-different";
+			// The exact key would be "linux-version1-branch12-lockfile" but we return a different one
+			const partialKey = "linux-version1-branch12-different";
 			vi.mocked(cache.restoreCache).mockResolvedValue(partialKey);
 
 			await restoreCache("npm", { node: "24.11.0" }, "10.20.0");
@@ -580,7 +590,8 @@ describe("restoreCache", () => {
 
 			await restoreCache("npm", { node: "24.11.0" }, "10.20.0");
 
-			expect(cache.restoreCache).toHaveBeenCalledWith(expect.any(Array), "linux-abc123de-abc123de", [
+			expect(cache.restoreCache).toHaveBeenCalledWith(expect.any(Array), "linux-abc123de-abc123de-abc123de", [
+				"linux-abc123de-abc123de-",
 				"linux-abc123de-",
 			]);
 		});
@@ -590,7 +601,8 @@ describe("restoreCache", () => {
 
 			await restoreCache("pnpm", { node: "24.11.0" }, "10.20.0");
 
-			expect(cache.restoreCache).toHaveBeenCalledWith(expect.any(Array), "darwin-abc123de-abc123de", [
+			expect(cache.restoreCache).toHaveBeenCalledWith(expect.any(Array), "darwin-abc123de-abc123de-abc123de", [
+				"darwin-abc123de-abc123de-",
 				"darwin-abc123de-",
 			]);
 		});
@@ -813,7 +825,8 @@ describe("multi-package manager support", () => {
 			await restoreCache(["pnpm", "deno"], { node: "24.11.0", deno: "2.1.0" }, "10.20.0");
 
 			// Should use the primary package manager (first in array) for cache key
-			expect(cache.restoreCache).toHaveBeenCalledWith(expect.any(Array), "linux-multih12-multih12", [
+			expect(cache.restoreCache).toHaveBeenCalledWith(expect.any(Array), "linux-multih12-multih12-multih12", [
+				"linux-multih12-multih12-",
 				"linux-multih12-",
 			]);
 		});
@@ -878,7 +891,8 @@ describe("multi-package manager support", () => {
 			await restoreCache(["yarn", "bun"], { node: "24.11.0", bun: "1.3.3" }, "10.20.0");
 
 			// Cache key should use the primary package manager (yarn, first in array)
-			expect(cache.restoreCache).toHaveBeenCalledWith(expect.any(Array), "linux-multih12-multih12", [
+			expect(cache.restoreCache).toHaveBeenCalledWith(expect.any(Array), "linux-multih12-multih12-multih12", [
+				"linux-multih12-multih12-",
 				"linux-multih12-",
 			]);
 		});
@@ -949,7 +963,8 @@ describe("multi-package manager support", () => {
 			// Single string (not array)
 			await restoreCache("pnpm", { node: "24.11.0" }, "10.20.0");
 
-			expect(cache.restoreCache).toHaveBeenCalledWith(expect.any(Array), "linux-multih12-multih12", [
+			expect(cache.restoreCache).toHaveBeenCalledWith(expect.any(Array), "linux-multih12-multih12-multih12", [
+				"linux-multih12-multih12-",
 				"linux-multih12-",
 			]);
 		});
