@@ -1,4 +1,4 @@
-import * as core from "@actions/core";
+import { debug, endGroup, getInput, info, setFailed, startGroup } from "@actions/core";
 
 /**
  * Pre-action hook that runs before the main action
@@ -13,38 +13,38 @@ import * as core from "@actions/core";
  */
 async function pre(): Promise<void> {
 	try {
-		core.startGroup("🚀 Starting Runtime Setup");
-		core.info("Pre-action hook started");
+		startGroup("🚀 Starting Runtime Setup");
+		info("Pre-action hook started");
 
 		// Log all inputs for debugging
-		const nodeVersion = core.getInput("node-version") || "auto-detect";
-		const bunVersion = core.getInput("bun-version") || "auto-detect";
-		const denoVersion = core.getInput("deno-version") || "auto-detect";
-		const packageManager = core.getInput("package-manager") || "auto-detect";
-		const packageManagerVersion = core.getInput("package-manager-version") || "auto-detect";
-		const biomeVersion = core.getInput("biome-version") || "auto-detect";
-		const installDeps = core.getInput("install-deps") || "true";
-		const turboToken = core.getInput("turbo-token") ? "***" : "not provided";
-		const turboTeam = core.getInput("turbo-team") || "not provided";
-		const additionalLockfiles = core.getInput("additional-lockfiles") || "not provided";
-		const additionalCachePaths = core.getInput("additional-cache-paths") || "not provided";
+		const nodeVersion = getInput("node-version") || "auto-detect";
+		const bunVersion = getInput("bun-version") || "auto-detect";
+		const denoVersion = getInput("deno-version") || "auto-detect";
+		const packageManager = getInput("package-manager") || "auto-detect";
+		const packageManagerVersion = getInput("package-manager-version") || "auto-detect";
+		const biomeVersion = getInput("biome-version") || "auto-detect";
+		const installDeps = getInput("install-deps") || "true";
+		const turboToken = getInput("turbo-token") ? "***" : "not provided";
+		const turboTeam = getInput("turbo-team") || "not provided";
+		const additionalLockfiles = getInput("additional-lockfiles") || "not provided";
+		const additionalCachePaths = getInput("additional-cache-paths") || "not provided";
 
-		core.debug(`Input - node-version: ${nodeVersion}`);
-		core.debug(`Input - bun-version: ${bunVersion}`);
-		core.debug(`Input - deno-version: ${denoVersion}`);
-		core.debug(`Input - package-manager: ${packageManager}`);
-		core.debug(`Input - package-manager-version: ${packageManagerVersion}`);
-		core.debug(`Input - biome-version: ${biomeVersion}`);
-		core.debug(`Input - install-deps: ${installDeps}`);
-		core.debug(`Input - turbo-token: ${turboToken}`);
-		core.debug(`Input - turbo-team: ${turboTeam}`);
-		core.debug(`Input - additional-lockfiles: ${additionalLockfiles}`);
-		core.debug(`Input - additional-cache-paths: ${additionalCachePaths}`);
+		debug(`Input - node-version: ${nodeVersion}`);
+		debug(`Input - bun-version: ${bunVersion}`);
+		debug(`Input - deno-version: ${denoVersion}`);
+		debug(`Input - package-manager: ${packageManager}`);
+		debug(`Input - package-manager-version: ${packageManagerVersion}`);
+		debug(`Input - biome-version: ${biomeVersion}`);
+		debug(`Input - install-deps: ${installDeps}`);
+		debug(`Input - turbo-token: ${turboToken}`);
+		debug(`Input - turbo-team: ${turboTeam}`);
+		debug(`Input - additional-lockfiles: ${additionalLockfiles}`);
+		debug(`Input - additional-cache-paths: ${additionalCachePaths}`);
 
-		core.info("Pre-action hook completed");
-		core.endGroup();
+		info("Pre-action hook completed");
+		endGroup();
 	} catch (error) {
-		core.setFailed(`Pre-action failed: ${error instanceof Error ? error.message : String(error)}`);
+		setFailed(`Pre-action failed: ${error instanceof Error ? error.message : String(error)}`);
 	}
 }
 

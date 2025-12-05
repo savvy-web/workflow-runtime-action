@@ -1,11 +1,11 @@
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { platform } from "node:os";
-import * as cache from "@actions/cache";
-import * as core from "@actions/core";
-import * as exec from "@actions/exec";
+import { restoreCache as cacheRestore, saveCache as cacheSave } from "@actions/cache";
+import { debug, endGroup, getState, info, saveState, startGroup, warning } from "@actions/core";
+import { exec } from "@actions/exec";
 import { context } from "@actions/github";
-import * as glob from "@actions/glob";
+import { create as createGlob } from "@actions/glob";
 import { setOutput } from "./action-io.js";
 import { formatCache, formatSuccess, getPackageManagerEmoji } from "./emoji.js";
 
@@ -97,7 +97,7 @@ async function detectCachePath(packageManager: PackageManager): Promise<string |
 		switch (packageManager) {
 			case "npm": {
 				// npm config get cache
-				const exitCode = await exec.exec("npm", ["config", "get", "cache"], options);
+				const exitCode = await exec("npm", ["config", "get", "cache"], options);
 				if (exitCode === 0 && output.trim()) {
 					return output.trim();
 				}
@@ -106,7 +106,7 @@ async function detectCachePath(packageManager: PackageManager): Promise<string |
 
 			case "pnpm": {
 				// pnpm store path
-				const exitCode = await exec.exec("pnpm", ["store", "path"], options);
+				const exitCode = await exec("pnpm", ["store", "path"], options);
 				if (exitCode === 0 && output.trim()) {
 					return output.trim();
 				}
@@ -115,14 +115,14 @@ async function detectCachePath(packageManager: PackageManager): Promise<string |
 
 			case "yarn": {
 				// Try Yarn Berry first: yarn config get cacheFolder
-				let exitCode = await exec.exec("yarn", ["config", "get", "cacheFolder"], options);
+				let exitCode = await exec("yarn", ["config", "get", "cacheFolder"], options);
 				if (exitCode === 0 && output.trim() && output.trim() !== "undefined") {
 					return output.trim();
 				}
 
 				// Fallback to Yarn Classic: yarn cache dir
 				output = "";
-				exitCode = await exec.exec("yarn", ["cache", "dir"], options);
+				exitCode = await exec("yarn", ["cache", "dir"], options);
 				if (exitCode === 0 && output.trim()) {
 					return output.trim();
 				}
@@ -131,7 +131,7 @@ async function detectCachePath(packageManager: PackageManager): Promise<string |
 
 			case "bun": {
 				// bun pm cache
-				const exitCode = await exec.exec("bun", ["pm", "cache"], options);
+				const exitCode = await exec("bun", ["pm", "cache"], options);
 				if (exitCode === 0 && output.trim()) {
 					return output.trim();
 				}
@@ -141,7 +141,7 @@ async function detectCachePath(packageManager: PackageManager): Promise<string |
 			case "deno": {
 				// Deno uses DENO_DIR environment variable
 				// deno info --json provides cache location
-				const exitCode = await exec.exec("deno", ["info", "--json"], options);
+				const exitCode = await exec("deno", ["info", "--json"], options);
 				if (exitCode === 0 && output.trim()) {
 					try {
 						const info = JSON.parse(output) as { denoDir?: string };
@@ -156,7 +156,7 @@ async function detectCachePath(packageManager: PackageManager): Promise<string |
 			}
 		}
 	} catch (error) {
-		core.debug(
+		debug(
 			`Failed to detect cache path for ${packageManager}: ${error instanceof Error ? error.message : String(error)}`,
 		);
 	}
@@ -255,9 +255,9 @@ async function getCacheConfig(packageManager: PackageManager): Promise<CacheConf
 	}
 
 	if (detectedPath) {
-		core.info(`Detected ${packageManager} cache path: ${detectedPath}`);
+		info(`Detected ${packageManager} cache path: ${detectedPath}`);
 	} else {
-		core.debug(`Using default ${packageManager} cache paths: ${globalCachePaths.join(", ")}`);
+		debug(`Using default ${packageManager} cache paths: ${globalCachePaths.join(", ")}`);
 	}
 
 	return {
@@ -273,7 +273,7 @@ async function getCacheConfig(packageManager: PackageManager): Promise<CacheConf
  * @returns Array of found lock file paths
  */
 async function findLockFiles(patterns: string[]): Promise<string[]> {
-	const globber = await glob.create(patterns.join("\n"), {
+	const globber = await createGlob(patterns.join("\n"), {
 		followSymbolicLinks: false,
 	});
 
@@ -294,7 +294,7 @@ async function hashFiles(files: string[]): Promise<string> {
 			const content = await readFile(file, "utf-8");
 			hash.update(content);
 		} catch (error) {
-			core.warning(`Failed to read ${file} for hashing: ${error instanceof Error ? error.message : String(error)}`);
+			warning(`Failed to read ${file} for hashing: ${error instanceof Error ? error.message : String(error)}`);
 		}
 	}
 
@@ -382,7 +382,7 @@ async function getCombinedCacheConfig(
 	}
 
 	if (toolCachePaths.length > 0) {
-		core.info(`Tool cache paths: ${toolCachePaths.join(", ")}`);
+		info(`Tool cache paths: ${toolCachePaths.join(", ")}`);
 	}
 
 	// Add user-provided additional lockfile patterns
@@ -391,7 +391,7 @@ async function getCombinedCacheConfig(
 	}
 
 	if (additionalLockfiles.length > 0) {
-		core.info(`Additional lockfile patterns: ${additionalLockfiles.join(", ")}`);
+		info(`Additional lockfile patterns: ${additionalLockfiles.join(", ")}`);
 	}
 
 	// Add user-provided additional cache paths
@@ -400,7 +400,7 @@ async function getCombinedCacheConfig(
 	}
 
 	if (additionalCachePaths.length > 0) {
-		core.info(`Additional cache paths: ${additionalCachePaths.join(", ")}`);
+		info(`Additional cache paths: ${additionalCachePaths.join(", ")}`);
 	}
 
 	// Convert Sets back to arrays and sort for consistency
@@ -584,7 +584,7 @@ export async function restoreCache(
 	const primaryPm = pmArray[0];
 
 	const pmList = pmArray.map((pm) => `${getPackageManagerEmoji(pm)} ${pm}`).join(", ");
-	core.startGroup(formatCache("Restoring", pmList));
+	startGroup(formatCache("Restoring", pmList));
 
 	try {
 		// Parse additional inputs
@@ -602,12 +602,12 @@ export async function restoreCache(
 		const lockFiles = await findLockFiles(config.lockFilePatterns);
 
 		if (lockFiles.length === 0) {
-			core.info(`No lock files found for ${pmList}, caching without lockfile hash`);
+			info(`No lock files found for ${pmList}, caching without lockfile hash`);
 		} else {
-			core.info(`Found lock files: ${lockFiles.join(", ")}`);
+			info(`Found lock files: ${lockFiles.join(", ")}`);
 		}
 
-		core.info(`Cache paths (${config.cachePaths.length} total): ${config.cachePaths.join(", ")}`);
+		info(`Cache paths (${config.cachePaths.length} total): ${config.cachePaths.join(", ")}`);
 
 		// Set outputs for observability
 		setOutput("lockfiles", lockFiles.join(","));
@@ -617,36 +617,36 @@ export async function restoreCache(
 		const primaryKey = await generateCacheKey(runtimeVersions, primaryPm, packageManagerVersion, lockFiles, cacheBust);
 		const restoreKeys = generateRestoreKeys(runtimeVersions, primaryPm, packageManagerVersion, cacheBust);
 
-		core.info(`Primary key: ${primaryKey}`);
-		core.info(`Restore keys: ${restoreKeys.length > 0 ? restoreKeys.join(", ") : "(none - exact match only)"}`);
+		info(`Primary key: ${primaryKey}`);
+		info(`Restore keys: ${restoreKeys.length > 0 ? restoreKeys.join(", ") : "(none - exact match only)"}`);
 
 		// Attempt to restore cache
-		const cacheKey = await cache.restoreCache(config.cachePaths, primaryKey, restoreKeys);
+		const cacheKey = await cacheRestore(config.cachePaths, primaryKey, restoreKeys);
 
 		if (cacheKey) {
-			core.info(formatSuccess(`Cache restored from key: ${cacheKey}`));
+			info(formatSuccess(`Cache restored from key: ${cacheKey}`));
 			setOutput("cache-hit", cacheKey === primaryKey ? "true" : "partial");
 
 			// Save state for post action
-			core.saveState("CACHE_KEY", cacheKey);
-			core.saveState("CACHE_PRIMARY_KEY", primaryKey);
-			core.saveState("CACHE_PATHS", JSON.stringify(config.cachePaths));
-			core.saveState("PACKAGE_MANAGERS", JSON.stringify(pmArray));
+			saveState("CACHE_KEY", cacheKey);
+			saveState("CACHE_PRIMARY_KEY", primaryKey);
+			saveState("CACHE_PATHS", JSON.stringify(config.cachePaths));
+			saveState("PACKAGE_MANAGERS", JSON.stringify(pmArray));
 		} else {
-			core.info("Cache not found");
+			info("Cache not found");
 			setOutput("cache-hit", "false");
 
 			// Still save state for post action to save new cache
-			core.saveState("CACHE_PRIMARY_KEY", primaryKey);
-			core.saveState("CACHE_PATHS", JSON.stringify(config.cachePaths));
-			core.saveState("PACKAGE_MANAGERS", JSON.stringify(pmArray));
+			saveState("CACHE_PRIMARY_KEY", primaryKey);
+			saveState("CACHE_PATHS", JSON.stringify(config.cachePaths));
+			saveState("PACKAGE_MANAGERS", JSON.stringify(pmArray));
 		}
 
-		core.endGroup();
+		endGroup();
 		return cacheKey;
 	} catch (error) {
-		core.endGroup();
-		core.warning(`Failed to restore cache: ${error instanceof Error ? error.message : String(error)}`);
+		endGroup();
+		warning(`Failed to restore cache: ${error instanceof Error ? error.message : String(error)}`);
 		return undefined;
 	}
 }
@@ -656,25 +656,25 @@ export async function restoreCache(
  */
 export async function saveCache(): Promise<void> {
 	const pmList = "dependencies";
-	core.startGroup(formatCache("Saving", pmList));
+	startGroup(formatCache("Saving", pmList));
 
 	try {
 		// Retrieve saved state
-		const cacheKey = core.getState("CACHE_KEY");
-		const primaryKey = core.getState("CACHE_PRIMARY_KEY");
-		const cachePathsJson = core.getState("CACHE_PATHS");
-		const packageManagersJson = core.getState("PACKAGE_MANAGERS");
+		const cacheKey = getState("CACHE_KEY");
+		const primaryKey = getState("CACHE_PRIMARY_KEY");
+		const cachePathsJson = getState("CACHE_PATHS");
+		const packageManagersJson = getState("PACKAGE_MANAGERS");
 
 		if (!primaryKey) {
-			core.info("No primary key found, skipping cache save");
-			core.endGroup();
+			info("No primary key found, skipping cache save");
+			endGroup();
 			return;
 		}
 
 		// Check if we already hit the cache
 		if (cacheKey === primaryKey) {
-			core.info(`Cache hit occurred on primary key ${primaryKey}, not saving cache`);
-			core.endGroup();
+			info(`Cache hit occurred on primary key ${primaryKey}, not saving cache`);
+			endGroup();
 			return;
 		}
 
@@ -682,17 +682,17 @@ export async function saveCache(): Promise<void> {
 		const packageManagers = packageManagersJson ? (JSON.parse(packageManagersJson) as PackageManager[]) : [];
 
 		const pmList = packageManagers.length > 0 ? packageManagers.join(", ") : "unknown";
-		core.info(`Package managers: ${pmList}`);
-		core.info(`Cache key: ${primaryKey}`);
-		core.info(`Cache paths (${cachePaths.length} total):`);
+		info(`Package managers: ${pmList}`);
+		info(`Cache key: ${primaryKey}`);
+		info(`Cache paths (${cachePaths.length} total):`);
 		for (const path of cachePaths) {
-			core.info(`  - ${path}`);
+			info(`  - ${path}`);
 		}
 
 		// Check if any cache paths exist
 		let pathsExist = false;
 		for (const path of cachePaths) {
-			const globber = await glob.create(path, { followSymbolicLinks: false });
+			const globber = await createGlob(path, { followSymbolicLinks: false });
 			const matches = await globber.glob();
 			if (matches.length > 0) {
 				pathsExist = true;
@@ -701,24 +701,24 @@ export async function saveCache(): Promise<void> {
 		}
 
 		if (!pathsExist) {
-			core.info("No cache paths exist, skipping cache save");
-			core.endGroup();
+			info("No cache paths exist, skipping cache save");
+			endGroup();
 			return;
 		}
 
 		// Save the cache
-		const cacheId = await cache.saveCache(cachePaths, primaryKey);
+		const cacheId = await cacheSave(cachePaths, primaryKey);
 
 		if (cacheId === -1) {
-			core.warning("Cache save failed");
+			warning("Cache save failed");
 		} else {
-			core.info(formatSuccess(`Cache saved successfully with key: ${primaryKey}`));
+			info(formatSuccess(`Cache saved successfully with key: ${primaryKey}`));
 		}
 
-		core.endGroup();
+		endGroup();
 	} catch (error) {
-		core.endGroup();
+		endGroup();
 		// Don't fail the workflow on cache save errors
-		core.warning(`Failed to save cache: ${error instanceof Error ? error.message : String(error)}`);
+		warning(`Failed to save cache: ${error instanceof Error ? error.message : String(error)}`);
 	}
 }

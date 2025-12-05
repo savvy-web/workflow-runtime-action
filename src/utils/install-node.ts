@@ -1,9 +1,9 @@
 import { readdirSync } from "node:fs";
 import { arch, platform } from "node:os";
 import { join } from "node:path";
-import * as core from "@actions/core";
-import * as exec from "@actions/exec";
-import * as tc from "@actions/tool-cache";
+import { addPath, endGroup, info, startGroup } from "@actions/core";
+import { exec } from "@actions/exec";
+import { cacheDir, downloadTool, extractTar, extractZip, find } from "@actions/tool-cache";
 import { formatDetection, formatInstallation, formatRuntime, formatSetup, formatSuccess } from "./emoji.js";
 import { wrapError } from "./error.js";
 
@@ -53,18 +53,18 @@ function getDownloadUrl(version: string): string {
 async function downloadNode(version: string): Promise<string> {
 	const url = getDownloadUrl(version);
 
-	core.info(`Downloading Node.js ${version} from ${url}`);
+	info(`Downloading Node.js ${version} from ${url}`);
 
 	try {
 		// Download the archive
-		const downloadPath = await tc.downloadTool(url);
+		const downloadPath = await downloadTool(url);
 
 		// Extract based on platform
 		let extractedPath: string;
 		if (platform() === "win32") {
-			extractedPath = await tc.extractZip(downloadPath);
+			extractedPath = await extractZip(downloadPath);
 		} else {
-			extractedPath = await tc.extractTar(downloadPath);
+			extractedPath = await extractTar(downloadPath);
 		}
 
 		// Find the actual Node.js directory inside the extracted path
@@ -79,9 +79,9 @@ async function downloadNode(version: string): Promise<string> {
 		const nodeFullPath = join(extractedPath, nodeDir);
 
 		// Cache the extracted directory
-		const cachedPath = await tc.cacheDir(nodeFullPath, "node", version);
+		const cachedPath = await cacheDir(nodeFullPath, "node", version);
 
-		core.info(`Node.js ${version} cached at ${cachedPath}`);
+		info(`Node.js ${version} cached at ${cachedPath}`);
 		return cachedPath;
 	} catch (error) {
 		throw wrapError(`Failed to download Node.js ${version}`, error);
@@ -95,38 +95,38 @@ async function downloadNode(version: string): Promise<string> {
  * @returns Installed Node.js version
  */
 export async function installNode(config: NodeVersionConfig): Promise<string> {
-	core.startGroup(formatInstallation(formatRuntime("node")));
+	startGroup(formatInstallation(formatRuntime("node")));
 
 	try {
 		const { version } = config;
 
 		// Check if already in tool cache
-		let toolPath = tc.find("node", version);
+		let toolPath = find("node", version);
 
 		if (toolPath) {
-			core.info(formatDetection(`Node.js ${version} in tool cache: ${toolPath}`, true));
+			info(formatDetection(`Node.js ${version} in tool cache: ${toolPath}`, true));
 		} else {
-			core.info(formatDetection(`Node.js ${version} in cache`, false));
+			info(formatDetection(`Node.js ${version} in cache`, false));
 			toolPath = await downloadNode(version);
 		}
 
 		// Add to PATH
 		if (platform() === "win32") {
-			core.addPath(toolPath);
+			addPath(toolPath);
 		} else {
-			core.addPath(`${toolPath}/bin`);
+			addPath(`${toolPath}/bin`);
 		}
 
 		// Verify installation
-		await exec.exec("node", ["--version"]);
-		await exec.exec("npm", ["--version"]);
+		await exec("node", ["--version"]);
+		await exec("npm", ["--version"]);
 
-		core.info(formatSuccess(`Node.js ${version} installed successfully`));
-		core.endGroup();
+		info(formatSuccess(`Node.js ${version} installed successfully`));
+		endGroup();
 
 		return version;
 	} catch (error) {
-		core.endGroup();
+		endGroup();
 		throw wrapError("Failed to install Node.js", error);
 	}
 }
@@ -141,12 +141,12 @@ export async function installNode(config: NodeVersionConfig): Promise<string> {
  * @param npmVersion - npm version to install (e.g., "10.0.0")
  */
 export async function setupNpm(npmVersion: string): Promise<void> {
-	core.startGroup(formatSetup(`npm@${npmVersion}`));
+	startGroup(formatSetup(`npm@${npmVersion}`));
 
 	try {
 		// Get current npm version
 		let currentVersion = "";
-		await exec.exec("npm", ["--version"], {
+		await exec("npm", ["--version"], {
 			listeners: {
 				stdout: (data: Buffer) => {
 					currentVersion += data.toString().trim();
@@ -154,23 +154,23 @@ export async function setupNpm(npmVersion: string): Promise<void> {
 			},
 		});
 
-		core.info(`Current npm version: ${currentVersion}`);
-		core.info(`Required npm version: ${npmVersion}`);
+		info(`Current npm version: ${currentVersion}`);
+		info(`Required npm version: ${npmVersion}`);
 
 		// Only install if version doesn't match
 		if (currentVersion !== npmVersion) {
-			core.info(`Installing npm@${npmVersion}...`);
+			info(`Installing npm@${npmVersion}...`);
 			// Use sudo on Linux/macOS for global npm install to avoid permission issues
 			const plat = platform();
 			if (plat === "linux" || plat === "darwin") {
-				await exec.exec("sudo", ["npm", "install", "-g", `npm@${npmVersion}`]);
+				await exec("sudo", ["npm", "install", "-g", `npm@${npmVersion}`]);
 			} else {
-				await exec.exec("npm", ["install", "-g", `npm@${npmVersion}`]);
+				await exec("npm", ["install", "-g", `npm@${npmVersion}`]);
 			}
 
 			// Verify installation
 			let installedVersion = "";
-			await exec.exec("npm", ["--version"], {
+			await exec("npm", ["--version"], {
 				listeners: {
 					stdout: (data: Buffer) => {
 						installedVersion += data.toString().trim();
@@ -178,14 +178,14 @@ export async function setupNpm(npmVersion: string): Promise<void> {
 				},
 			});
 
-			core.info(formatSuccess(`npm@${installedVersion} installed successfully`));
+			info(formatSuccess(`npm@${installedVersion} installed successfully`));
 		} else {
-			core.info(formatSuccess(`npm version ${currentVersion} already matches required version`));
+			info(formatSuccess(`npm version ${currentVersion} already matches required version`));
 		}
 
-		core.endGroup();
+		endGroup();
 	} catch (error) {
-		core.endGroup();
+		endGroup();
 		throw wrapError("Failed to setup npm", error);
 	}
 }
@@ -201,12 +201,12 @@ export async function setupNpm(npmVersion: string): Promise<void> {
  * @param packageManagerVersion - Package manager version for logging
  */
 export async function setupPackageManager(packageManagerName: string, packageManagerVersion: string): Promise<void> {
-	core.startGroup(formatSetup(`${packageManagerName} via corepack`));
+	startGroup(formatSetup(`${packageManagerName} via corepack`));
 
 	try {
 		// Check Node.js version - corepack is not bundled with Node.js >= 25.0.0
 		let nodeVersion = "";
-		await exec.exec("node", ["--version"], {
+		await exec("node", ["--version"], {
 			listeners: {
 				stdout: (data: Buffer) => {
 					nodeVersion += data.toString().trim();
@@ -220,27 +220,27 @@ export async function setupPackageManager(packageManagerName: string, packageMan
 			const majorVersion = Number.parseInt(versionMatch[1], 10);
 
 			if (majorVersion >= 25) {
-				core.info(`Node.js ${nodeVersion} detected - corepack not bundled, installing globally...`);
-				await exec.exec("npm", ["install", "-g", "--force", "corepack@latest"]);
-				core.info(formatSuccess("corepack installed successfully"));
+				info(`Node.js ${nodeVersion} detected - corepack not bundled, installing globally...`);
+				await exec("npm", ["install", "-g", "--force", "corepack@latest"]);
+				info(formatSuccess("corepack installed successfully"));
 			}
 		}
 
 		// Enable corepack first
-		core.info("Enabling corepack...");
-		await exec.exec("corepack", ["enable"]);
+		info("Enabling corepack...");
+		await exec("corepack", ["enable"]);
 
 		// Prepare package manager using explicit version from devEngines.packageManager
-		core.info(`Preparing package manager ${packageManagerName}@${packageManagerVersion}...`);
-		await exec.exec("corepack", ["prepare", `${packageManagerName}@${packageManagerVersion}`, "--activate"]);
+		info(`Preparing package manager ${packageManagerName}@${packageManagerVersion}...`);
+		await exec("corepack", ["prepare", `${packageManagerName}@${packageManagerVersion}`, "--activate"]);
 
 		// Verify installation
-		await exec.exec(packageManagerName, ["--version"]);
+		await exec(packageManagerName, ["--version"]);
 
-		core.info(formatSuccess(`Package manager ${packageManagerName}@${packageManagerVersion} set up successfully`));
-		core.endGroup();
+		info(formatSuccess(`Package manager ${packageManagerName}@${packageManagerVersion} set up successfully`));
+		endGroup();
 	} catch (error) {
-		core.endGroup();
+		endGroup();
 		throw wrapError("Failed to setup package manager", error);
 	}
 }

@@ -1,4 +1,4 @@
-import * as core from "@actions/core";
+import { getInput as coreGetInput, setOutput as coreSetOutput } from "@actions/core";
 
 /**
  * Valid action input keys from action.yml
@@ -85,7 +85,7 @@ export function getInput(name: ActionInput): string {
 	if (!VALID_INPUTS.has(name)) {
 		throw new Error(`Invalid input key: "${name}". Valid inputs are: ${Array.from(VALID_INPUTS).join(", ")}`);
 	}
-	return core.getInput(name) || "";
+	return coreGetInput(name) || "";
 }
 
 /**
@@ -99,5 +99,5 @@ export function setOutput(name: ActionOutput, value: string | boolean): void {
 	if (!VALID_OUTPUTS.has(name)) {
 		throw new Error(`Invalid output key: "${name}". Valid outputs are: ${Array.from(VALID_OUTPUTS).join(", ")}`);
 	}
-	core.setOutput(name, String(value));
+	coreSetOutput(name, String(value));
 }

@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import * as core from "@actions/core";
+import { info } from "@actions/core";
 
 /**
  * Supported runtime names
@@ -230,11 +230,11 @@ export async function parsePackageJson(path: string = "package.json"): Promise<P
 
 		// Parse package manager configuration
 		const packageManager = parsePackageManagerConfig(packageJson.devEngines);
-		core.info(`🟢 Detected package manager: ${packageManager.name}@${packageManager.version}`);
+		info(`🟢 Detected package manager: ${packageManager.name}@${packageManager.version}`);
 
 		// Parse runtime configurations
 		const runtimes = parseRuntimeConfigs(packageJson.devEngines);
-		core.info(`🟢 Detected runtime(s): ${runtimes.map((rt) => `${rt.name}@${rt.version}`).join(", ")}`);
+		info(`🟢 Detected runtime(s): ${runtimes.map((rt) => `${rt.name}@${rt.version}`).join(", ")}`);
 		return {
 			packageManager,
 			runtimes,

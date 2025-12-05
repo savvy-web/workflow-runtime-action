@@ -1,9 +1,9 @@
 import { chmod } from "node:fs/promises";
 import { arch, platform } from "node:os";
 import { join } from "node:path";
-import * as core from "@actions/core";
-import * as exec from "@actions/exec";
-import * as tc from "@actions/tool-cache";
+import { addPath, endGroup, info, startGroup } from "@actions/core";
+import { exec } from "@actions/exec";
+import { cacheDir, downloadTool, extractZip, find } from "@actions/tool-cache";
 import { STATE, formatDetection, formatInstallation, formatRuntime, formatSuccess } from "./emoji.js";
 
 /**
@@ -61,14 +61,14 @@ async function downloadBun(version: string): Promise<string> {
 	// Bun uses bun-v{version} tag format
 	const downloadUrl = `https://github.com/oven-sh/bun/releases/download/bun-v${version}/${archiveName}`;
 
-	core.info(`Downloading Bun ${version} from ${downloadUrl}`);
+	info(`Downloading Bun ${version} from ${downloadUrl}`);
 
 	try {
 		// Download the archive
-		const downloadPath = await tc.downloadTool(downloadUrl);
+		const downloadPath = await downloadTool(downloadUrl);
 
 		// Extract the zip file
-		const extractedPath = await tc.extractZip(downloadPath);
+		const extractedPath = await extractZip(downloadPath);
 
 		// Bun zip contains a directory like "bun-{platform}-{arch}"
 		// The binary is inside this directory
@@ -85,9 +85,9 @@ async function downloadBun(version: string): Promise<string> {
 		}
 
 		// Cache the extracted directory
-		const cachedPath = await tc.cacheDir(bunDir, "bun", version);
+		const cachedPath = await cacheDir(bunDir, "bun", version);
 
-		core.info(`Bun ${version} cached at ${cachedPath}`);
+		info(`Bun ${version} cached at ${cachedPath}`);
 		return cachedPath;
 	} catch (error) {
 		throw new Error(`Failed to download Bun ${version}: ${error instanceof Error ? error.message : String(error)}`);
@@ -101,7 +101,7 @@ async function downloadBun(version: string): Promise<string> {
  * @returns Installed Bun version
  */
 export async function installBun(config: BunVersionConfig): Promise<string> {
-	core.startGroup(formatInstallation(formatRuntime("bun")));
+	startGroup(formatInstallation(formatRuntime("bun")));
 
 	try {
 		const { version } = config;
@@ -111,27 +111,27 @@ export async function installBun(config: BunVersionConfig): Promise<string> {
 		}
 
 		// Check if already in tool cache
-		let toolPath = tc.find("bun", version);
+		let toolPath = find("bun", version);
 
 		if (toolPath) {
-			core.info(formatDetection(`Bun ${version} in tool cache: ${toolPath}`, true));
+			info(formatDetection(`Bun ${version} in tool cache: ${toolPath}`, true));
 		} else {
-			core.info(`${STATE.neutral} Bun ${version} not found in cache, downloading...`);
+			info(`${STATE.neutral} Bun ${version} not found in cache, downloading...`);
 			toolPath = await downloadBun(version);
 		}
 
 		// Add to PATH
-		core.addPath(toolPath);
+		addPath(toolPath);
 
 		// Verify installation
-		await exec.exec("bun", ["--version"]);
+		await exec("bun", ["--version"]);
 
-		core.info(formatSuccess(`Bun ${version} installed successfully`));
-		core.endGroup();
+		info(formatSuccess(`Bun ${version} installed successfully`));
+		endGroup();
 
 		return version;
 	} catch (error) {
-		core.endGroup();
+		endGroup();
 		throw new Error(`Failed to install Bun: ${error instanceof Error ? error.message : String(error)}`);
 	}
 }

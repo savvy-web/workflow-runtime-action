@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import * as core from "@actions/core";
-import * as exec from "@actions/exec";
+import { endGroup, info, saveState, setFailed, startGroup, warning } from "@actions/core";
+import { exec } from "@actions/exec";
 import { parse } from "jsonc-parser";
 import { getInput, setOutput } from "./utils/action-io.js";
 import type { PackageManager } from "./utils/cache-utils.js";
@@ -74,14 +74,14 @@ function detectTurbo(): {
 	configFile: string;
 } {
 	if (existsSync("turbo.json")) {
-		core.info(formatDetection("Turbo configuration: turbo.json", true));
+		info(formatDetection("Turbo configuration: turbo.json", true));
 		return {
 			enabled: true,
 			configFile: "turbo.json",
 		};
 	}
 
-	core.info(formatDetection("Turbo configuration", false));
+	info(formatDetection("Turbo configuration", false));
 	return {
 		enabled: false,
 		configFile: "",
@@ -128,7 +128,7 @@ async function detectBiome(explicitVersion: string): Promise<{
 }> {
 	// If version was explicitly provided, use it
 	if (explicitVersion) {
-		core.info(`Using explicit Biome version: ${explicitVersion}`);
+		info(`Using explicit Biome version: ${explicitVersion}`);
 		return {
 			version: explicitVersion,
 			configFile: "",
@@ -139,14 +139,14 @@ async function detectBiome(explicitVersion: string): Promise<{
 	const configFile = detectBiomeConfigFile();
 
 	if (!configFile) {
-		core.info(formatDetection("Biome config file", false));
+		info(formatDetection("Biome config file", false));
 		return {
 			version: "",
 			configFile: "",
 		};
 	}
 
-	core.info(formatDetection(`Biome config: ${configFile}`, true));
+	info(formatDetection(`Biome config: ${configFile}`, true));
 
 	try {
 		// Parse config file
@@ -154,7 +154,7 @@ async function detectBiome(explicitVersion: string): Promise<{
 		const config = parse(content) as BiomeConfig;
 
 		if (!config.$schema) {
-			core.warning(`No $schema field found in ${configFile}, using 'latest' version`);
+			warning(`No $schema field found in ${configFile}, using 'latest' version`);
 			return {
 				version: "latest",
 				configFile,
@@ -165,22 +165,20 @@ async function detectBiome(explicitVersion: string): Promise<{
 		const version = extractBiomeVersionFromSchema(config.$schema);
 
 		if (!version) {
-			core.warning(
-				`Could not parse version from $schema in ${configFile} (URL: ${config.$schema}), using 'latest' version`,
-			);
+			warning(`Could not parse version from $schema in ${configFile} (URL: ${config.$schema}), using 'latest' version`);
 			return {
 				version: "latest",
 				configFile,
 			};
 		}
 
-		core.info(`✓ Detected Biome version: ${version} from ${configFile}`);
+		info(`✓ Detected Biome version: ${version} from ${configFile}`);
 		return {
 			version,
 			configFile,
 		};
 	} catch (error) {
-		core.warning(
+		warning(
 			`Failed to parse ${configFile}: ${error instanceof Error ? error.message : String(error)}, using 'latest' version`,
 		);
 		return {
@@ -228,7 +226,7 @@ async function detectConfiguration(): Promise<SetupResult> {
 		}
 	}
 
-	core.startGroup("🔍 Detecting runtime configuration");
+	startGroup("🔍 Detecting runtime configuration");
 
 	// Check if we're in explicit mode (runtime version + package manager + package manager version)
 	// For bun/deno: package manager version comes from runtime version
@@ -244,7 +242,7 @@ async function detectConfiguration(): Promise<SetupResult> {
 
 	if (isExplicitMode) {
 		// Explicit mode - use inputs directly, no package.json required
-		core.info("Using explicit configuration from inputs");
+		info("Using explicit configuration from inputs");
 
 		// Build runtime versions from inputs
 		if (nodeVersionInput) {
@@ -273,11 +271,11 @@ async function detectConfiguration(): Promise<SetupResult> {
 			packageManagerVersion = packageManagerVersionInput;
 		}
 
-		core.info(`✓ Configured runtime(s): ${runtimes.map((rt) => `${rt}@${runtimeVersions[rt]}`).join(", ")}`);
-		core.info(`✓ Configured package manager: ${packageManager}@${packageManagerVersion}`);
+		info(`✓ Configured runtime(s): ${runtimes.map((rt) => `${rt}@${runtimeVersions[rt]}`).join(", ")}`);
+		info(`✓ Configured package manager: ${packageManager}@${packageManagerVersion}`);
 	} else {
 		// Auto-detect mode - parse package.json
-		core.info("Auto-detecting configuration from package.json");
+		info("Auto-detecting configuration from package.json");
 
 		const packageJsonConfig = await parsePackageJson();
 
@@ -302,7 +300,7 @@ async function detectConfiguration(): Promise<SetupResult> {
 		runtimeVersions.biome = biome.version;
 	}
 
-	core.endGroup();
+	endGroup();
 
 	return {
 		runtimes,
@@ -326,7 +324,7 @@ async function detectConfiguration(): Promise<SetupResult> {
  * @param packageManager - Package manager to use
  */
 async function installDependencies(packageManager: PackageManager): Promise<void> {
-	core.startGroup(formatInstallation(`dependencies with ${formatPackageManager(packageManager)}`));
+	startGroup(formatInstallation(`dependencies with ${formatPackageManager(packageManager)}`));
 
 	try {
 		let command: string[];
@@ -356,17 +354,17 @@ async function installDependencies(packageManager: PackageManager): Promise<void
 			case "deno":
 				// Deno caches dependencies automatically on first use
 				// Skip explicit install step as 'deno install' is for CLI tools in Deno 1.x
-				core.info("Deno caches dependencies automatically, skipping install step");
+				info("Deno caches dependencies automatically, skipping install step");
 				return;
 		}
 
-		await exec.exec(packageManager, command);
+		await exec(packageManager, command);
 
-		core.info(formatSuccess("Dependencies installed successfully"));
+		info(formatSuccess("Dependencies installed successfully"));
 	} catch (error) {
 		throw new Error(`Failed to install dependencies: ${error instanceof Error ? error.message : String(error)}`);
 	} finally {
-		core.endGroup();
+		endGroup();
 	}
 }
 
@@ -412,10 +410,10 @@ async function main(): Promise<void> {
 
 		// Get all active package managers based on runtimes
 		const activePackageManagers = getActivePackageManagers(config.runtimes, config.packageManager);
-		//core.info(`Active package managers: ${activePackageManagers.join(", ")}`);
+		//info(`Active package managers: ${activePackageManagers.join(", ")}`);
 
 		// Save package manager to state for post action
-		core.saveState("PACKAGE_MANAGER", config.packageManager);
+		saveState("PACKAGE_MANAGER", config.packageManager);
 
 		// 2. Restore cache before installing runtimes (always run to generate cache key state for post action)
 		// This allows us to restore both dependencies AND runtime installations from cache
@@ -496,18 +494,18 @@ async function main(): Promise<void> {
 		setOutput("turbo-enabled", config.turboEnabled);
 
 		// Summary
-		core.startGroup("✅ Runtime Setup Complete");
-		core.info(`Runtime(s): ${config.runtimes.map((r) => formatRuntime(r)).join(", ")}`);
-		if (installedVersions.node) core.info(`${formatRuntime("node")}: ${installedVersions.node}`);
-		if (installedVersions.bun) core.info(`${formatRuntime("bun")}: ${installedVersions.bun}`);
-		if (installedVersions.deno) core.info(`${formatRuntime("deno")}: ${installedVersions.deno}`);
-		core.info(`${formatPackageManager(config.packageManager)}: ${config.packageManagerVersion}`);
-		core.info(`Turbo: ${config.turboEnabled ? "enabled" : "disabled"}`);
-		core.info(`Biome: ${config.biomeVersion ? `v${config.biomeVersion}` : "not installed"}`);
-		core.info(`Dependencies: ${config.installDeps ? "installed" : "skipped"}`);
-		core.endGroup();
+		startGroup("✅ Runtime Setup Complete");
+		info(`Runtime(s): ${config.runtimes.map((r) => formatRuntime(r)).join(", ")}`);
+		if (installedVersions.node) info(`${formatRuntime("node")}: ${installedVersions.node}`);
+		if (installedVersions.bun) info(`${formatRuntime("bun")}: ${installedVersions.bun}`);
+		if (installedVersions.deno) info(`${formatRuntime("deno")}: ${installedVersions.deno}`);
+		info(`${formatPackageManager(config.packageManager)}: ${config.packageManagerVersion}`);
+		info(`Turbo: ${config.turboEnabled ? "enabled" : "disabled"}`);
+		info(`Biome: ${config.biomeVersion ? `v${config.biomeVersion}` : "not installed"}`);
+		info(`Dependencies: ${config.installDeps ? "installed" : "skipped"}`);
+		endGroup();
 	} catch (error) {
-		core.setFailed(`Failed to setup runtime: ${error instanceof Error ? error.message : String(error)}`);
+		setFailed(`Failed to setup runtime: ${error instanceof Error ? error.message : String(error)}`);
 	}
 }
 

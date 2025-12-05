@@ -1,4 +1,4 @@
-import * as core from "@actions/core";
+import { endGroup, startGroup, warning } from "@actions/core";
 import { saveCache } from "./utils/cache-utils.js";
 
 /**
@@ -16,17 +16,16 @@ import { saveCache } from "./utils/cache-utils.js";
  */
 async function post(): Promise<void> {
 	try {
-		core.startGroup("🏁 Post-action: Saving cache");
+		startGroup("🏁 Post-action: Saving cache");
 
 		// Save the cache if needed
 		await saveCache();
 
-		core.info("✓ Post-action completed successfully");
-		core.endGroup();
+		endGroup();
 	} catch (error) {
-		core.endGroup();
+		endGroup();
 		// Don't fail the workflow on post-action errors
-		core.warning(`Post-action encountered an error: ${error instanceof Error ? error.message : String(error)}`);
+		warning(`Post-action encountered an error: ${error instanceof Error ? error.message : String(error)}`);
 	}
 }
 

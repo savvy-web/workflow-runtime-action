@@ -1,8 +1,8 @@
 import { chmod } from "node:fs/promises";
 import { arch, platform } from "node:os";
-import * as core from "@actions/core";
-import * as exec from "@actions/exec";
-import * as tc from "@actions/tool-cache";
+import { addPath, endGroup, info, startGroup } from "@actions/core";
+import { exec } from "@actions/exec";
+import { cacheDir, downloadTool, extractZip, find } from "@actions/tool-cache";
 import { formatDetection, formatInstallation, formatRuntime, formatSuccess } from "./emoji.js";
 
 /**
@@ -56,14 +56,14 @@ async function downloadDeno(version: string): Promise<string> {
 	// Deno uses v{version} tag format
 	const downloadUrl = `https://github.com/denoland/deno/releases/download/v${version}/${archiveName}`;
 
-	core.info(`Downloading Deno ${version} from ${downloadUrl}`);
+	info(`Downloading Deno ${version} from ${downloadUrl}`);
 
 	try {
 		// Download the archive
-		const downloadPath = await tc.downloadTool(downloadUrl);
+		const downloadPath = await downloadTool(downloadUrl);
 
 		// Extract the zip file
-		const extractedPath = await tc.extractZip(downloadPath);
+		const extractedPath = await extractZip(downloadPath);
 
 		// Make binary executable (Unix only)
 		if (platform() !== "win32") {
@@ -72,9 +72,9 @@ async function downloadDeno(version: string): Promise<string> {
 		}
 
 		// Cache the extracted directory
-		const cachedPath = await tc.cacheDir(extractedPath, "deno", version);
+		const cachedPath = await cacheDir(extractedPath, "deno", version);
 
-		core.info(`Deno ${version} cached at ${cachedPath}`);
+		info(`Deno ${version} cached at ${cachedPath}`);
 		return cachedPath;
 	} catch (error) {
 		throw new Error(`Failed to download Deno ${version}: ${error instanceof Error ? error.message : String(error)}`);
@@ -88,7 +88,7 @@ async function downloadDeno(version: string): Promise<string> {
  * @returns Installed Deno version
  */
 export async function installDeno(config: DenoVersionConfig): Promise<string> {
-	core.startGroup(formatInstallation(formatRuntime("deno")));
+	startGroup(formatInstallation(formatRuntime("deno")));
 
 	try {
 		const { version } = config;
@@ -98,27 +98,27 @@ export async function installDeno(config: DenoVersionConfig): Promise<string> {
 		}
 
 		// Check if already in tool cache
-		let toolPath = tc.find("deno", version);
+		let toolPath = find("deno", version);
 
 		if (toolPath) {
-			core.info(formatDetection(`Deno ${version} in tool cache: ${toolPath}`, true));
+			info(formatDetection(`Deno ${version} in tool cache: ${toolPath}`, true));
 		} else {
-			core.info(formatDetection(`Deno ${version} in cache`, false));
+			info(formatDetection(`Deno ${version} in cache`, false));
 			toolPath = await downloadDeno(version);
 		}
 
 		// Add to PATH
-		core.addPath(toolPath);
+		addPath(toolPath);
 
 		// Verify installation
-		await exec.exec("deno", ["--version"]);
+		await exec("deno", ["--version"]);
 
-		core.info(formatSuccess(`Deno ${version} installed successfully`));
-		core.endGroup();
+		info(formatSuccess(`Deno ${version} installed successfully`));
+		endGroup();
 
 		return version;
 	} catch (error) {
-		core.endGroup();
+		endGroup();
 		throw new Error(`Failed to install Deno: ${error instanceof Error ? error.message : String(error)}`);
 	}
 }
