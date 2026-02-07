@@ -25,7 +25,7 @@ inputs:
     required: false
     default: ""
   biome-version:
-    description: Biome version to install (e.g., '2.3.6'). If not provided, auto-detects from biome.jsonc/biome.json $schema field. Leave empty to skip.
+    description: Biome version to install (e.g., '2.3.14'). If not provided, auto-detects from biome.jsonc/biome.json $schema field. Leave empty to skip.
     required: false
     default: ""
   turbo-token:
@@ -70,7 +70,7 @@ outputs:
   package-manager-version:
     description: The package manager version (e.g., '10.20.0')
   biome-version:
-    description: The Biome version that was installed (e.g., '2.3.6' or empty if not installed)
+    description: The Biome version that was installed (e.g., '2.3.14' or empty if not installed)
   biome-enabled:
     description: Whether Biome was installed (true | false)
   turbo-enabled:
