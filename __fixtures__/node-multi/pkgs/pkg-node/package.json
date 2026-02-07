@@ -3,7 +3,7 @@
 	"version": "1.0.0",
 	"description": "Node.js with npm test project",
 	"dependencies": {
-    	"@jsr/std__text": "^1.0.16",
+		"@jsr/std__text": "^1.0.16",
 		"isarray": "1.0.0"
 	}
 }
