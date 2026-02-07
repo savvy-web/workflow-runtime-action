@@ -1,5 +1,5 @@
 import { readdirSync } from "node:fs";
-import { arch, platform } from "node:os";
+import { arch, platform, tmpdir } from "node:os";
 import * as core from "@actions/core";
 import * as exec from "@actions/exec";
 import * as tc from "@actions/tool-cache";
@@ -132,6 +132,7 @@ describe("setupPackageManager", () => {
 		vi.mocked(core.startGroup).mockImplementation(() => {});
 		vi.mocked(core.endGroup).mockImplementation(() => {});
 		vi.mocked(exec.exec).mockResolvedValue(0);
+		vi.mocked(tmpdir).mockReturnValue("/tmp");
 	});
 
 	afterEach(() => {
@@ -151,7 +152,7 @@ describe("setupPackageManager", () => {
 			await setupPackageManager("pnpm", "10.20.0");
 
 			expect(core.info).toHaveBeenCalledWith("Node.js v25.0.0 detected - corepack not bundled, installing globally...");
-			expect(exec.exec).toHaveBeenCalledWith("npm", ["install", "-g", "--force", "corepack@latest"]);
+			expect(exec.exec).toHaveBeenCalledWith("npm", ["install", "-g", "--force", "corepack@latest"], { cwd: "/tmp" });
 			expect(core.info).toHaveBeenCalledWith("✅ corepack installed successfully");
 		});
 
@@ -167,7 +168,7 @@ describe("setupPackageManager", () => {
 			await setupPackageManager("pnpm", "10.20.0");
 
 			expect(core.info).toHaveBeenCalledWith("Node.js v26.1.0 detected - corepack not bundled, installing globally...");
-			expect(exec.exec).toHaveBeenCalledWith("npm", ["install", "-g", "--force", "corepack@latest"]);
+			expect(exec.exec).toHaveBeenCalledWith("npm", ["install", "-g", "--force", "corepack@latest"], { cwd: "/tmp" });
 		});
 
 		it("should NOT install corepack globally when Node.js < 25", async () => {
@@ -183,7 +184,11 @@ describe("setupPackageManager", () => {
 
 			// Should NOT install corepack
 			expect(core.info).not.toHaveBeenCalledWith(expect.stringContaining("corepack not bundled"));
-			expect(exec.exec).not.toHaveBeenCalledWith("npm", ["install", "-g", "--force", "corepack@latest"]);
+			expect(exec.exec).not.toHaveBeenCalledWith(
+				"npm",
+				["install", "-g", "--force", "corepack@latest"],
+				expect.anything(),
+			);
 		});
 
 		it("should handle malformed Node.js version gracefully", async () => {
@@ -198,7 +203,11 @@ describe("setupPackageManager", () => {
 			// Should not throw, just skip corepack installation
 			await setupPackageManager("pnpm", "10.20.0");
 
-			expect(exec.exec).not.toHaveBeenCalledWith("npm", ["install", "-g", "--force", "corepack@latest"]);
+			expect(exec.exec).not.toHaveBeenCalledWith(
+				"npm",
+				["install", "-g", "--force", "corepack@latest"],
+				expect.anything(),
+			);
 		});
 	});
 
@@ -215,10 +224,10 @@ describe("setupPackageManager", () => {
 			await setupPackageManager("pnpm", "10.20.0");
 
 			expect(core.info).toHaveBeenCalledWith("Enabling corepack...");
-			expect(exec.exec).toHaveBeenCalledWith("corepack", ["enable"]);
+			expect(exec.exec).toHaveBeenCalledWith("corepack", ["enable"], { cwd: "/tmp" });
 			expect(core.info).toHaveBeenCalledWith("Preparing package manager pnpm@10.20.0...");
-			expect(exec.exec).toHaveBeenCalledWith("corepack", ["prepare", "pnpm@10.20.0", "--activate"]);
-			expect(exec.exec).toHaveBeenCalledWith("pnpm", ["--version"]);
+			expect(exec.exec).toHaveBeenCalledWith("corepack", ["prepare", "pnpm@10.20.0", "--activate"], { cwd: "/tmp" });
+			expect(exec.exec).toHaveBeenCalledWith("pnpm", ["--version"], { cwd: "/tmp" });
 		});
 	});
 
@@ -235,10 +244,10 @@ describe("setupPackageManager", () => {
 			await setupPackageManager("yarn", "4.0.0");
 
 			expect(core.info).toHaveBeenCalledWith("Enabling corepack...");
-			expect(exec.exec).toHaveBeenCalledWith("corepack", ["enable"]);
+			expect(exec.exec).toHaveBeenCalledWith("corepack", ["enable"], { cwd: "/tmp" });
 			expect(core.info).toHaveBeenCalledWith("Preparing package manager yarn@4.0.0...");
-			expect(exec.exec).toHaveBeenCalledWith("corepack", ["prepare", "yarn@4.0.0", "--activate"]);
-			expect(exec.exec).toHaveBeenCalledWith("yarn", ["--version"]);
+			expect(exec.exec).toHaveBeenCalledWith("corepack", ["prepare", "yarn@4.0.0", "--activate"], { cwd: "/tmp" });
+			expect(exec.exec).toHaveBeenCalledWith("yarn", ["--version"], { cwd: "/tmp" });
 		});
 	});
 

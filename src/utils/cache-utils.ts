@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
-import { platform } from "node:os";
+import { platform, tmpdir } from "node:os";
 import { restoreCache as cacheRestore, saveCache as cacheSave } from "@actions/cache";
 import { debug, endGroup, getState, info, saveState, startGroup, warning } from "@actions/core";
 import { exec } from "@actions/exec";
@@ -85,8 +85,12 @@ function parseListInput(input: string): string[] {
 async function detectCachePath(packageManager: PackageManager): Promise<string | null> {
 	try {
 		let output = "";
+		// Run from tmpdir to prevent pnpm from reading pnpm-workspace.yaml
+		// configDependencies, which can hang on first run.
+		// See: https://github.com/renovatebot/renovate/issues/39902
 		const options = {
 			silent: true,
+			cwd: tmpdir(),
 			listeners: {
 				stdout: (data: Buffer): void => {
 					output += data.toString();
