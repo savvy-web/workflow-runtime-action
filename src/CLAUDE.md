@@ -82,7 +82,7 @@ Biome CLI installation.
 
   ```json
   {
-    "$schema": "https://biomejs.dev/schemas/2.3.6/schema.json"
+    "$schema": "https://biomejs.dev/schemas/2.3.14/schema.json"
   }
   ```
 

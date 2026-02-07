@@ -1,16 +1,12 @@
 name: Test Runtime Fixture
 description: Complete test workflow - setup fixture, run runtime action, and verify outputs
-
 inputs:
-  # Test configuration
   fixture:
     description: Name of the fixture directory in __fixtures__/
     required: true
   title:
     description: Title for the test results section (including emoji)
     required: true
-
-  # Runtime action inputs (all optional)
   node-version:
     description: Node.js version to install
     required: false
@@ -49,8 +45,6 @@ inputs:
   additional-cache-paths:
     description: Additional paths to cache/restore
     required: false
-
-  # Expected output values for validation (all optional)
   expected-node-version:
     description: Expected Node.js version
     required: false
@@ -93,8 +87,6 @@ inputs:
   expected-cache-paths:
     description: Expected cache paths (comma-separated patterns or regex)
     required: false
-
-  # Cache testing expectations
   expected-first-run-cache-hit:
     description: Expected cache hit status for first run (cache miss expected)
     required: false
@@ -107,13 +99,10 @@ inputs:
   expected-cache-restored:
     description: Expected cache restoration verification status
     required: false
-
-  # Cache testing
   test-cache:
     description: Whether to test cache effectiveness (runs action twice)
     required: false
     default: "false"
-
 outputs:
   node-version:
     description: Installed Node.js version
@@ -163,11 +152,9 @@ outputs:
   test-results:
     description: JSON string of test results
     value: ${{ steps.verify.outputs.test-results }}
-
 runs:
   using: composite
   steps:
-    # Step 0: Compute cache bust value based on cache-bust input
     - name: Compute cache bust value
       id: compute-cache-bust
       shell: bash
@@ -189,8 +176,6 @@ runs:
         fi
 
         echo "cache-bust=$cache_bust_value" >> $GITHUB_OUTPUT
-
-    # Step 1: Setup the test fixture
     - name: Setup fixture
       id: setup-fixture
       continue-on-error: true
@@ -293,12 +278,10 @@ runs:
                 f.write(f"setup-error={escaped_error}\n")
 
             sys.exit(1)
-
-    # Step 2: Run the runtime setup action (single run mode)
     - name: Setup runtime
       id: setup
       if: inputs.test-cache != 'true'
-      uses: ./.github/actions/runtime
+      uses: savvy-web/workflow-runtime-action@feat/github-action-builder
       with:
         node-version: ${{ inputs.node-version }}
         bun-version: ${{ inputs.bun-version }}
@@ -312,8 +295,6 @@ runs:
         cache-bust: ${{ steps.compute-cache-bust.outputs.cache-bust }}
         additional-lockfiles: ${{ inputs.additional-lockfiles }}
         additional-cache-paths: ${{ inputs.additional-cache-paths }}
-
-    # Step 2a: First run for cache testing (cache miss expected)
     - name: First run (cache miss)
       id: setup1
       if: inputs.test-cache == 'true'
@@ -331,8 +312,6 @@ runs:
         cache-bust: ${{ steps.compute-cache-bust.outputs.cache-bust }}
         additional-lockfiles: ${{ inputs.additional-lockfiles }}
         additional-cache-paths: ${{ inputs.additional-cache-paths }}
-
-    # Step 2b: Verify dependencies installed after first run
     - name: Verify dependencies installed
       id: verify-deps
       if: inputs.test-cache == 'true'
@@ -353,8 +332,6 @@ runs:
 
         with open(github_output, "a") as f:
             f.write("deps-verified=true\n")
-
-    # Step 2c: Clear node_modules for second run
     - name: Clear node_modules for second run
       if: inputs.test-cache == 'true'
       shell: python
@@ -366,8 +343,6 @@ runs:
         node_modules = Path("node_modules")
         if node_modules.exists():
             shutil.rmtree(node_modules)
-
-    # Step 2d: Second run for cache testing (cache hit expected)
     - name: Second run (cache hit expected)
       id: setup2
       if: inputs.test-cache == 'true'
@@ -385,8 +360,6 @@ runs:
         cache-bust: ${{ steps.compute-cache-bust.outputs.cache-bust }}
         additional-lockfiles: ${{ inputs.additional-lockfiles }}
         additional-cache-paths: ${{ inputs.additional-cache-paths }}
-
-    # Step 2e: Verify cache restoration
     - name: Verify cache restoration
       id: verify-cache
       if: inputs.test-cache == 'true'
@@ -414,8 +387,6 @@ runs:
 
         with open(github_output, "a") as f:
             f.write("cache-verified=true\n")
-
-    # Step 3: Verify outputs
     - name: Verify outputs
       id: verify
       shell: python

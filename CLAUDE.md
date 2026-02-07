@@ -91,7 +91,7 @@ Repositories using this action **MUST** have a `package.json` in their root dire
 * **Action type:** Compiled Node.js action (uses `node24` runtime)
 * **Package manager:** pnpm 10.20.0 (specified in package.json)
 * **Node.js version:** 24.11.0 (specified in package.json devEngines.runtime)
-* **Linting:** Biome 2.3.6 with strict rules
+* **Linting:** Biome 2.3.14 with strict rules
 * **Testing:** Vitest with comprehensive unit tests + fixture-based workflow tests
 * **Type checking:** TypeScript with native preview build (`@typescript/native-preview`)
 
@@ -211,7 +211,7 @@ All inputs are **optional**. If not provided, values are auto-detected from
 
 ### Feature Inputs
 
-* **`biome-version`** - Biome version to install (e.g., `2.3.6`). If not
+* **`biome-version`** - Biome version to install (e.g., `2.3.14`). If not
   provided, auto-detects from `biome.jsonc` or `biome.json` `$schema` field.
   Leave empty to skip Biome installation.
 * **`install-deps`** - Whether to install dependencies (`true` | `false`).
@@ -251,7 +251,7 @@ All inputs are **optional**. If not provided, values are auto-detected from
 
 ### Feature Outputs
 
-* **`biome-version`** - Installed Biome version (e.g., `"2.3.6"`) or empty if
+* **`biome-version`** - Installed Biome version (e.g., `"2.3.14"`) or empty if
   not installed
 * **`biome-enabled`** - Whether Biome was installed (`"true"` | `"false"`)
 * **`turbo-enabled`** - Whether Turbo configuration was detected (`"true"` |
