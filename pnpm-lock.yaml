@@ -79,12 +79,6 @@ importers:
       '@changesets/cli':
         specifier: catalog:silk
         version: 2.29.8(@types/node@25.2.1)
-      '@octokit/core':
-        specifier: ^7.0.6
-        version: 7.0.6
-      '@octokit/types':
-        specifier: ^16.0.0
-        version: 16.0.0
       '@savvy-web/commitlint':
         specifier: ^0.3.0
         version: 0.3.0(95ac9d7cb2cb946f07056805735a2bd1)
@@ -106,9 +100,6 @@ importers:
       turbo:
         specifier: catalog:silk
         version: 2.8.3
-      type-fest:
-        specifier: ^5.2.0
-        version: 5.4.3
       typescript:
         specifier: catalog:silk
         version: 5.9.3
@@ -2432,10 +2423,6 @@ packages:
     resolution: {integrity: sha512-ot0WnXS9fgdkgIcePe6RHNk1WA8+muPa6cSjeR3V8K27q9BB1rTE3R1p7Hv0z1ZyAc8s6Vvv8DIyWf681MAt0w==}
     engines: {node: '>= 0.4'}
 
-  tagged-tag@1.0.0:
-    resolution: {integrity: sha512-yEFYrVhod+hdNyx7g5Bnkkb0G6si8HJurOoOEgC8B/O0uXLHlaey/65KRv6cuWBNhBgHKAROVpc7QyYqE5gFng==}
-    engines: {node: '>=20'}
-
   term-size@2.2.1:
     resolution: {integrity: sha512-wK0Ri4fOGjv/XPy8SBHZChl8CM7uMc5VML7SqiQ0zG7+J5Vr+RMQDoHa2CNT6KHUnTGIXH34UDMkPzAUyapBZg==}
     engines: {node: '>=8'}
@@ -2515,10 +2502,6 @@ packages:
   type-check@0.4.0:
     resolution: {integrity: sha512-XleUoc9uwGXqjWwXaUTZAmzMcFZ5858QA2vvx1Ur5xIcixXIP+8LnFDgRplU30us6teqdlskFfu+ae4K79Ooew==}
     engines: {node: '>= 0.8.0'}
-
-  type-fest@5.4.3:
-    resolution: {integrity: sha512-AXSAQJu79WGc79/3e9/CR77I/KQgeY1AhNvcShIH4PTcGYyC4xv6H4R4AUOwkPS5799KlVDAu8zExeCrkGquiA==}
-    engines: {node: '>=20'}
 
   typescript@5.9.3:
     resolution: {integrity: sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==}
@@ -5218,8 +5201,6 @@ snapshots:
 
   supports-preserve-symlinks-flag@1.0.0: {}
 
-  tagged-tag@1.0.0: {}
-
   term-size@2.2.1: {}
 
   tinybench@2.9.0: {}
@@ -5279,10 +5260,6 @@ snapshots:
   type-check@0.4.0:
     dependencies:
       prelude-ls: 1.2.1
-
-  type-fest@5.4.3:
-    dependencies:
-      tagged-tag: 1.0.0
 
   typescript@5.9.3: {}
 

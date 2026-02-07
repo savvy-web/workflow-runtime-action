@@ -1,6 +1,6 @@
 {
 	"name": "@savvy-web/workflow-runtime-action",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"private": false,
 	"description": "Comprehensive Node.js runtime setup action with automatic package manager detection, dependency caching, and Turbo build cache configuration",
 	"repository": {
@@ -9,21 +9,25 @@
 	},
 	"type": "module",
 	"scripts": {
-		"build": "github-action-builder build",
-		"ci:publish": "changeset publish",
-		"ci:test": "vitest --run --reporter=verbose",
+		"build": "turbo run build:prod --log-order=grouped",
+		"build:inspect": "rslib inspect --config-loader native --env-mode npm --verbose",
+		"build:prod": "github-action-builder build",
+		"ci:build": "CI=\"true\" turbo run build:prod --log-order=grouped --output-logs=full",
+		"ci:test": "CI=\"true\" vitest run --coverage",
 		"ci:version": "changeset version && biome format --write .",
+		"commit:check": "savvy-commit check",
+		"commit:init": "savvy-commit init",
 		"lint": "biome check --max-diagnostics=none",
 		"lint:fix": "biome check --write --max-diagnostics=none",
 		"lint:fix:unsafe": "biome check --write --unsafe --max-diagnostics=none",
 		"lint:md": "markdownlint-cli2 '**/*.{md,mdx}' --config './lib/configs/.markdownlint-cli2.jsonc'",
 		"lint:md:fix": "markdownlint-cli2  --config './lib/configs/.markdownlint-cli2.jsonc' --fix",
-		"lint:md:fix:file": "markdownlint-cli2 '**/*.{md,mdx}' --config './lib/configs/.markdownlint-cli2.jsonc' --fix",
-		"lint:md:ws": "markdownlint-cli2  --config './lib/configs/.markdownlint-cli2.jsonc' --fix",
 		"prepare": "husky",
-		"test": "vitest --run --reporter=verbose",
-		"typecheck": "turbo run typecheck:all --log-prefix=none",
-		"typecheck:all": "tsgo --noEmit",
+		"test": "vitest run --pass-with-no-tests",
+		"test:coverage": "vitest run --coverage --pass-with-no-tests",
+		"test:watch": "vitest --watch --pass-with-no-tests",
+		"typecheck": "turbo run types:check --log-prefix=none --log-order=grouped",
+		"types:check": "tsgo --noEmit",
 		"validate": "github-action-builder validate"
 	},
 	"dependencies": {
@@ -42,8 +46,6 @@
 	},
 	"devDependencies": {
 		"@changesets/cli": "catalog:silk",
-		"@octokit/core": "^7.0.6",
-		"@octokit/types": "^16.0.0",
 		"@savvy-web/commitlint": "^0.3.0",
 		"@savvy-web/github-action-builder": "^0.1.0",
 		"@savvy-web/lint-staged": "^0.3.1",
@@ -51,7 +53,6 @@
 		"@typescript/native-preview": "catalog:silk",
 		"@vitest/coverage-v8": "catalog:silk",
 		"turbo": "catalog:silk",
-		"type-fest": "^5.2.0",
 		"typescript": "catalog:silk",
 		"vitest": "catalog:silk"
 	},
