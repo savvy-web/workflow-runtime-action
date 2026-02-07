@@ -1,92 +1,87 @@
-name: "Setup JavaScript Runtime Environment"
-description: "Comprehensive JavaScript runtime setup (Node.js, Bun, Deno) configured via package.json devEngines.runtime, with dependency caching, Turbo build cache, and optional Biome linter configuration"
-
+name: Setup JavaScript Runtime Environment
+description: Comprehensive JavaScript runtime setup (Node.js, Bun, Deno) configured via package.json devEngines.runtime, with dependency caching, Turbo build cache, and optional Biome linter configuration
 branding:
-  icon: "package"
-  color: "green"
-
+  icon: package
+  color: green
 inputs:
   node-version:
-    description: "Node.js version to install (e.g., '24.10.0'). Overrides package.json devEngines.runtime if provided."
+    description: Node.js version to install (e.g., '24.10.0'). Overrides package.json devEngines.runtime if provided.
     required: false
     default: ""
   bun-version:
-    description: "Bun version to install (e.g., '1.3.3'). Overrides package.json devEngines.runtime if provided."
+    description: Bun version to install (e.g., '1.3.3'). Overrides package.json devEngines.runtime if provided.
     required: false
     default: ""
   deno-version:
-    description: "Deno version to install (e.g., '2.5.6'). Overrides package.json devEngines.runtime if provided."
+    description: Deno version to install (e.g., '2.5.6'). Overrides package.json devEngines.runtime if provided.
     required: false
     default: ""
   package-manager:
-    description: "Package manager name (npm | pnpm | yarn | bun | deno). Overrides package.json devEngines.packageManager if provided."
+    description: Package manager name (npm | pnpm | yarn | bun | deno). Overrides package.json devEngines.packageManager if provided.
     required: false
     default: ""
   package-manager-version:
-    description: "Package manager version (e.g., '10.20.0'). Overrides package.json devEngines.packageManager if provided."
+    description: Package manager version (e.g., '10.20.0'). Overrides package.json devEngines.packageManager if provided.
     required: false
     default: ""
   biome-version:
-    description: "Biome version to install (e.g., '2.3.6'). If not provided, auto-detects from biome.jsonc/biome.json $schema field. Leave empty to skip."
+    description: Biome version to install (e.g., '2.3.6'). If not provided, auto-detects from biome.jsonc/biome.json $schema field. Leave empty to skip.
     required: false
     default: ""
   turbo-token:
-    description: "Turbo remote cache token (optional, for Vercel Remote Cache)"
+    description: Turbo remote cache token (optional, for Vercel Remote Cache)
     required: false
     default: ""
   turbo-team:
-    description: "Turbo team slug (optional, for Vercel Remote Cache)"
+    description: Turbo team slug (optional, for Vercel Remote Cache)
     required: false
     default: ""
   install-deps:
-    description: "Whether to install dependencies (true | false). Set to false to skip dependency installation."
+    description: Whether to install dependencies (true | false). Set to false to skip dependency installation.
     required: false
     default: "true"
   cache-bust:
-    description: "Cache busting for testing - 'true' (auto-generate), 'false' (normal cache), or custom string. Only use for testing - do not use in production!"
+    description: Cache busting for testing - 'true' (auto-generate), 'false' (normal cache), or custom string. Only use for testing - do not use in production!
     required: false
     default: "false"
   additional-lockfiles:
-    description: "Additional lockfile patterns to include in cache key generation. Multiline string with glob patterns (e.g., '**/some.lock', '**/some.db')."
+    description: Additional lockfile patterns to include in cache key generation. Multiline string with glob patterns (e.g., '**/some.lock', '**/some.db').
     required: false
     default: ""
   additional-cache-paths:
-    description: "Additional paths to cache/restore. Multiline string with glob patterns (e.g., '**/build', '**/dist')."
+    description: Additional paths to cache/restore. Multiline string with glob patterns (e.g., '**/build', '**/dist').
     required: false
     default: ""
-
 outputs:
   node-version:
-    description: "The Node.js version that was installed (e.g., '24.10.0' or empty if not installed)"
+    description: The Node.js version that was installed (e.g., '24.10.0' or empty if not installed)
   node-enabled:
-    description: "Whether Node.js was installed (true | false)"
+    description: Whether Node.js was installed (true | false)
   bun-version:
-    description: "The Bun version that was installed (e.g., '1.3.3' or empty if not installed)"
+    description: The Bun version that was installed (e.g., '1.3.3' or empty if not installed)
   bun-enabled:
-    description: "Whether Bun was installed (true | false)"
+    description: Whether Bun was installed (true | false)
   deno-version:
-    description: "The Deno version that was installed (e.g., '2.5.6' or empty if not installed)"
+    description: The Deno version that was installed (e.g., '2.5.6' or empty if not installed)
   deno-enabled:
-    description: "Whether Deno was installed (true | false)"
+    description: Whether Deno was installed (true | false)
   package-manager:
-    description: "The package manager name (npm | pnpm | yarn | bun | deno)"
+    description: The package manager name (npm | pnpm | yarn | bun | deno)
   package-manager-version:
-    description: "The package manager version (e.g., '10.20.0')"
+    description: The package manager version (e.g., '10.20.0')
   biome-version:
-    description: "The Biome version that was installed (e.g., '2.3.6' or empty if not installed)"
+    description: The Biome version that was installed (e.g., '2.3.6' or empty if not installed)
   biome-enabled:
-    description: "Whether Biome was installed (true | false)"
+    description: Whether Biome was installed (true | false)
   turbo-enabled:
-    description: "Whether Turbo configuration was detected (true | false)"
+    description: Whether Turbo configuration was detected (true | false)
   cache-hit:
-    description: "Whether dependencies were restored from cache (true | partial | false | n/a)"
+    description: Whether dependencies were restored from cache (true | partial | false | n/a)
   lockfiles:
-    description: "Comma-separated list of detected lockfiles used for cache key generation (e.g., 'pnpm-lock.yaml,deno.lock')"
+    description: Comma-separated list of detected lockfiles used for cache key generation (e.g., 'pnpm-lock.yaml,deno.lock')
   cache-paths:
-    description: "Comma-separated list of cache paths being cached/restored (e.g., '/home/runner/.cache/deno,**/node_modules')"
-
+    description: Comma-separated list of cache paths being cached/restored (e.g., '/home/runner/.cache/deno,**/node_modules')
 runs:
-  using: "node24"
-  pre: "dist/pre.js"
-  main: "dist/main.js"
-  post: "dist/post.js"
+  using: node24
+  main: dist/main.js
+  post: dist/post.js
