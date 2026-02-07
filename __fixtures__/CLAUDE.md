@@ -205,7 +205,7 @@ Include feature configuration files:
 ```bash
 # biome.jsonc
 {
-  "$schema": "https://biomejs.dev/schemas/2.3.6/schema.json"
+  "$schema": "https://biomejs.dev/schemas/2.3.14/schema.json"
 }
 
 # turbo.json

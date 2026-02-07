@@ -1,35 +1,30 @@
 name: Tests
-
 on:
-  workflow_dispatch:
+  workflow_dispatch: null
   push:
-    branches: [main]
+    branches:
+      - main
     paths:
-      - "src/**"
-      - "dist/**"
-      - "action.yml"
-      - "__fixtures__/**"
-      - ".github/actions/runtime/**"
-      - ".github/actions/test-fixture/**"
-      - ".github/workflows/test.yml"
+      - src/**
+      - dist/**
+      - action.yml
+      - __fixtures__/**
+      - .github/actions/runtime/**
+      - .github/actions/test-fixture/**
+      - .github/workflows/test.yml
   pull_request:
     paths:
-      - "src/**"
-      - "dist/**"
-      - "action.yml"
-      - "__fixtures__/**"
-      - ".github/actions/runtime/**"
-      - ".github/actions/test-fixture/**"
-      - ".github/workflows/test.yml"
-
+      - src/**
+      - dist/**
+      - action.yml
+      - __fixtures__/**
+      - .github/actions/runtime/**
+      - .github/actions/test-fixture/**
+      - .github/workflows/test.yml
 concurrency:
-  group: "tests-${{ github.ref }}"
+  group: tests-${{ github.ref }}
   cancel-in-progress: true
-
 jobs:
-  # ============================================================================
-  # Node.js Tests - Create Cache
-  # ============================================================================
   test-node-create-cache:
     name: node | ${{ matrix.pm }} | create cache | ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
@@ -37,79 +32,77 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        pm: [npm, pnpm, yarn, multi]
+        os:
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
+        pm:
+          - npm
+          - pnpm
+          - yarn
+          - multi
         include:
-          # NPM - create cache
           - pm: npm
             fixture: node-npm
             install-deps: "true"
             expected-cache-hit: "false"
             expected-node-enabled: "true"
-            expected-node-version: "24.9.0"
+            expected-node-version: 24.9.0
             expected-package-manager: npm
-            expected-package-manager-version: "11.6.0"
+            expected-package-manager-version: 11.6.0
             expected-deno-enabled: "false"
             expected-bun-enabled: "false"
             expected-biome-enabled: "false"
             expected-turbo-enabled: "false"
-            test-command: "node --version && npm --version"
-            title: "📦 NPM (Create Cache)"
-
-          # PNPM - create cache
+            test-command: node --version && npm --version
+            title: 📦 NPM (Create Cache)
           - pm: pnpm
             fixture: node-pnpm
             install-deps: "true"
             expected-cache-hit: "false"
             expected-node-enabled: "true"
-            expected-node-version: "20.11.0"
+            expected-node-version: 20.11.0
             expected-package-manager: pnpm
-            expected-package-manager-version: "10.20.0"
+            expected-package-manager-version: 10.20.0
             expected-deno-enabled: "false"
             expected-bun-enabled: "false"
             expected-biome-enabled: "false"
             expected-turbo-enabled: "false"
-            test-command: "node --version && pnpm --version"
-            title: "📦 PNPM (Create Cache)"
-
-          # Yarn - create cache
+            test-command: node --version && pnpm --version
+            title: 📦 PNPM (Create Cache)
           - pm: yarn
             fixture: node-yarn
             install-deps: "true"
             expected-cache-hit: "false"
             expected-node-enabled: "true"
-            expected-node-version: "20.11.0"
+            expected-node-version: 20.11.0
             expected-package-manager: yarn
-            expected-package-manager-version: "4.0.0"
+            expected-package-manager-version: 4.0.0
             expected-deno-enabled: "false"
             expected-bun-enabled: "false"
             expected-biome-enabled: "false"
             expected-turbo-enabled: "false"
-            test-command: "node --version && yarn --version"
-            title: "📦 Yarn (Create Cache)"
-
-          # Multi-runtime - create cache
+            test-command: node --version && yarn --version
+            title: 📦 Yarn (Create Cache)
           - pm: multi
             fixture: node-multi
             install-deps: "true"
             expected-cache-hit: "false"
             expected-node-enabled: "true"
-            expected-node-version: "25.0.0"
+            expected-node-version: 25.0.0
             expected-bun-enabled: "true"
-            expected-bun-version: "1.3.3"
+            expected-bun-version: 1.3.3
             expected-deno-enabled: "true"
-            expected-deno-version: "2.5.6"
+            expected-deno-version: 2.5.6
             expected-package-manager: pnpm
-            expected-package-manager-version: "10.23.0"
+            expected-package-manager-version: 10.23.0
             expected-biome-enabled: "false"
             expected-turbo-enabled: "false"
-            test-command: "node --version && bun --version && deno --version && pnpm --version"
-            title: "📦 Multi-Runtime (Create Cache)"
-
+            test-command: node --version && bun --version && deno --version && pnpm --version
+            title: 📦 Multi-Runtime (Create Cache)
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-
       - name: Test fixture
         id: test
         continue-on-error: true
@@ -130,12 +123,10 @@ jobs:
           expected-biome-enabled: ${{ matrix.expected-biome-enabled || '' }}
           expected-turbo-enabled: ${{ matrix.expected-turbo-enabled || '' }}
           expected-cache-hit: ${{ matrix.expected-cache-hit || '' }}
-
       - name: Test runtime
         if: matrix.test-command != ''
         continue-on-error: true
         run: ${{ matrix.test-command }}
-
       - name: Save test results
         if: always()
         uses: ./.github/actions/save-test-results
@@ -146,7 +137,6 @@ jobs:
           os: ${{ matrix.os }}
           title: ${{ matrix.title }}
           fixture: ${{ matrix.fixture }}
-
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v5
@@ -154,7 +144,6 @@ jobs:
           name: test-results-node-create-cache-${{ matrix.os }}-${{ strategy.job-index }}
           path: test-results/
           retention-days: 1
-
       - name: Fail job if test failed
         if: always()
         uses: ./.github/actions/fail-if-test-failed
@@ -162,89 +151,84 @@ jobs:
           test-passed: ${{ steps.test.outputs.test-passed }}
           test-outcome: ${{ steps.test.outcome }}
           test-conclusion: ${{ steps.test.conclusion }}
-
-  # ============================================================================
-  # Node.js Tests - Restore Cache
-  # ============================================================================
   test-node-restore-cache:
     name: node | ${{ matrix.pm }} | restore cache | ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 5
-    needs: [test-node-create-cache]
+    needs:
+      - test-node-create-cache
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        pm: [npm, pnpm, yarn, multi]
+        os:
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
+        pm:
+          - npm
+          - pnpm
+          - yarn
+          - multi
         include:
-          # NPM - restore cache
           - pm: npm
             fixture: node-npm
             install-deps: "true"
             expected-cache-hit: "true"
             expected-node-enabled: "true"
-            expected-node-version: "24.9.0"
+            expected-node-version: 24.9.0
             expected-package-manager: npm
-            expected-package-manager-version: "11.6.0"
+            expected-package-manager-version: 11.6.0
             expected-deno-enabled: "false"
             expected-bun-enabled: "false"
             expected-biome-enabled: "false"
             expected-turbo-enabled: "false"
-            test-command: "node --version && npm --version"
-            title: "📦 NPM (Restore Cache)"
-
-          # PNPM - restore cache
+            test-command: node --version && npm --version
+            title: 📦 NPM (Restore Cache)
           - pm: pnpm
             fixture: node-pnpm
             install-deps: "true"
             expected-cache-hit: "true"
             expected-node-enabled: "true"
-            expected-node-version: "20.11.0"
+            expected-node-version: 20.11.0
             expected-package-manager: pnpm
-            expected-package-manager-version: "10.20.0"
+            expected-package-manager-version: 10.20.0
             expected-biome-enabled: "false"
             expected-turbo-enabled: "false"
-            test-command: "node --version && pnpm --version"
-            title: "📦 PNPM (Restore Cache)"
-
-          # Yarn - restore cache
+            test-command: node --version && pnpm --version
+            title: 📦 PNPM (Restore Cache)
           - pm: yarn
             fixture: node-yarn
             install-deps: "true"
             expected-cache-hit: "true"
             expected-node-enabled: "true"
-            expected-node-version: "20.11.0"
+            expected-node-version: 20.11.0
             expected-package-manager: yarn
-            expected-package-manager-version: "4.0.0"
+            expected-package-manager-version: 4.0.0
             expected-deno-enabled: "false"
             expected-bun-enabled: "false"
             expected-biome-enabled: "false"
             expected-turbo-enabled: "false"
-            test-command: "node --version && yarn --version"
-            title: "📦 Yarn (Restore Cache)"
-
-          # Multi-runtime - restore cache
+            test-command: node --version && yarn --version
+            title: 📦 Yarn (Restore Cache)
           - pm: multi
             fixture: node-multi
             install-deps: "true"
             expected-cache-hit: "true"
             expected-node-enabled: "true"
-            expected-node-version: "25.0.0"
+            expected-node-version: 25.0.0
             expected-bun-enabled: "true"
-            expected-bun-version: "1.3.3"
+            expected-bun-version: 1.3.3
             expected-deno-enabled: "true"
-            expected-deno-version: "2.5.6"
+            expected-deno-version: 2.5.6
             expected-package-manager: pnpm
-            expected-package-manager-version: "10.23.0"
+            expected-package-manager-version: 10.23.0
             expected-biome-enabled: "false"
             expected-turbo-enabled: "false"
-            test-command: "node --version && bun --version && deno --version && pnpm --version"
-            title: "📦 Multi-Runtime (Restore Cache)"
-
+            test-command: node --version && bun --version && deno --version && pnpm --version
+            title: 📦 Multi-Runtime (Restore Cache)
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-
       - name: Test fixture
         id: test
         continue-on-error: true
@@ -265,12 +249,10 @@ jobs:
           expected-biome-enabled: ${{ matrix.expected-biome-enabled || '' }}
           expected-turbo-enabled: ${{ matrix.expected-turbo-enabled || '' }}
           expected-cache-hit: ${{ matrix.expected-cache-hit || '' }}
-
       - name: Test runtime
         if: matrix.test-command != ''
         continue-on-error: true
         run: ${{ matrix.test-command }}
-
       - name: Save test results
         if: always()
         uses: ./.github/actions/save-test-results
@@ -281,7 +263,6 @@ jobs:
           os: ${{ matrix.os }}
           title: ${{ matrix.title }}
           fixture: ${{ matrix.fixture }}
-
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v5
@@ -289,7 +270,6 @@ jobs:
           name: test-results-node-restore-cache-${{ matrix.os }}-${{ strategy.job-index }}
           path: test-results/
           retention-days: 1
-
       - name: Fail job if test failed
         if: always()
         uses: ./.github/actions/fail-if-test-failed
@@ -297,10 +277,6 @@ jobs:
           test-passed: ${{ steps.test.outputs.test-passed }}
           test-outcome: ${{ steps.test.outcome }}
           test-conclusion: ${{ steps.test.conclusion }}
-
-  # ============================================================================
-  # Explicit Inputs Tests - Test explicit version inputs + feature detection
-  # ============================================================================
   test-explicit-inputs:
     name: explicit | ${{ matrix.runtime }} | ${{ matrix.fixture }} | ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
@@ -308,131 +284,126 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        runtime: [node, bun, deno]
-        fixture: [biome-enabled, turbo-enabled]
+        os:
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
+        runtime:
+          - node
+          - bun
+          - deno
+        fixture:
+          - biome-enabled
+          - turbo-enabled
         include:
-          # Node.js + Biome fixture (auto-detect biome, no turbo)
           - runtime: node
             fixture: biome-enabled
-            node-version: "24.7.0"
+            node-version: 24.7.0
             package-manager: npm
-            package-manager-version: "11.6.1"
+            package-manager-version: 11.6.1
             expected-node-enabled: "true"
-            expected-node-version: "24.7.0"
+            expected-node-version: 24.7.0
             expected-package-manager: npm
-            expected-package-manager-version: "11.6.1"
+            expected-package-manager-version: 11.6.1
             expected-bun-enabled: "false"
             expected-bun-version: ""
             expected-deno-enabled: "false"
             expected-deno-version: ""
             expected-biome-enabled: "true"
-            expected-biome-version: "2.3.6"
+            expected-biome-version: 2.3.14
             expected-turbo-enabled: "false"
-            test-command: "node --version && npm --version"
-            title: "🔧 Node + Biome (auto-detect)"
-
-          # Node.js + Turbo fixture (auto-detect turbo, install biome)
+            test-command: node --version && npm --version
+            title: 🔧 Node + Biome (auto-detect)
           - runtime: node
             fixture: turbo-enabled
-            node-version: "24.11.0"
+            node-version: 24.11.0
             package-manager: pnpm
-            package-manager-version: "10.20.0"
-            biome-version: "2.3.6"
+            package-manager-version: 10.20.0
+            biome-version: 2.3.14
             expected-node-enabled: "true"
-            expected-node-version: "24.11.0"
+            expected-node-version: 24.11.0
             expected-package-manager: pnpm
-            expected-package-manager-version: "10.20.0"
+            expected-package-manager-version: 10.20.0
             expected-bun-enabled: "false"
             expected-bun-version: ""
             expected-deno-enabled: "false"
             expected-deno-version: ""
             expected-biome-enabled: "true"
-            expected-biome-version: "2.3.6"
+            expected-biome-version: 2.3.14
             expected-turbo-enabled: "true"
-            test-command: "node --version && pnpm --version"
-            title: "🔧 Node + Turbo (install biome)"
-
-          # Bun + Biome fixture (auto-detect biome, no turbo)
+            test-command: node --version && pnpm --version
+            title: 🔧 Node + Turbo (install biome)
           - runtime: bun
             fixture: biome-enabled
-            bun-version: "1.3.3"
+            bun-version: 1.3.3
             package-manager: bun
-            package-manager-version: "1.3.3"
+            package-manager-version: 1.3.3
             expected-node-enabled: "false"
             expected-node-version: ""
             expected-bun-enabled: "true"
-            expected-bun-version: "1.3.3"
+            expected-bun-version: 1.3.3
             expected-deno-enabled: "false"
             expected-deno-version: ""
             expected-package-manager: bun
-            expected-package-manager-version: "1.3.3"
+            expected-package-manager-version: 1.3.3
             expected-biome-enabled: "true"
-            expected-biome-version: "2.3.6"
+            expected-biome-version: 2.3.14
             expected-turbo-enabled: "false"
-            test-command: "bun --version"
-            title: "🔧 Bun + Biome (auto-detect)"
-
-          # Bun + Turbo fixture (auto-detect turbo, install biome)
+            test-command: bun --version
+            title: 🔧 Bun + Biome (auto-detect)
           - runtime: bun
             fixture: turbo-enabled
-            bun-version: "1.3.3"
+            bun-version: 1.3.3
             package-manager: bun
-            package-manager-version: "1.3.3"
-            biome-version: "2.3.6"
+            package-manager-version: 1.3.3
+            biome-version: 2.3.14
             expected-node-enabled: "false"
             expected-bun-enabled: "true"
-            expected-bun-version: "1.3.3"
+            expected-bun-version: 1.3.3
             expected-deno-enabled: "false"
             expected-package-manager: bun
-            expected-package-manager-version: "1.3.3"
+            expected-package-manager-version: 1.3.3
             expected-biome-enabled: "true"
-            expected-biome-version: "2.3.6"
+            expected-biome-version: 2.3.14
             expected-turbo-enabled: "true"
-            test-command: "bun --version"
-            title: "🔧 Bun + Turbo (install biome)"
-
-          # Deno + Biome fixture (auto-detect biome, no turbo)
+            test-command: bun --version
+            title: 🔧 Bun + Turbo (install biome)
           - runtime: deno
             fixture: biome-enabled
-            deno-version: "2.5.6"
+            deno-version: 2.5.6
             package-manager: deno
-            package-manager-version: "2.5.6"
+            package-manager-version: 2.5.6
             expected-node-enabled: "false"
             expected-bun-enabled: "false"
             expected-deno-enabled: "true"
-            expected-deno-version: "2.5.6"
+            expected-deno-version: 2.5.6
             expected-package-manager: deno
-            expected-package-manager-version: "2.5.6"
+            expected-package-manager-version: 2.5.6
             expected-biome-enabled: "true"
-            expected-biome-version: "2.3.6"
+            expected-biome-version: 2.3.14
             expected-turbo-enabled: "false"
-            test-command: "deno --version"
-            title: "🔧 Deno + Biome (auto-detect)"
-
-          # Deno + Turbo fixture (auto-detect turbo, install biome)
+            test-command: deno --version
+            title: 🔧 Deno + Biome (auto-detect)
           - runtime: deno
             fixture: turbo-enabled
-            deno-version: "2.5.6"
+            deno-version: 2.5.6
             package-manager: deno
-            package-manager-version: "2.5.6"
-            biome-version: "2.3.6"
+            package-manager-version: 2.5.6
+            biome-version: 2.3.14
             expected-node-enabled: "false"
             expected-bun-enabled: "false"
             expected-deno-enabled: "true"
-            expected-deno-version: "2.5.6"
+            expected-deno-version: 2.5.6
             expected-package-manager: deno
-            expected-package-manager-version: "2.5.6"
+            expected-package-manager-version: 2.5.6
             expected-biome-enabled: "true"
-            expected-biome-version: "2.3.6"
+            expected-biome-version: 2.3.14
             expected-turbo-enabled: "true"
-            test-command: "deno --version"
-            title: "🔧 Deno + Turbo (install biome)"
-
+            test-command: deno --version
+            title: 🔧 Deno + Turbo (install biome)
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-
       - name: Test fixture
         id: test
         continue-on-error: true
@@ -458,12 +429,10 @@ jobs:
           expected-biome-enabled: ${{ matrix.expected-biome-enabled || '' }}
           expected-biome-version: ${{ matrix.expected-biome-version || '' }}
           expected-turbo-enabled: ${{ matrix.expected-turbo-enabled || '' }}
-
       - name: Test runtime
         if: matrix.test-command != ''
         continue-on-error: true
         run: ${{ matrix.test-command }}
-
       - name: Save test results
         if: always()
         uses: ./.github/actions/save-test-results
@@ -475,7 +444,6 @@ jobs:
           title: ${{ matrix.title }}
           fixture: ${{ matrix.fixture }}
           runtime: ${{ matrix.runtime }}
-
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v5
@@ -483,7 +451,6 @@ jobs:
           name: test-results-explicit-inputs-${{ matrix.os }}-${{ strategy.job-index }}
           path: test-results/
           retention-days: 1
-
       - name: Fail job if test failed
         if: always()
         uses: ./.github/actions/fail-if-test-failed
@@ -491,10 +458,6 @@ jobs:
           test-passed: ${{ steps.test.outputs.test-passed }}
           test-outcome: ${{ steps.test.outcome }}
           setup-error: ${{ steps.test.outputs.setup-error }}
-
-  # ============================================================================
-  # Additional Inputs Tests
-  # ============================================================================
   test-additional-inputs:
     name: additional inputs | ${{ matrix.format }}
     runs-on: ubuntu-latest
@@ -503,7 +466,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Test newline format
           - format: newlines
             additional-lockfiles: |
               **/custom.lock
@@ -511,9 +473,7 @@ jobs:
             additional-cache-paths: |
               **/build
               **/dist
-            title: "📝 Additional Inputs (Newlines)"
-
-          # Test bullet format
+            title: 📝 Additional Inputs (Newlines)
           - format: bullets
             additional-lockfiles: |
               * **/custom.lock
@@ -521,24 +481,18 @@ jobs:
             additional-cache-paths: |
               * **/build
               * **/dist
-            title: "📝 Additional Inputs (Bullets)"
-
-          # Test comma-separated format
+            title: 📝 Additional Inputs (Bullets)
           - format: comma
             additional-lockfiles: "**/custom.lock, **/vendor.lock"
             additional-cache-paths: "**/build, **/dist"
-            title: "📝 Additional Inputs (Comma)"
-
-          # Test JSON format
+            title: 📝 Additional Inputs (Comma)
           - format: json
-            additional-lockfiles: '["**/custom.lock", "**/vendor.lock"]'
-            additional-cache-paths: '["**/build", "**/dist"]'
-            title: "📝 Additional Inputs (JSON)"
-
+            additional-lockfiles: "[\"**/custom.lock\", \"**/vendor.lock\"]"
+            additional-cache-paths: "[\"**/build\", \"**/dist\"]"
+            title: 📝 Additional Inputs (JSON)
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-
       - name: Test fixture
         id: test
         uses: ./.github/actions/test-fixture
@@ -548,17 +502,16 @@ jobs:
           additional-lockfiles: ${{ matrix.additional-lockfiles }}
           additional-cache-paths: ${{ matrix.additional-cache-paths }}
           expected-node-enabled: "true"
-          expected-node-version: "24.9.0"
+          expected-node-version: 24.9.0
           expected-package-manager: npm
-          expected-package-manager-version: "11.6.0"
+          expected-package-manager-version: 11.6.0
           expected-deno-enabled: "false"
-          expected-bun-version: "1.3.3"
+          expected-bun-version: 1.3.3
           expected-bun-enabled: "false"
           expected-biome-enabled: "false"
           expected-turbo-enabled: "false"
-          expected-lockfiles: "custom.lock, vendor.lock"
-          expected-cache-paths: "build, dist"
-
+          expected-lockfiles: custom.lock, vendor.lock
+          expected-cache-paths: build, dist
       - name: Save test results
         if: always()
         uses: ./.github/actions/save-test-results
@@ -569,7 +522,6 @@ jobs:
           os: ubuntu-latest
           title: ${{ matrix.title }}
           fixture: additional-inputs
-
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v5
@@ -577,7 +529,6 @@ jobs:
           name: test-results-additional-inputs-${{ matrix.format }}
           path: test-results/
           retention-days: 1
-
       - name: Fail job if test failed
         if: always()
         uses: ./.github/actions/fail-if-test-failed
@@ -585,21 +536,15 @@ jobs:
           test-passed: ${{ steps.test.outputs.test-passed }}
           test-outcome: ${{ steps.test.outcome }}
           setup-error: ${{ steps.test.outputs.setup-error }}
-
-  # ============================================================================
-  # Test Summary
-  # ============================================================================
   summary:
     name: Test Summary
     runs-on: ubuntu-latest
     timeout-minutes: 3
     needs:
-      [
-        test-node-create-cache,
-        test-node-restore-cache,
-        test-explicit-inputs,
-        test-additional-inputs,
-      ]
+      - test-node-create-cache
+      - test-node-restore-cache
+      - test-explicit-inputs
+      - test-additional-inputs
     if: always()
     steps:
       - name: Download all test results
@@ -609,7 +554,6 @@ jobs:
           pattern: test-results-*
           path: all-results
           merge-multiple: true
-
       - name: Generate aggregated summary
         shell: python
         run: |

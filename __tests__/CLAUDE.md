@@ -148,7 +148,7 @@ beforeEach(() => {
   vi.mocked(existsSync).mockReturnValue(true);
 
   // Mock file reads
-  vi.mocked(readFileSync).mockReturnValue('{"version": "2.3.6"}');
+  vi.mocked(readFileSync).mockReturnValue('{"version": "2.3.14"}');
 
   // Mock directory listings
   vi.mocked(readdirSync).mockReturnValue(

@@ -1,6 +1,6 @@
 import type * as core from "@actions/core";
 import type * as exec from "@actions/exec";
-import type { Context } from "@actions/github/lib/context";
+import type * as github from "@actions/github";
 import type { GitHub } from "@actions/github/lib/utils";
 import type * as glob from "@actions/glob";
 import type * as io from "@actions/io";
@@ -30,7 +30,7 @@ import type * as io from "@actions/io";
  */
 export interface AsyncFunctionArguments {
 	/** GitHub Actions context */
-	context: Context;
+	context: typeof github.context;
 	/** GitHub Actions core module for logging and setting outputs */
 	core: typeof core;
 	/** GitHub API client (Octokit instance) */
