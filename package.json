@@ -1,11 +1,11 @@
 {
 	"name": "@savvy-web/workflow-runtime-action",
 	"version": "0.1.2",
-	"private": false,
+	"private": true,
 	"description": "Comprehensive Node.js runtime setup action with automatic package manager detection, dependency caching, and Turbo build cache configuration",
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/savvy-web/workflow-runtime-action.git"
+		"url": "git+https://github.com/savvy-web/workflow-runtime-action.git"
 	},
 	"type": "module",
 	"scripts": {
