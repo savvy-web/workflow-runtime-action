@@ -139,7 +139,7 @@ jobs:
           fixture: ${{ matrix.fixture }}
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: test-results-node-create-cache-${{ matrix.os }}-${{ strategy.job-index }}
           path: test-results/
@@ -265,7 +265,7 @@ jobs:
           fixture: ${{ matrix.fixture }}
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: test-results-node-restore-cache-${{ matrix.os }}-${{ strategy.job-index }}
           path: test-results/
@@ -446,7 +446,7 @@ jobs:
           runtime: ${{ matrix.runtime }}
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: test-results-explicit-inputs-${{ matrix.os }}-${{ strategy.job-index }}
           path: test-results/
@@ -524,7 +524,7 @@ jobs:
           fixture: additional-inputs
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: test-results-additional-inputs-${{ matrix.format }}
           path: test-results/
@@ -549,7 +549,7 @@ jobs:
     steps:
       - name: Download all test results
         continue-on-error: true
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           pattern: test-results-*
           path: all-results
