@@ -1,5 +1,5 @@
 import { readdirSync } from "node:fs";
-import { arch, platform } from "node:os";
+import { arch, platform, tmpdir } from "node:os";
 import { join } from "node:path";
 import { addPath, endGroup, info, startGroup } from "@actions/core";
 import { exec } from "@actions/exec";
@@ -204,9 +204,15 @@ export async function setupPackageManager(packageManagerName: string, packageMan
 	startGroup(formatSetup(`${packageManagerName} via corepack`));
 
 	try {
+		// Run setup commands from a temp directory to prevent pnpm from reading
+		// pnpm-workspace.yaml configDependencies, which can hang on first run.
+		// See: https://github.com/renovatebot/renovate/issues/39902
+		const cwd = tmpdir();
+
 		// Check Node.js version - corepack is not bundled with Node.js >= 25.0.0
 		let nodeVersion = "";
 		await exec("node", ["--version"], {
+			cwd,
 			listeners: {
 				stdout: (data: Buffer) => {
 					nodeVersion += data.toString().trim();
@@ -221,21 +227,21 @@ export async function setupPackageManager(packageManagerName: string, packageMan
 
 			if (majorVersion >= 25) {
 				info(`Node.js ${nodeVersion} detected - corepack not bundled, installing globally...`);
-				await exec("npm", ["install", "-g", "--force", "corepack@latest"]);
+				await exec("npm", ["install", "-g", "--force", "corepack@latest"], { cwd });
 				info(formatSuccess("corepack installed successfully"));
 			}
 		}
 
 		// Enable corepack first
 		info("Enabling corepack...");
-		await exec("corepack", ["enable"]);
+		await exec("corepack", ["enable"], { cwd });
 
 		// Prepare package manager using explicit version from devEngines.packageManager
 		info(`Preparing package manager ${packageManagerName}@${packageManagerVersion}...`);
-		await exec("corepack", ["prepare", `${packageManagerName}@${packageManagerVersion}`, "--activate"]);
+		await exec("corepack", ["prepare", `${packageManagerName}@${packageManagerVersion}`, "--activate"], { cwd });
 
 		// Verify installation
-		await exec(packageManagerName, ["--version"]);
+		await exec(packageManagerName, ["--version"], { cwd });
 
 		info(formatSuccess(`Package manager ${packageManagerName}@${packageManagerVersion} set up successfully`));
 		endGroup();
