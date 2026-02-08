@@ -8,12 +8,15 @@
 			"inputs": [
 				"$TURBO_DEFAULT$",
 				"$TURBO_ROOT$/package.json",
-				"$TURBO_ROOT$/pnpm-lock.yml",
-				"$TURBO_ROOT$/pnpm-workspace.yml",
+				"$TURBO_ROOT$/tsconfig.json",
+				"$TURBO_ROOT$/pnpm-lock.yaml",
+				"$TURBO_ROOT$/pnpm-workspace.yaml",
+				"action.yml",
 				"package.json",
-				"rslib.config.ts",
 				"tsconfig.json",
 				"src/**/*.ts",
+				"lib/**/*.ts",
+				"lib/**/*.mts",
 				"README.md",
 				"LICENSE"
 			],
@@ -23,8 +26,8 @@
 		"types:check": {
 			"cache": true,
 			"dependsOn": [],
-			"inputs": ["*.ts", "lib/**/*.ts", "lib/**/*.mts"],
-			"outputLogs": "full",
+			"inputs": ["*.ts", "src/**/*.ts", "lib/**/*.ts", "lib/**/*.mts"],
+			"outputLogs": "errors-only",
 			"outputs": []
 		}
 	}
