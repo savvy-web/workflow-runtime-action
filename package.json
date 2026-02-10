@@ -10,7 +10,6 @@
 	"type": "module",
 	"scripts": {
 		"build": "turbo run build:prod --log-order=grouped",
-		"build:inspect": "rslib inspect --config-loader native --env-mode npm --verbose",
 		"build:prod": "github-action-builder build",
 		"ci:build": "CI=\"true\" turbo run build:prod --log-order=grouped --output-logs=full",
 		"ci:test": "CI=\"true\" vitest run --coverage",
