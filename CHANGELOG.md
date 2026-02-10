@@ -1,5 +1,15 @@
 # @savvy-web/workflow-runtime-action
 
+## 0.1.4
+
+### Patch Changes
+
+- d8b212c: Update dependencies:
+
+  **Dependencies:**
+  - @savvy-web/github-action-builder: ^0.1.1 → ^0.1.2
+  - @savvy-web/lint-staged: ^0.3.1 → ^0.4.0
+
 ## 0.1.3
 
 ### Patch Changes
@@ -7,7 +17,6 @@
 - 667b520: Update dependencies:
 
   **Dependencies:**
-
   - @savvy-web/commitlint: ^0.3.0 → ^0.3.1
   - @savvy-web/github-action-builder: ^0.1.0 → ^0.1.1
 

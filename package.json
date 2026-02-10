@@ -1,6 +1,6 @@
 {
 	"name": "@savvy-web/workflow-runtime-action",
-	"version": "0.1.3",
+	"version": "0.1.4",
 	"private": true,
 	"description": "Comprehensive Node.js runtime setup action with automatic package manager detection, dependency caching, and Turbo build cache configuration",
 	"repository": {
@@ -10,7 +10,6 @@
 	"type": "module",
 	"scripts": {
 		"build": "turbo run build:prod --log-order=grouped",
-		"build:inspect": "rslib inspect --config-loader native --env-mode npm --verbose",
 		"build:prod": "github-action-builder build",
 		"ci:build": "CI=\"true\" turbo run build:prod --log-order=grouped --output-logs=full",
 		"ci:test": "CI=\"true\" vitest run --coverage",
