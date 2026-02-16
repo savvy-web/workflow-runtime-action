@@ -1,5 +1,12 @@
 # @savvy-web/workflow-runtime-action
 
+## 0.1.5
+
+### Patch Changes
+
+- 33ff69f: ## Dependencies
+  - @savvy-web/commitlint: ^0.3.1 → ^0.3.2
+
 ## 0.1.4
 
 ### Patch Changes
