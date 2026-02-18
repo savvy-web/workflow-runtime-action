@@ -6,7 +6,7 @@ on:
   workflow_dispatch: null
   push:
     branches:
-      - main
+      - changesets-release/main
     paths:
       - src/**
       - dist/**
@@ -15,15 +15,15 @@ on:
       - .github/actions/runtime/**
       - .github/actions/test-fixture/**
       - .github/workflows/test.yml
-  pull_request:
-    paths:
-      - src/**
-      - dist/**
-      - action.yml
-      - __fixtures__/**
-      - .github/actions/runtime/**
-      - .github/actions/test-fixture/**
-      - .github/workflows/test.yml
+  # pull_request:
+  #   paths:
+  #     - src/**
+  #     - dist/**
+  #     - action.yml
+  #     - __fixtures__/**
+  #     - .github/actions/runtime/**
+  #     - .github/actions/test-fixture/**
+  #     - .github/workflows/test.yml
 concurrency:
   group: tests-${{ github.ref }}
   cancel-in-progress: true
@@ -490,8 +490,8 @@ jobs:
             additional-cache-paths: "**/build, **/dist"
             title: 📝 Additional Inputs (Comma)
           - format: json
-            additional-lockfiles: "[\"**/custom.lock\", \"**/vendor.lock\"]"
-            additional-cache-paths: "[\"**/build\", \"**/dist\"]"
+            additional-lockfiles: '["**/custom.lock", "**/vendor.lock"]'
+            additional-cache-paths: '["**/build", "**/dist"]'
             title: 📝 Additional Inputs (JSON)
     steps:
       - name: Checkout
