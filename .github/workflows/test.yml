@@ -1,4 +1,4 @@
-name: Tests
+name: Fixtures
 permissions:
   contents: read
   actions: write
@@ -6,7 +6,7 @@ on:
   workflow_dispatch: null
   push:
     branches:
-      - changesets-release/main
+      - main
     paths:
       - src/**
       - dist/**
@@ -15,15 +15,15 @@ on:
       - .github/actions/runtime/**
       - .github/actions/test-fixture/**
       - .github/workflows/test.yml
-  # pull_request:
-  #   paths:
-  #     - src/**
-  #     - dist/**
-  #     - action.yml
-  #     - __fixtures__/**
-  #     - .github/actions/runtime/**
-  #     - .github/actions/test-fixture/**
-  #     - .github/workflows/test.yml
+  pull_request:
+    paths:
+      - src/**
+      - dist/**
+      - action.yml
+      - __fixtures__/**
+      - .github/actions/runtime/**
+      - .github/actions/test-fixture/**
+      - .github/workflows/test.yml
 concurrency:
   group: tests-${{ github.ref }}
   cancel-in-progress: true
@@ -313,7 +313,7 @@ jobs:
             expected-deno-enabled: "false"
             expected-deno-version: ""
             expected-biome-enabled: "true"
-            expected-biome-version: 2.3.14
+            expected-biome-version: 2.4.1
             expected-turbo-enabled: "false"
             test-command: node --version && npm --version
             title: 🔧 Node + Biome (auto-detect)
@@ -350,7 +350,7 @@ jobs:
             expected-package-manager: bun
             expected-package-manager-version: 1.3.3
             expected-biome-enabled: "true"
-            expected-biome-version: 2.3.14
+            expected-biome-version: 2.4.1
             expected-turbo-enabled: "false"
             test-command: bun --version
             title: 🔧 Bun + Biome (auto-detect)
@@ -383,7 +383,7 @@ jobs:
             expected-package-manager: deno
             expected-package-manager-version: 2.5.6
             expected-biome-enabled: "true"
-            expected-biome-version: 2.3.14
+            expected-biome-version: 2.4.1
             expected-turbo-enabled: "false"
             test-command: deno --version
             title: 🔧 Deno + Biome (auto-detect)
