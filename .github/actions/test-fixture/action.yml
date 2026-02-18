@@ -281,7 +281,7 @@ runs:
     - name: Setup runtime
       id: setup
       if: inputs.test-cache != 'true'
-      uses: savvy-web/workflow-runtime-action@changeset-release/main
+      uses: ./.github/actions/runtime
       with:
         node-version: ${{ inputs.node-version }}
         bun-version: ${{ inputs.bun-version }}
