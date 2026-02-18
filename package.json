@@ -10,7 +10,7 @@
 	"type": "module",
 	"scripts": {
 		"build": "turbo run build:prod --log-order=grouped",
-		"postbuild": "rm -rf .github/actions/runtime && cp -rf dist .github/actions/runtime",
+		"postbuild": "rm -rf .github/actions/runtime && cp -rf dist .github/actions/runtime && cp action.yml .github/actions/runtime/",
 		"build:prod": "github-action-builder build",
 		"ci:build": "CI=\"true\" turbo run build:prod --log-order=grouped --output-logs=full",
 		"ci:test": "CI=\"true\" vitest run --coverage",
