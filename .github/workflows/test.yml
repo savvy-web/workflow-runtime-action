@@ -6,7 +6,7 @@ on:
   workflow_dispatch: null
   push:
     branches:
-      - changesets-release/main
+      - changeset-release/main
     paths:
       - src/**
       - dist/**
