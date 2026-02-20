@@ -48,8 +48,7 @@
 		"@savvy-web/commitlint": "^0.3.3",
 		"@savvy-web/github-action-builder": "^0.1.4",
 		"@savvy-web/lint-staged": "^0.4.5",
-		"@savvy-web/vitest": "^0.1.0",
-		"vitest": "^4.0.18"
+		"@savvy-web/vitest": "^0.1.0"
 	},
 	"packageManager": "pnpm@10.30.0+sha512.2b5753de015d480eeb88f5b5b61e0051f05b4301808a82ec8b840c9d2adf7748eb352c83f5c1593ca703ff1017295bc3fdd3119abb9686efc96b9fcb18200937",
 	"devEngines": {
