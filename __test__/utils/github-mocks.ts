@@ -1,3 +1,4 @@
+// biome-ignore lint/correctness/noUndeclaredDependencies: transitive dev dependency on @savvy-web/vitest for testing
 import { vi } from "vitest";
 
 /**
