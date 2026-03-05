@@ -1,5 +1,15 @@
 # @savvy-web/workflow-runtime-action
 
+## 0.1.7
+
+### Dependencies
+
+* [`32ff0b0`](https://github.com/savvy-web/workflow-runtime-action/commit/32ff0b0f977eeddad3aa0a3d262dccb2806f1eab) @savvy-web/changesets: ^0.1.1 → ^0.4.2
+* @savvy-web/commitlint: ^0.3.3 → ^0.4.0
+* @savvy-web/github-action-builder: ^0.1.4 → ^0.2.1
+* @savvy-web/lint-staged: ^0.4.5 → ^0.5.0
+* @savvy-web/vitest: ^0.1.0 → ^0.2.0
+
 ## 0.1.6
 
 ### Bug Fixes
