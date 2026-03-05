@@ -64,7 +64,7 @@ function setDefaults() {
 	vi.mocked(installNodeMod.setupPackageManager).mockResolvedValue(undefined);
 	vi.mocked(installBunMod.installBun).mockResolvedValue("1.3.3");
 	vi.mocked(installDenoMod.installDeno).mockResolvedValue("2.5.6");
-	vi.mocked(installBiomeMod.installBiome).mockResolvedValue("2.3.14");
+	vi.mocked(installBiomeMod.installBiome).mockResolvedValue(undefined);
 	vi.mocked(cacheUtils.restoreCache).mockResolvedValue(undefined);
 }
 

@@ -142,7 +142,7 @@ jobs:
           fixture: ${{ matrix.fixture }}
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: test-results-node-create-cache-${{ matrix.os }}-${{ strategy.job-index }}
           path: test-results/
@@ -268,7 +268,7 @@ jobs:
           fixture: ${{ matrix.fixture }}
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: test-results-node-restore-cache-${{ matrix.os }}-${{ strategy.job-index }}
           path: test-results/
@@ -313,7 +313,7 @@ jobs:
             expected-deno-enabled: "false"
             expected-deno-version: ""
             expected-biome-enabled: "true"
-            expected-biome-version: 2.4.1
+            expected-biome-version: 2.4.5
             expected-turbo-enabled: "false"
             test-command: node --version && npm --version
             title: 🔧 Node + Biome (auto-detect)
@@ -350,7 +350,7 @@ jobs:
             expected-package-manager: bun
             expected-package-manager-version: 1.3.3
             expected-biome-enabled: "true"
-            expected-biome-version: 2.4.1
+            expected-biome-version: 2.4.5
             expected-turbo-enabled: "false"
             test-command: bun --version
             title: 🔧 Bun + Biome (auto-detect)
@@ -383,7 +383,7 @@ jobs:
             expected-package-manager: deno
             expected-package-manager-version: 2.5.6
             expected-biome-enabled: "true"
-            expected-biome-version: 2.4.1
+            expected-biome-version: 2.4.5
             expected-turbo-enabled: "false"
             test-command: deno --version
             title: 🔧 Deno + Biome (auto-detect)
@@ -449,7 +449,7 @@ jobs:
           runtime: ${{ matrix.runtime }}
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: test-results-explicit-inputs-${{ matrix.os }}-${{ strategy.job-index }}
           path: test-results/
@@ -527,7 +527,7 @@ jobs:
           fixture: additional-inputs
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: test-results-additional-inputs-${{ matrix.format }}
           path: test-results/
@@ -552,7 +552,7 @@ jobs:
     steps:
       - name: Download all test results
         continue-on-error: true
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           pattern: test-results-*
           path: all-results
