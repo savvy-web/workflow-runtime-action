@@ -281,7 +281,7 @@ runs:
     - name: Setup runtime
       id: setup
       if: inputs.test-cache != 'true'
-      uses: ./.github/actions/runtime
+      uses: ./.github/actions/local
       with:
         node-version: ${{ inputs.node-version }}
         bun-version: ${{ inputs.bun-version }}
@@ -298,7 +298,7 @@ runs:
     - name: First run (cache miss)
       id: setup1
       if: inputs.test-cache == 'true'
-      uses: ./.github/actions/runtime
+      uses: ./.github/actions/local
       with:
         node-version: ${{ inputs.node-version }}
         bun-version: ${{ inputs.bun-version }}
@@ -346,7 +346,7 @@ runs:
     - name: Second run (cache hit expected)
       id: setup2
       if: inputs.test-cache == 'true'
-      uses: ./.github/actions/runtime
+      uses: ./.github/actions/local
       with:
         node-version: ${{ inputs.node-version }}
         bun-version: ${{ inputs.bun-version }}
