@@ -14,7 +14,7 @@ Full rewrite of `workflow-runtime-action` from imperative TypeScript to Effect-b
 | Testing | Effect test layers for unit tests + existing fixture workflows for E2E |
 | Installer pattern | `RuntimeInstaller` service with per-runtime descriptor layers |
 | Error handling | Domain-specific `TaggedError` types wrapping service errors |
-| Caching | Domain logic as Effect functions, backed by `ActionCache` + `PackageManagerAdapter` |
+| Caching | Domain logic as Effect functions, backed by `ActionCache` + `CommandRunner` |
 | Build tool | `@savvy-web/github-action-builder` replacing custom `lib/scripts/build.ts` |
 | File operations | `@effect/platform` + `@effect/platform-node` (no `node:` fs imports) |
 | Logging | Preserve `emoji.ts` formatting helpers, used with `ActionLogger.group` + `Effect.log` |
@@ -27,6 +27,8 @@ Two entry points, down from three:
 
 - **`src/main.ts`** -- Single `Effect.gen` pipeline: parse config, restore cache, install runtimes, setup package manager, install deps, install Biome, set outputs.
 - **`src/post.ts`** -- Restore state from main via `ActionState`, save cache if no primary hit.
+
+**Why pre.ts is safe to remove:** The current `pre.ts` only logs action inputs as a diagnostic aid. It has no ordering dependency on `actions/checkout` or any other step. Collapsing it into `main.ts` has no behavioral impact.
 
 `Action.run(program, layer)` is the top-level runner for both. It provides `ActionInputsLive`, `ActionOutputsLive`, `ActionLoggerLive`, `NodeContext.layer` (FileSystem, Path), and OTel tracing automatically.
 
@@ -56,16 +58,19 @@ A single shared service driven by per-runtime configuration layers. Each runtime
 
 ### RuntimeDescriptor
 
+Pure data that produces the inputs `ToolInstaller.install()` needs:
+
 ```typescript
 type RuntimeDescriptor = {
   name: string
   getDownloadUrl: (version: string, platform: string, arch: string) => string
-  getArchiveType: (platform: string) => "tar.gz" | "zip"
-  getBinPath: (extractedDir: string, platform: string) => string
+  getToolInstallOptions: (version: string, platform: string, arch: string) => Partial<ToolInstallOptions>
   verifyCommand: [command: string, ...args: Array<string>]
-  postInstall?: (version: string) => Effect<void, RuntimeInstallError>
+  postInstall?: (version: string) => Effect<void, RuntimeInstallError, CommandRunner>
 }
 ```
+
+The `postInstall` Effect requires `CommandRunner` in its environment (e.g., Node's corepack setup needs to exec shell commands). This dependency is satisfied by `makeRuntimeInstaller` which has `CommandRunner` in scope.
 
 ### Service Interface
 
@@ -77,15 +82,13 @@ interface RuntimeInstaller {
 
 ### Shared Implementation
 
-`makeRuntimeInstaller(descriptor)` returns a `RuntimeInstaller` that:
+`makeRuntimeInstaller(descriptor)` delegates download/extract/cache/PATH to `ToolInstaller.install()` from `github-action-effects`. It only adds verification and post-install on top:
 
-1. Computes download URL from descriptor
-2. Checks tool cache via `ToolInstaller`
-3. Downloads and extracts if not cached
-4. Adds to PATH via `ActionOutputs.addPath`
-5. Verifies with `CommandRunner.exec(descriptor.verifyCommand)`
-6. Runs `descriptor.postInstall` if defined (e.g., corepack for Node)
-7. Wraps all errors in `RuntimeInstallError` with runtime name and version context
+1. Computes download URL and `ToolInstallOptions` from descriptor
+2. Calls `ToolInstaller.install({ url, tool: descriptor.name, version, ...options })` -- this handles download, extract, cache, and addPath in one call
+3. Verifies with `CommandRunner.exec(descriptor.verifyCommand)`
+4. Runs `descriptor.postInstall` if defined (e.g., corepack for Node)
+5. All `ToolInstallerError` and `CommandRunnerError` failures are caught via `Effect.catchAll` and wrapped into `RuntimeInstallError` with the runtime name, version, and original cause
 
 ### Per-Runtime Layers
 
@@ -133,7 +136,7 @@ Absolute version refinement rejects `^`, `~`, `>`, `<`, `=`, `*`, `x` prefixes. 
 
 ### Feature Detection
 
-- **Biome**: Read `biome.jsonc` or `biome.json` via `FileSystem.readFileString`, extract version from `$schema` URL
+- **Biome**: Read `biome.jsonc` or `biome.json` via `FileSystem.readFileString`. The `$schema` URL is extracted via regex (`/schemas\/([^/]+)\/schema\.json/`) -- no JSONC parser needed since we only need the schema field, not the full config. Falls back to `biome-version` input if auto-detect fails.
 - **Turbo**: Check `turbo.json` existence via `FileSystem.exists`
 
 ### Configuration Flow
@@ -152,25 +155,33 @@ Absolute version refinement rejects `^`, `~`, `>`, `<`, `=`, `*`, `x` prefixes. 
 | `turbo-token` | string (optional) | Turbo remote cache token |
 | `turbo-team` | string (optional) | Turbo team slug |
 | `cache-bust` | string (optional) | Cache busting for testing |
+| `additional-lockfiles` | string (optional) | Extra lockfile patterns for cache key |
+| `additional-cache-paths` | string (optional) | Extra paths to include in cache |
 
 OTel inputs (`otel-enabled`, `otel-endpoint`, `otel-protocol`, `otel-headers`) are handled automatically by `Action.run`.
 
-### Removed Inputs
+### Removed Inputs (Breaking Changes)
 
 - `node-version`, `bun-version`, `deno-version` -- read from `devEngines.runtime`
 - `package-manager`, `package-manager-version` -- read from `devEngines.packageManager`
+
+These are breaking changes. Users who relied on explicit version inputs must migrate to `devEngines` fields in `package.json`. This will be documented in the release notes and is the primary motivation for the major version bump.
 
 ## Cache Module
 
 ### What Services Handle
 
 - **`ActionCache`**: Raw `save(key, paths)` and `restore(key, paths, restoreKeys)` operations
-- **`PackageManagerAdapter`**: `getCachePaths()` and `getLockfilePaths()` per package manager
+
+### PackageManagerAdapter Decision
+
+The `PackageManagerAdapter` from `github-action-effects` detects from the `packageManager` field in `package.json`, not `devEngines`. Since we read from `devEngines.packageManager` exclusively, we do **not** use `PackageManagerAdapter` for detection. Instead, `cache.ts` implements its own cache path resolution and lockfile detection, matching the current battle-tested logic. This avoids a mismatch between the adapter's detection strategy and our config source.
 
 ### Domain Logic (cache.ts)
 
-Pure Effect functions preserving the current battle-tested logic:
+Pure Effect functions using `CommandRunner` to query package manager cache paths (e.g., `npm config get cache`, `pnpm store path`) and `FileSystem` + `@actions/glob` patterns for lockfile detection:
 
+- **Cache path resolution**: Query package manager for its cache directory via `CommandRunner.execCapture`, fall back to platform-specific defaults
 - **Cache key generation**: `{os}-{versionHash}-{branchHash}-{lockfileHash}`
 - **Version hash**: SHA256 of runtime versions + package manager version (truncated to 8 chars)
 - **Branch hash**: Branch name from `ActionEnvironment` GitHub context (handles PR vs push)
@@ -189,7 +200,7 @@ const CacheStateSchema = Schema.Struct({
   restoreKeys: Schema.Array(Schema.String),
   paths: Schema.Array(Schema.String),
   packageManagers: Schema.Array(Schema.String),
-  hit: Schema.Boolean,
+  hit: Schema.Literal("exact", "partial", "none"),
 })
 ```
 
@@ -339,9 +350,23 @@ Action.run(post, PostLive)
 
 ### Layer Composition
 
-- **`Action.run` provides automatically**: `ActionInputsLive`, `ActionOutputsLive`, `ActionLoggerLive`, `NodeContext.layer` (FileSystem, Path), OTel tracing
-- **`MainLive`**: `ActionCacheLive`, `ToolInstallerLive`, `CommandRunnerLive`, `ActionStateLive`, `ActionEnvironmentLive`
-- **`PostLive`**: `ActionCacheLive`, `ActionStateLive`
+**`Action.run` provides automatically** (no user composition needed):
+
+- `ActionInputsLive`, `ActionOutputsLive`, `ActionLoggerLive`
+- `NodeContext.layer` (FileSystem, Path, CommandExecutor)
+- OTel tracing (auto-configured from inputs)
+
+**`MainLive`** -- composed with `Layer.mergeAll` and `Layer.provide` to satisfy transitive deps:
+
+- `ActionCacheLive` (self-contained, dynamic-imports `@actions/cache`)
+- `ToolInstallerLive` (self-contained, dynamic-imports `@actions/tool-cache`)
+- `CommandRunnerLive` (self-contained, dynamic-imports `@actions/exec`)
+- `ActionStateLive` (self-contained, uses `@actions/core`)
+- `ActionEnvironmentLive` (self-contained, reads `process.env`)
+
+All Live layers in `github-action-effects` are self-contained (they dynamic-import their `@actions/*` peer deps internally). They do not require other services in their layer construction. `FileSystem` and `Path` from `@effect/platform` are provided by `Action.run` via `NodeContext.layer` and are available in the program's environment, not needed by the Live layers.
+
+**`PostLive`**: `ActionCacheLive`, `ActionStateLive`
 
 ## Build
 
@@ -394,15 +419,18 @@ dist/
 - `@actions/glob`
 - `@vercel/ncc`
 
-**Added:**
+**Added as direct dependencies** (required as peer dependencies by `github-action-effects`):
 
-- `@savvy-web/github-action-effects` (dependency)
-- `@savvy-web/github-action-builder` (devDependency)
-- `effect` (peer dependency of github-action-effects)
-- `@effect/platform` (peer dependency of github-action-effects)
-- `@effect/platform-node` (peer dependency of github-action-effects)
+- `@savvy-web/github-action-effects`
+- `effect`
+- `@effect/platform`
+- `@effect/platform-node`
 
-The `@actions/*` packages become transitive peers satisfied through `github-action-effects`.
+**Added as devDependencies:**
+
+- `@savvy-web/github-action-builder`
+
+The `@actions/*` packages become transitive peers satisfied through `github-action-effects`. They must also be listed as direct dependencies since ncc needs to resolve them at bundle time.
 
 ## Test Strategy
 
@@ -426,7 +454,7 @@ Each module tested with in-memory layers. No manual mocking of `@actions/*`.
 Unchanged from current implementation:
 
 - **`__fixtures__/`** -- All fixture directories preserved as-is
-- **`.github/actions/test-fixture/`** -- Composite action updated to reference `.github/actions/local`
+- **`.github/actions/test-fixture/`** -- Composite action updated to reference `.github/actions/local` (renamed from `.github/actions/runtime`)
 - **`.github/workflows/test.yml`** -- Matrix entries using explicit input mode removed or converted to `devEngines`-based fixtures
 
 The fixture tests validate the built action in real GitHub Actions runners across Ubuntu, macOS, and Windows. They test the complete lifecycle including actual runtime downloads, cache operations, and dependency installation.
