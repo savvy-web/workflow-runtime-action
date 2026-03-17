@@ -38,6 +38,10 @@
 		"@actions/http-client": "^4.0.0",
 		"@actions/io": "^3.0.2",
 		"@actions/tool-cache": "^4.0.0",
+		"@effect/platform": "latest",
+		"@effect/platform-node": "latest",
+		"@savvy-web/github-action-effects": "latest",
+		"effect": "latest",
 		"jsonc-parser": "^3.3.1",
 		"semver": "^7.7.4",
 		"workspace-tools": "0.41.0"
@@ -47,8 +51,7 @@
 		"@savvy-web/commitlint": "^0.4.2",
 		"@savvy-web/github-action-builder": "^0.4.0",
 		"@savvy-web/lint-staged": "^0.6.1",
-		"@savvy-web/vitest": "^0.2.2",
-		"@types/semver": "^7.7.1"
+		"@savvy-web/vitest": "^0.2.2"
 	},
 	"packageManager": "pnpm@10.32.1+sha512.a706938f0e89ac1456b6563eab4edf1d1faf3368d1191fc5c59790e96dc918e4456ab2e67d613de1043d2e8c81f87303e6b40d4ffeca9df15ef1ad567348f2be",
 	"devEngines": {
