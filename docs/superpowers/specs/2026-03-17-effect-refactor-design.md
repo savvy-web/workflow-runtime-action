@@ -85,7 +85,7 @@ interface RuntimeInstaller {
 `makeRuntimeInstaller(descriptor)` delegates download/extract/cache/PATH to `ToolInstaller.install()` from `github-action-effects`. It only adds verification and post-install on top:
 
 1. Computes download URL and `ToolInstallOptions` from descriptor
-2. Calls `ToolInstaller.install({ url, tool: descriptor.name, version, ...options })` -- this handles download, extract, cache, and addPath in one call
+2. Calls `ToolInstaller.installAndAddToPath(descriptor.name, version, url, options)` -- this handles download, extract, cache, and addPath in one call (positional arguments, not an options object)
 3. Verifies with `CommandRunner.exec(descriptor.verifyCommand)`
 4. Runs `descriptor.postInstall` if defined (e.g., corepack for Node)
 5. All `ToolInstallerError` and `CommandRunnerError` failures are caught via `Effect.catchAll` and wrapped into `RuntimeInstallError` with the runtime name, version, and original cause
@@ -364,7 +364,9 @@ Action.run(post, PostLive)
 - `ActionStateLive` (self-contained, uses `@actions/core`)
 - `ActionEnvironmentLive` (self-contained, reads `process.env`)
 
-All Live layers in `github-action-effects` are self-contained (they dynamic-import their `@actions/*` peer deps internally). They do not require other services in their layer construction. `FileSystem` and `Path` from `@effect/platform` are provided by `Action.run` via `NodeContext.layer` and are available in the program's environment, not needed by the Live layers.
+Most Live layers in `github-action-effects` use static top-level imports of their `@actions/*` peer deps (e.g., `ActionCacheLive` statically imports `@actions/cache`, `CommandRunnerLive` statically imports `@actions/exec`). Only `ToolInstallerLive` uses dynamic `import()`. This means `@actions/*` packages must be resolvable at module load time and must be listed as direct dependencies (not just peers) so the bundler can include them. The layers do not require other Effect services in their construction -- they are self-contained in terms of the Effect dependency graph.
+
+`FileSystem` and `Path` from `@effect/platform` are provided by `Action.run` via `NodeContext.layer` (part of `CoreServices`) and are available in the program's environment without being listed in `MainLive`.
 
 **`PostLive`**: `ActionCacheLive`, `ActionStateLive`
 
