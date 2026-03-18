@@ -32,31 +32,39 @@ const postInstall =
 	(_version: string): Effect.Effect<void, RuntimeInstallError, CommandRunner> =>
 		Effect.gen(function* () {
 			const runner = yield* CommandRunner;
-			const { tmpdir } = yield* Effect.sync(() => require("node:os") as { tmpdir: () => string });
-			const cwd = tmpdir();
+
+			// Use tmpdir for pnpm to avoid pnpm-workspace.yaml configDependencies interference
+			// See: https://github.com/renovatebot/renovate/issues/39902
+			// For npm/yarn this is unnecessary and can cause corepack shim issues
+			const useTmpdir = packageManagerName === "pnpm";
+			const execOpts = useTmpdir
+				? { cwd: yield* Effect.sync(() => (require("node:os") as { tmpdir: () => string }).tmpdir()) }
+				: {};
 
 			// Check if corepack needs to be installed (Node >= 25)
-			const nodeVersionOut = yield* runner.execCapture("node", ["--version"], { cwd });
+			const nodeVersionOut = yield* runner.execCapture("node", ["--version"], execOpts);
 			const versionMatch = nodeVersionOut.stdout.trim().match(/^v(\d+)\.\d+\.\d+$/);
 			if (versionMatch) {
 				const major = Number.parseInt(versionMatch[1], 10);
 				if (major >= 25) {
 					yield* Effect.log("Node.js >= 25 detected, installing corepack globally...");
-					yield* runner.exec("npm", ["install", "-g", "--force", "corepack@latest"], { cwd });
+					yield* runner.exec("npm", ["install", "-g", "--force", "corepack@latest"], execOpts);
 				}
 			}
 
 			// Use corepack for all package managers (npm, pnpm, yarn)
 			yield* Effect.log("Enabling corepack...");
-			yield* runner.exec("corepack", ["enable"], { cwd });
+			yield* runner.exec("corepack", ["enable"], execOpts);
 
 			yield* Effect.log(`Preparing ${packageManagerName}@${packageManagerVersion}...`);
-			yield* runner.exec("corepack", ["prepare", `${packageManagerName}@${packageManagerVersion}`, "--activate"], {
-				cwd,
-			});
+			yield* runner.exec(
+				"corepack",
+				["prepare", `${packageManagerName}@${packageManagerVersion}`, "--activate"],
+				execOpts,
+			);
 
 			// Verify
-			yield* runner.exec(packageManagerName, ["--version"], { cwd });
+			yield* runner.exec(packageManagerName, ["--version"], execOpts);
 			yield* Effect.log(`${packageManagerName}@${packageManagerVersion} activated`);
 		}).pipe(
 			Effect.catchAll((error) =>
