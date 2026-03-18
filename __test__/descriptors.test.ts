@@ -96,10 +96,19 @@ describe("bun descriptor", () => {
 	});
 
 	describe("getToolInstallOptions", () => {
-		it("always returns zip", () => {
-			expect(bun.getToolInstallOptions("1.3.3", "linux", "x64")).toEqual({ archiveType: "zip" });
-			expect(bun.getToolInstallOptions("1.3.3", "darwin", "arm64")).toEqual({ archiveType: "zip" });
-			expect(bun.getToolInstallOptions("1.3.3", "win32", "x64")).toEqual({ archiveType: "zip" });
+		it("always returns zip with correct binSubPath", () => {
+			expect(bun.getToolInstallOptions("1.3.3", "linux", "x64")).toEqual({
+				archiveType: "zip",
+				binSubPath: "bun-linux-x64",
+			});
+			expect(bun.getToolInstallOptions("1.3.3", "darwin", "arm64")).toEqual({
+				archiveType: "zip",
+				binSubPath: "bun-darwin-aarch64",
+			});
+			expect(bun.getToolInstallOptions("1.3.3", "win32", "x64")).toEqual({
+				archiveType: "zip",
+				binSubPath: "bun-windows-x64",
+			});
 		});
 	});
 

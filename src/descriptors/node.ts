@@ -35,30 +35,47 @@ const postInstall =
 			const { tmpdir } = yield* Effect.sync(() => require("node:os") as { tmpdir: () => string });
 			const cwd = tmpdir();
 
-			// Check if corepack needs to be installed (Node >= 25)
-			const nodeVersionOut = yield* runner.execCapture("node", ["--version"], { cwd });
-			const versionMatch = nodeVersionOut.stdout.trim().match(/^v(\d+)\.\d+\.\d+$/);
-			if (versionMatch) {
-				const major = Number.parseInt(versionMatch[1], 10);
-				if (major >= 25) {
-					yield* Effect.log("Node.js >= 25 detected, installing corepack globally...");
-					yield* runner.exec("npm", ["install", "-g", "--force", "corepack@latest"], { cwd });
+			if (packageManagerName === "npm") {
+				// npm is bundled with Node -- use npm install -g to get the exact version
+				const currentOut = yield* runner.execCapture("npm", ["--version"], { cwd });
+				const currentVersion = currentOut.stdout.trim();
+				if (currentVersion !== packageManagerVersion) {
+					yield* Effect.log(`Upgrading npm from ${currentVersion} to ${packageManagerVersion}...`);
+					const { platform } = yield* Effect.sync(() => require("node:os") as { platform: () => string });
+					const plat = platform();
+					if (plat === "linux" || plat === "darwin") {
+						yield* runner.exec("sudo", ["npm", "install", "-g", `npm@${packageManagerVersion}`], { cwd });
+					} else {
+						yield* runner.exec("npm", ["install", "-g", `npm@${packageManagerVersion}`], { cwd });
+					}
+				} else {
+					yield* Effect.log(`npm ${currentVersion} already matches required version`);
 				}
+			} else {
+				// pnpm, yarn -- use corepack
+				// Check if corepack needs to be installed (Node >= 25)
+				const nodeVersionOut = yield* runner.execCapture("node", ["--version"], { cwd });
+				const versionMatch = nodeVersionOut.stdout.trim().match(/^v(\d+)\.\d+\.\d+$/);
+				if (versionMatch) {
+					const major = Number.parseInt(versionMatch[1], 10);
+					if (major >= 25) {
+						yield* Effect.log("Node.js >= 25 detected, installing corepack globally...");
+						yield* runner.exec("npm", ["install", "-g", "--force", "corepack@latest"], { cwd });
+					}
+				}
+
+				yield* Effect.log("Enabling corepack...");
+				yield* runner.exec("corepack", ["enable"], { cwd });
+
+				yield* Effect.log(`Preparing ${packageManagerName}@${packageManagerVersion}...`);
+				yield* runner.exec("corepack", ["prepare", `${packageManagerName}@${packageManagerVersion}`, "--activate"], {
+					cwd,
+				});
 			}
-
-			// Enable corepack
-			yield* Effect.log("Enabling corepack...");
-			yield* runner.exec("corepack", ["enable"], { cwd });
-
-			// Prepare the package manager
-			yield* Effect.log(`Preparing ${packageManagerName}@${packageManagerVersion}...`);
-			yield* runner.exec("corepack", ["prepare", `${packageManagerName}@${packageManagerVersion}`, "--activate"], {
-				cwd,
-			});
 
 			// Verify
 			yield* runner.exec(packageManagerName, ["--version"], { cwd });
-			yield* Effect.log(`${packageManagerName}@${packageManagerVersion} activated via corepack`);
+			yield* Effect.log(`${packageManagerName}@${packageManagerVersion} activated`);
 		}).pipe(
 			Effect.catchAll((error) =>
 				Effect.fail(

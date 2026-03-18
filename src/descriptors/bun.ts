@@ -35,10 +35,13 @@ export const descriptor = {
 
 	getToolInstallOptions(
 		_version: string,
-		_platform: string,
-		_arch: string,
+		platform: string,
+		arch: string,
 	): { archiveType?: "tar.gz" | "tar.xz" | "zip"; binSubPath?: string } {
-		return { archiveType: "zip" };
+		// Bun zip extracts to bun-{platform}-{arch}/ containing the binary
+		const bunPlatform = platform === "win32" ? "windows" : platform;
+		const bunArch = arch === "arm64" ? "aarch64" : arch;
+		return { archiveType: "zip", binSubPath: `bun-${bunPlatform}-${bunArch}` };
 	},
 
 	verifyCommand: ["bun", "--version"] as [string, ...string[]],
