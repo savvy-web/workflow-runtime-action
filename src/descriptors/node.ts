@@ -53,19 +53,20 @@ const postInstall =
 			}
 
 			if (packageManagerName === "npm") {
-				// npm is NOT managed by corepack -- install the exact version globally
+				// npm is NOT managed by corepack -- install the exact version into the
+				// tool-cached Node's prefix so it takes precedence on PATH
 				const currentOut = yield* runner.execCapture("npm", ["--version"]);
 				const currentVersion = currentOut.stdout.trim();
 				if (currentVersion !== packageManagerVersion) {
 					yield* Effect.log(`Upgrading npm from ${currentVersion} to ${packageManagerVersion}...`);
-					// Use sudo on linux/darwin because npm's global prefix is /usr/local
-					const { platform: getPlatform } = yield* Effect.sync(() => require("node:os") as { platform: () => string });
-					const plat = getPlatform();
-					if (plat === "linux" || plat === "darwin") {
-						yield* runner.exec("sudo", ["npm", "install", "-g", `npm@${packageManagerVersion}`]);
-					} else {
-						yield* runner.exec("npm", ["install", "-g", `npm@${packageManagerVersion}`]);
-					}
+					// Find the tool-cached Node's prefix (parent of the bin dir on PATH)
+					const whichOut = yield* runner.execCapture("which", ["node"]);
+					const nodeBin = whichOut.stdout.trim();
+					// e.g. /opt/hostedtoolcache/node/24.9.0/x64/bin/node -> prefix is /opt/hostedtoolcache/node/24.9.0/x64
+					const { dirname } = yield* Effect.sync(() => require("node:path") as { dirname: (p: string) => string });
+					const nodePrefix = dirname(dirname(nodeBin));
+					yield* Effect.log(`Installing npm@${packageManagerVersion} into ${nodePrefix}...`);
+					yield* runner.exec("npm", ["install", "-g", `--prefix=${nodePrefix}`, `npm@${packageManagerVersion}`]);
 				} else {
 					yield* Effect.log(`npm ${currentVersion} already matches required version`);
 				}
