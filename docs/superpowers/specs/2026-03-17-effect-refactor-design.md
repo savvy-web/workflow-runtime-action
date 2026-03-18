@@ -25,8 +25,8 @@ Full rewrite of `workflow-runtime-action` from imperative TypeScript to Effect-b
 
 Two entry points, down from three:
 
-- **`src/main.ts`** -- Single `Effect.gen` pipeline: parse config, restore cache, install runtimes, setup package manager, install deps, install Biome, set outputs.
-- **`src/post.ts`** -- Restore state from main via `ActionState`, save cache if no primary hit.
+- **`src/main.ts`** -- Single `Effect.gen` pipeline: parse config, compute cache config, restore cache, install runtimes, install deps, install Biome, set outputs, log summary.
+- **`src/post.ts`** -- Restore state from main via `ActionState`, save cache if no primary hit. Errors are caught globally and demoted to warnings so a cache-save failure never fails the job.
 
 **Why pre.ts is safe to remove:** The current `pre.ts` only logs action inputs as a diagnostic aid. It has no ordering dependency on `actions/checkout` or any other step. Collapsing it into `main.ts` has no behavioral impact.
 
@@ -72,13 +72,21 @@ type RuntimeDescriptor = {
 
 The `postInstall` Effect requires `CommandRunner` in its environment (e.g., Node's corepack setup needs to exec shell commands). This dependency is satisfied by `makeRuntimeInstaller` which has `CommandRunner` in scope.
 
-### Service Interface
+### Service Interface and Tag
+
+The `RuntimeInstaller` service uses `Context.GenericTag` (not the class-based `Context.Tag` pattern from `github-action-effects` 0.8.0, since this is our own project-local service, not a library export):
 
 ```typescript
 interface RuntimeInstaller {
-  readonly install: (version: string) => Effect<InstalledRuntime, RuntimeInstallError>
+  readonly install: (
+    version: string,
+  ) => Effect<InstalledRuntime, RuntimeInstallError, ToolInstaller | CommandRunner>
 }
+
+const RuntimeInstaller = Context.GenericTag<RuntimeInstaller>("RuntimeInstaller")
 ```
+
+Note the `install` method's return type includes `ToolInstaller | CommandRunner` in its environment -- these transitive dependencies are satisfied when the effect runs within the main pipeline's layer composition.
 
 ### Shared Implementation
 
@@ -118,17 +126,27 @@ Biome is a single binary download with the same lifecycle (download, cache, PATH
 Configuration comes exclusively from `package.json` `devEngines`:
 
 ```typescript
+const AbsoluteVersion = Schema.String.pipe(
+  Schema.filter((v) => {
+    const hasRangeOperators = /[~^<>=*xX]/.test(v)
+    if (hasRangeOperators) return false
+    return /^\d+\.\d+\.\d+(-[a-zA-Z0-9.-]+)?(\+[a-zA-Z0-9.-]+)?$/.test(v)
+  }, { message: () => "Must be an absolute version (e.g., '24.11.0'), not a semver range" }),
+)
+
 const DevEngineEntry = Schema.Struct({
   name: Schema.String,
-  version: Schema.String,  // refined to reject semver ranges
-  onFail: Schema.optional(Schema.Literal("error", "warn", "ignore")),
+  version: AbsoluteVersion,
+  onFail: Schema.optional(Schema.String),
 })
 
 const DevEngines = Schema.Struct({
-  runtime: Schema.Union(DevEngineEntry, Schema.Array(DevEngineEntry)),
   packageManager: DevEngineEntry,
+  runtime: Schema.Union(DevEngineEntry, Schema.Array(DevEngineEntry)),
 })
 ```
+
+Note: `onFail` accepts any string (not restricted to a literal union) to remain forward-compatible with future values.
 
 ### Version Validation
 
@@ -136,15 +154,18 @@ Absolute version refinement rejects `^`, `~`, `>`, `<`, `=`, `*`, `x` prefixes. 
 
 ### Feature Detection
 
-- **Biome**: Read `biome.jsonc` or `biome.json` via `FileSystem.readFileString`. The `$schema` URL is extracted via regex (`/schemas\/([^/]+)\/schema\.json/`) -- no JSONC parser needed since we only need the schema field, not the full config. Falls back to `biome-version` input if auto-detect fails.
-- **Turbo**: Check `turbo.json` existence via `FileSystem.exists`
+- **Biome**: Checks the `biome-version` input override first. If not provided, reads `biome.jsonc` or `biome.json` via `FileSystem.readFileString` and extracts the `$schema` URL via regex (`/schemas\/([^/]+)\/schema\.json/`) -- no JSONC parser needed since we only need the schema field, not the full config. Returns `Option.none()` if no Biome config is detected and no override is given.
+- **Turbo**: Check `turbo.json` existence via `FileSystem.access` (not `FileSystem.exists`)
 
 ### Configuration Flow
 
-1. `FileSystem.readFileString("package.json")` + `Schema.decode(DevEngines)`
-2. Detect Biome version from config file (or optional `biome-version` input override)
-3. Detect Turbo from `turbo.json`
-4. Return typed config object
+`loadPackageJson` is an Effect value (not a function taking `fs`) -- it obtains `FileSystem` from the Effect context internally:
+
+1. `loadPackageJson` reads `package.json` via `FileSystem.readFileString`, parses JSON, decodes through `Schema.Struct({ devEngines: DevEngines })`
+2. `parseDevEngines(devEngines)` normalises `runtime` to always-array form
+3. `detectBiome(inputs)` checks override input, then reads config files (obtains `FileSystem` from context)
+4. `detectTurbo` checks for `turbo.json` (obtains `FileSystem` from context)
+5. Return typed config object
 
 ### Remaining Action Inputs
 
@@ -158,7 +179,7 @@ Absolute version refinement rejects `^`, `~`, `>`, `<`, `=`, `*`, `x` prefixes. 
 | `additional-lockfiles` | string (optional) | Extra lockfile patterns for cache key |
 | `additional-cache-paths` | string (optional) | Extra paths to include in cache |
 
-OTel inputs (`otel-enabled`, `otel-endpoint`, `otel-protocol`, `otel-headers`) are handled automatically by `Action.run`.
+**Note:** `additional-lockfiles` and `additional-cache-paths` are declared in `action.yml` but are not yet consumed by the source code. OTel inputs are handled automatically by `Action.run` if configured at the `github-action-effects` level.
 
 ### Removed Inputs (Breaking Changes)
 
@@ -179,15 +200,16 @@ The `PackageManagerAdapter` from `github-action-effects` detects from the `packa
 
 ### Domain Logic (cache.ts)
 
-Pure Effect functions using `CommandRunner` to query package manager cache paths (e.g., `npm config get cache`, `pnpm store path`) and `FileSystem` + `@actions/glob` patterns for lockfile detection:
+Pure Effect functions using `CommandRunner` to query package manager cache paths and `FileSystem` for lockfile detection. `@actions/glob` is **not** used directly -- lockfile detection uses simple `FileSystem.access` checks against well-known filenames extracted from glob patterns (e.g., `**/pnpm-lock.yaml` becomes `pnpm-lock.yaml`):
 
 - **Cache path resolution**: Query package manager for its cache directory via `CommandRunner.execCapture`, fall back to platform-specific defaults
+- **Tool cache paths**: Includes per-runtime tool cache entries (e.g., `/opt/hostedtoolcache/node/24.11.0`)
 - **Cache key generation**: `{os}-{versionHash}-{branchHash}-{lockfileHash}`
-- **Version hash**: SHA256 of runtime versions + package manager version (truncated to 8 chars)
-- **Branch hash**: Branch name from `ActionEnvironment` GitHub context (handles PR vs push)
-- **Lockfile hash**: SHA256 of lockfile contents
-- **Restore key fallback chain**: branch-specific, then cross-branch
-- **Combined cache config**: Merge and deduplicate paths across multiple package managers
+- **Version hash**: SHA256 of runtime versions + package manager version + optional cache-bust value (truncated to 8 chars)
+- **Branch hash**: Branch name from `ActionEnvironment` GitHub context (handles PR via `GITHUB_HEAD_REF`, push via `GITHUB_REF`)
+- **Lockfile hash**: SHA256 of lockfile contents via `FileSystem.readFileString`
+- **Restore key fallback chain**: branch-specific prefix, then version-only prefix. Empty when `cacheBust` is set (forces exact matches for testing)
+- **Combined cache config**: Merge and deduplicate paths across multiple package managers, sorted with absolute paths first then globs
 - **Platform-specific defaults**: Fallback cache paths per package manager and OS
 
 ### Cross-Phase State
@@ -196,15 +218,13 @@ Pure Effect functions using `CommandRunner` to query package manager cache paths
 
 ```typescript
 const CacheStateSchema = Schema.Struct({
-  primaryKey: Schema.String,
-  restoreKeys: Schema.Array(Schema.String),
-  paths: Schema.Array(Schema.String),
-  packageManagers: Schema.Array(Schema.String),
   hit: Schema.Literal("exact", "partial", "none"),
+  key: Schema.optional(Schema.String),
+  paths: Schema.optional(Schema.Array(Schema.String)),
 })
 ```
 
-Main saves cache state; post restores it to decide whether to save.
+The schema is deliberately minimal -- only the cache key, paths, and hit status are needed. Main saves state under the key `"CACHE_STATE"`; post reads it to decide whether to save (skips on exact hit).
 
 ## Error Types
 

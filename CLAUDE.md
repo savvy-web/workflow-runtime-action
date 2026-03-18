@@ -220,6 +220,13 @@ are read exclusively from `devEngines` — there are no explicit version inputs.
   Cache)
 * **`turbo-team`** - Turbo team slug (optional, for Vercel Remote Cache)
 
+### Cache Inputs
+
+* **`additional-lockfiles`** - Additional lockfile patterns to include in cache
+  key generation. Multiline string with glob patterns.
+* **`additional-cache-paths`** - Additional paths to cache/restore. Multiline
+  string with glob patterns.
+
 ### Testing Inputs
 
 * **`cache-bust`** - Cache busting for testing. Accepts `"true"` (auto-generate
