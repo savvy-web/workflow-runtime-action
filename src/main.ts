@@ -1,512 +1,311 @@
-import { existsSync } from "node:fs";
-import { readFile } from "node:fs/promises";
-import { endGroup, info, saveState, setFailed, startGroup, warning } from "@actions/core";
-import { exec } from "@actions/exec";
-import { parse } from "jsonc-parser";
-import { getInput, setOutput } from "./utils/action-io.js";
-import type { PackageManager } from "./utils/cache-utils.js";
-import { restoreCache } from "./utils/cache-utils.js";
+import { FileSystem } from "@effect/platform";
 import {
-	formatDetection,
-	formatInstallation,
-	formatPackageManager,
-	formatRuntime,
-	formatSuccess,
-} from "./utils/emoji.js";
-import { installBiome } from "./utils/install-biome.js";
-import { installBun } from "./utils/install-bun.js";
-import { installDeno } from "./utils/install-deno.js";
-import { installNode, setupNpm, setupPackageManager } from "./utils/install-node.js";
-import type { RuntimeName } from "./utils/parse-package-json.js";
-import { parsePackageJson } from "./utils/parse-package-json.js";
+	Action,
+	ActionCacheLive,
+	ActionEnvironmentLive,
+	ActionInputs,
+	ActionLogger,
+	ActionOutputs,
+	ActionStateLive,
+	CommandRunner,
+	CommandRunnerLive,
+	ToolInstallerLive,
+} from "@savvy-web/github-action-effects";
+import { Effect, Layer, Option, Schema } from "effect";
+import type { PackageManager } from "./cache.js";
+import { findLockFiles, getCombinedCacheConfig, restoreCache } from "./cache.js";
+import { detectBiome, detectTurbo, loadPackageJson, parseDevEngines } from "./config.js";
+import { formatDetection, formatInstallation, formatPackageManager, formatRuntime, formatSuccess } from "./emoji.js";
+import { DependencyInstallError } from "./errors.js";
+import type { InstalledRuntime } from "./runtime-installer.js";
+import { BiomeInstallerLive, RuntimeInstaller, installerLayerFor } from "./runtime-installer.js";
+import type { DevEngineEntry } from "./schemas.js";
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 
 /**
- * Biome configuration file structure
+ * Determines active package managers from the set of installed runtimes
+ * and the primary package manager.
  */
-interface BiomeConfig {
-	/** Schema URL that includes the Biome version */
-	$schema?: string;
-}
+const getActivePackageManagers = (
+	runtimes: ReadonlyArray<DevEngineEntry>,
+	primaryPackageManager: PackageManager,
+): PackageManager[] => {
+	const pms = new Set<PackageManager>();
 
-/**
- * Runtime version map for tracking installed versions
- * Supports node, bun, deno, biome, and any future tools
- */
-type RuntimeVersions = Record<string, string | undefined>;
-
-/**
- * Complete runtime setup configuration result
- */
-interface SetupResult {
-	/** Detected runtimes to install */
-	runtimes: RuntimeName[];
-	/** Version for each runtime from package.json */
-	runtimeVersions: RuntimeVersions;
-	/** The package manager to use */
-	packageManager: PackageManager;
-	/** Package manager version */
-	packageManagerVersion: string;
-	/** Whether Turbo is enabled (turbo.json exists) */
-	turboEnabled: boolean;
-	/** Path to Turbo config file, or empty string if not found */
-	turboConfigFile: string;
-	/** Biome version to install (e.g., "2.3.6") or "latest" or empty to skip */
-	biomeVersion: string;
-	/** Path to Biome config file or empty string if not found */
-	biomeConfigFile: string;
-	/** Whether to install dependencies */
-	installDeps: boolean;
-	/** Cache busting mode: 'true' (auto-generate), 'false' (normal), or custom string */
-	cacheBust: string;
-	/** Additional lockfile patterns for cache key generation */
-	additionalLockfiles: string;
-	/** Additional cache paths to cache/restore */
-	additionalCachePaths: string;
-}
-
-/**
- * Detects if Turborepo is configured in the repository
- *
- * @returns Turbo configuration status
- */
-function detectTurbo(): {
-	enabled: boolean;
-	configFile: string;
-} {
-	if (existsSync("turbo.json")) {
-		info(formatDetection("Turbo configuration: turbo.json", true));
-		return {
-			enabled: true,
-			configFile: "turbo.json",
-		};
+	for (const rt of runtimes) {
+		if (rt.name === "node") pms.add(primaryPackageManager);
+		else if (rt.name === "bun") pms.add("bun");
+		else if (rt.name === "deno") pms.add("deno");
 	}
 
-	info(formatDetection("Turbo configuration", false));
-	return {
-		enabled: false,
-		configFile: "",
-	};
-}
+	return Array.from(pms);
+};
 
 /**
- * Detects which Biome config file exists in the repository
- *
- * @returns Path to detected config file, or empty string if none found
+ * Install dependencies using the detected package manager.
+ * Uses lockfile-aware flags for reproducible installs.
  */
-function detectBiomeConfigFile(): string {
-	if (existsSync("biome.jsonc")) {
-		return "biome.jsonc";
-	}
+const installDependencies = (
+	packageManager: PackageManager,
+): Effect.Effect<void, DependencyInstallError, CommandRunner | FileSystem.FileSystem> =>
+	Effect.gen(function* () {
+		const runner = yield* CommandRunner;
+		const fs = yield* FileSystem.FileSystem;
 
-	if (existsSync("biome.json")) {
-		return "biome.json";
-	}
-
-	return "";
-}
-
-/**
- * Extracts Biome version from a schema URL
- *
- * @param schemaUrl - The $schema URL from the config file
- * @returns Extracted version string, or undefined if pattern doesn't match
- */
-function extractBiomeVersionFromSchema(schemaUrl: string): string | undefined {
-	const versionMatch = schemaUrl.match(/\/schemas\/(\d+\.\d+\.\d+)\//);
-	return versionMatch?.[1];
-}
-
-/**
- * Detects Biome version from config file or explicit input
- *
- * @param explicitVersion - Explicit Biome version from action input
- * @returns Biome version and config file path
- */
-async function detectBiome(explicitVersion: string): Promise<{
-	version: string;
-	configFile: string;
-}> {
-	// If version was explicitly provided, use it
-	if (explicitVersion) {
-		info(`Using explicit Biome version: ${explicitVersion}`);
-		return {
-			version: explicitVersion,
-			configFile: "",
-		};
-	}
-
-	// Detect config file
-	const configFile = detectBiomeConfigFile();
-
-	if (!configFile) {
-		info(formatDetection("Biome config file", false));
-		return {
-			version: "",
-			configFile: "",
-		};
-	}
-
-	info(formatDetection(`Biome config: ${configFile}`, true));
-
-	try {
-		// Parse config file
-		const content = await readFile(configFile, "utf-8");
-		const config = parse(content) as BiomeConfig;
-
-		if (!config.$schema) {
-			warning(`No $schema field found in ${configFile}, using 'latest' version`);
-			return {
-				version: "latest",
-				configFile,
-			};
-		}
-
-		// Extract version from schema URL
-		const version = extractBiomeVersionFromSchema(config.$schema);
-
-		if (!version) {
-			warning(`Could not parse version from $schema in ${configFile} (URL: ${config.$schema}), using 'latest' version`);
-			return {
-				version: "latest",
-				configFile,
-			};
-		}
-
-		info(`✓ Detected Biome version: ${version} from ${configFile}`);
-		return {
-			version,
-			configFile,
-		};
-	} catch (error) {
-		warning(
-			`Failed to parse ${configFile}: ${error instanceof Error ? error.message : String(error)}, using 'latest' version`,
-		);
-		return {
-			version: "latest",
-			configFile,
-		};
-	}
-}
-
-/**
- * Main setup function that orchestrates all detection and configuration
- *
- * @returns Complete runtime setup configuration
- */
-async function detectConfiguration(): Promise<SetupResult> {
-	// Read all inputs
-	const nodeVersionInput = getInput("node-version");
-	const bunVersionInput = getInput("bun-version");
-	const denoVersionInput = getInput("deno-version");
-	const packageManagerInput = getInput("package-manager");
-	const packageManagerVersionInput = getInput("package-manager-version");
-	const biomeVersionInput = getInput("biome-version");
-	const installDeps = getInput("install-deps") !== "false";
-	const cacheBust = getInput("cache-bust");
-	const additionalLockfiles = getInput("additional-lockfiles");
-	const additionalCachePaths = getInput("additional-cache-paths");
-
-	// Validate that package-manager and package-manager-version are used together
-	const hasExplicitRuntime = nodeVersionInput || bunVersionInput || denoVersionInput;
-
-	if (packageManagerVersionInput && !packageManagerInput) {
-		throw new Error(
-			"package-manager-version input requires package-manager to be specified. Please provide both inputs together.",
-		);
-	}
-
-	// For npm, pnpm, and yarn: require package-manager-version in explicit mode
-	// For bun and deno: version comes from runtime version, not package-manager-version
-	if (packageManagerInput && !packageManagerVersionInput && hasExplicitRuntime) {
-		const isRuntimePackageManager = packageManagerInput === "bun" || packageManagerInput === "deno";
-		if (!isRuntimePackageManager) {
-			throw new Error(
-				"To use explicit mode (skip auto-detection), you must provide both package-manager and package-manager-version together with at least one runtime version.",
+		const fileExists = (path: string) =>
+			fs.access(path).pipe(
+				Effect.map(() => true),
+				Effect.orElse(() => Effect.succeed(false)),
 			);
-		}
-	}
 
-	startGroup("🔍 Detecting runtime configuration");
-
-	// Check if we're in explicit mode (runtime version + package manager + package manager version)
-	// For bun/deno: package manager version comes from runtime version
-	const hasExplicitPackageManager =
-		packageManagerInput &&
-		(packageManagerVersionInput || packageManagerInput === "bun" || packageManagerInput === "deno");
-	const isExplicitMode = hasExplicitRuntime && hasExplicitPackageManager;
-
-	const runtimeVersions: RuntimeVersions = {};
-	const runtimes: RuntimeName[] = [];
-	let packageManager: PackageManager;
-	let packageManagerVersion: string;
-
-	if (isExplicitMode) {
-		// Explicit mode - use inputs directly, no package.json required
-		info("Using explicit configuration from inputs");
-
-		// Build runtime versions from inputs
-		if (nodeVersionInput) {
-			runtimes.push("node");
-			runtimeVersions.node = nodeVersionInput;
-		}
-		if (bunVersionInput) {
-			runtimes.push("bun");
-			runtimeVersions.bun = bunVersionInput;
-		}
-		if (denoVersionInput) {
-			runtimes.push("deno");
-			runtimeVersions.deno = denoVersionInput;
+		if (packageManager === "deno") {
+			yield* Effect.log("Deno caches dependencies automatically, skipping install step");
+			return;
 		}
 
-		// Set package manager
-		packageManager = packageManagerInput as PackageManager;
-
-		// For bun/deno, use runtime version as package manager version
-		if (packageManager === "bun") {
-			packageManagerVersion = bunVersionInput;
-		} else if (packageManager === "deno") {
-			packageManagerVersion = denoVersionInput;
-		} else {
-			// For npm, pnpm, yarn: use explicit package-manager-version
-			packageManagerVersion = packageManagerVersionInput;
-		}
-
-		info(`✓ Configured runtime(s): ${runtimes.map((rt) => `${rt}@${runtimeVersions[rt]}`).join(", ")}`);
-		info(`✓ Configured package manager: ${packageManager}@${packageManagerVersion}`);
-	} else {
-		// Auto-detect mode - parse package.json
-		info("Auto-detecting configuration from package.json");
-
-		const packageJsonConfig = await parsePackageJson();
-
-		// Build runtime versions map from devEngines.runtime
-		for (const runtime of packageJsonConfig.runtimes) {
-			runtimes.push(runtime.name);
-			runtimeVersions[runtime.name] = runtime.version;
-		}
-
-		packageManager = packageJsonConfig.packageManager.name as PackageManager;
-		packageManagerVersion = packageJsonConfig.packageManager.version;
-	}
-
-	// Detect Turbo (works in both modes)
-	const turbo = detectTurbo();
-
-	// Detect Biome (works in both modes)
-	const biome = await detectBiome(biomeVersionInput);
-
-	// Add biome to runtimeVersions for tool cache inclusion
-	if (biome.version) {
-		runtimeVersions.biome = biome.version;
-	}
-
-	endGroup();
-
-	return {
-		runtimes,
-		runtimeVersions,
-		packageManager,
-		packageManagerVersion,
-		turboEnabled: turbo.enabled,
-		turboConfigFile: turbo.configFile,
-		biomeVersion: biome.version,
-		biomeConfigFile: biome.configFile,
-		installDeps,
-		cacheBust,
-		additionalLockfiles,
-		additionalCachePaths,
-	};
-}
-
-/**
- * Installs dependencies using the detected package manager
- *
- * @param packageManager - Package manager to use
- */
-async function installDependencies(packageManager: PackageManager): Promise<void> {
-	startGroup(formatInstallation(`dependencies with ${formatPackageManager(packageManager)}`));
-
-	try {
 		let command: string[];
 
 		switch (packageManager) {
-			case "npm":
-				// Use npm ci if lock file exists, otherwise npm install
-				command = existsSync("package-lock.json") ? ["ci"] : ["install"];
+			case "npm": {
+				const hasLock = yield* fileExists("package-lock.json");
+				command = hasLock ? ["ci"] : ["install"];
 				break;
-			case "pnpm":
-				// Use frozen lockfile if pnpm-lock.yaml exists
-				command = existsSync("pnpm-lock.yaml") ? ["install", "--frozen-lockfile"] : ["install"];
-				break;
-			case "yarn":
-				// Use immutable mode if yarn.lock exists
-				// Otherwise explicitly allow lockfile creation (Yarn 4+ defaults to immutable in CI)
-				if (existsSync("yarn.lock")) {
-					command = ["install", "--immutable"];
-				} else {
-					command = ["install", "--no-immutable"];
-				}
-				break;
-			case "bun":
-				// Use frozen lockfile if bun.lock exists
-				command = existsSync("bun.lock") ? ["install", "--frozen-lockfile"] : ["install"];
-				break;
-			case "deno":
-				// Deno caches dependencies automatically on first use
-				// Skip explicit install step as 'deno install' is for CLI tools in Deno 1.x
-				info("Deno caches dependencies automatically, skipping install step");
-				return;
-		}
-
-		await exec(packageManager, command);
-
-		info(formatSuccess("Dependencies installed successfully"));
-	} catch (error) {
-		throw new Error(`Failed to install dependencies: ${error instanceof Error ? error.message : String(error)}`);
-	} finally {
-		endGroup();
-	}
-}
-
-/**
- * Gets all active package managers based on installed runtimes
- *
- * @param runtimes - Array of installed runtimes
- * @param primaryPackageManager - Primary package manager (for Node.js)
- * @returns Array of all active package managers
- */
-function getActivePackageManagers(runtimes: RuntimeName[], primaryPackageManager: PackageManager): PackageManager[] {
-	const packageManagers: PackageManager[] = [];
-
-	for (const runtime of runtimes) {
-		if (runtime === "node") {
-			// Node.js uses the primary package manager (npm/pnpm/yarn)
-			if (!packageManagers.includes(primaryPackageManager)) {
-				packageManagers.push(primaryPackageManager);
 			}
-		} else if (runtime === "bun") {
-			// Bun uses its own package manager
-			if (!packageManagers.includes("bun")) {
-				packageManagers.push("bun");
+			case "pnpm": {
+				const hasLock = yield* fileExists("pnpm-lock.yaml");
+				command = hasLock ? ["install", "--frozen-lockfile"] : ["install"];
+				break;
 			}
-		} else if (runtime === "deno") {
-			// Deno uses its own package manager
-			if (!packageManagers.includes("deno")) {
-				packageManagers.push("deno");
+			case "yarn": {
+				const hasLock = yield* fileExists("yarn.lock");
+				command = hasLock ? ["install", "--immutable"] : ["install", "--no-immutable"];
+				break;
+			}
+			case "bun": {
+				const hasLock = yield* fileExists("bun.lock");
+				command = hasLock ? ["install", "--frozen-lockfile"] : ["install"];
+				break;
 			}
 		}
-	}
 
-	return packageManagers;
-}
-
-/**
- * Main action entrypoint
- */
-async function main(): Promise<void> {
-	try {
-		// 1. Detect configuration
-		const config = await detectConfiguration();
-
-		// Get all active package managers based on runtimes
-		const activePackageManagers = getActivePackageManagers(config.runtimes, config.packageManager);
-		//info(`Active package managers: ${activePackageManagers.join(", ")}`);
-
-		// Save package manager to state for post action
-		saveState("PACKAGE_MANAGER", config.packageManager);
-
-		// 2. Restore cache before installing runtimes (always run to generate cache key state for post action)
-		// This allows us to restore both dependencies AND runtime installations from cache
-		// Include .turbo directories in cache when Turbo is detected
-		const additionalCachePaths = config.turboEnabled
-			? [config.additionalCachePaths, "**/.turbo"].filter(Boolean).join("\n")
-			: config.additionalCachePaths;
-
-		await restoreCache(
-			activePackageManagers,
-			config.runtimeVersions,
-			config.packageManagerVersion,
-			config.cacheBust || undefined,
-			config.additionalLockfiles || undefined,
-			additionalCachePaths || undefined,
+		yield* runner.exec(packageManager, command).pipe(
+			Effect.mapError(
+				(cause) =>
+					new DependencyInstallError({
+						packageManager,
+						reason: `Failed to install dependencies: ${cause instanceof Error ? cause.message : String(cause)}`,
+						cause,
+					}),
+			),
 		);
 
-		// 3. Install all detected runtimes
-		// If cache was restored, runtimes may already be in tool cache and installation will be skipped
-		const installedVersions: RuntimeVersions = {};
+		yield* Effect.log(formatSuccess("Dependencies installed successfully"));
+	});
 
-		for (const runtime of config.runtimes) {
-			if (runtime === "node") {
-				const version = config.runtimeVersions.node;
-				if (!version) {
-					throw new Error("Node.js runtime detected but no version specified in devEngines.runtime");
-				}
-				const installedVersion = await installNode({ version });
-				installedVersions.node = installedVersion;
-			} else if (runtime === "bun") {
-				const version = config.runtimeVersions.bun;
-				if (!version) {
-					throw new Error("Bun runtime detected but no version specified in devEngines.runtime");
-				}
-				const installedVersion = await installBun({ version });
-				installedVersions.bun = installedVersion;
-			} else if (runtime === "deno") {
-				const version = config.runtimeVersions.deno;
-				if (!version) {
-					throw new Error("Deno runtime detected but no version specified in devEngines.runtime");
-				}
-				const installedVersion = await installDeno({ version });
-				installedVersions.deno = installedVersion;
+/**
+ * Sets all action outputs from the pipeline results.
+ */
+const setOutputs = (
+	outputs: ActionOutputs,
+	installed: ReadonlyArray<InstalledRuntime>,
+	config: {
+		readonly packageManager: DevEngineEntry;
+		readonly biome: Option.Option<string>;
+		readonly turbo: boolean;
+	},
+	cacheHit: "exact" | "partial" | "none",
+	lockfiles: string[],
+	cachePaths: string[],
+) =>
+	Effect.gen(function* () {
+		// Runtime outputs
+		const nodeRt = installed.find((r) => r.name === "node");
+		const bunRt = installed.find((r) => r.name === "bun");
+		const denoRt = installed.find((r) => r.name === "deno");
+
+		yield* outputs.set("node-version", nodeRt?.version ?? "");
+		yield* outputs.set("node-enabled", nodeRt ? "true" : "false");
+		yield* outputs.set("bun-version", bunRt?.version ?? "");
+		yield* outputs.set("bun-enabled", bunRt ? "true" : "false");
+		yield* outputs.set("deno-version", denoRt?.version ?? "");
+		yield* outputs.set("deno-enabled", denoRt ? "true" : "false");
+
+		// Package manager outputs
+		yield* outputs.set("package-manager", config.packageManager.name);
+		yield* outputs.set("package-manager-version", config.packageManager.version);
+
+		// Biome outputs
+		yield* outputs.set("biome-version", Option.isSome(config.biome) ? config.biome.value : "");
+		yield* outputs.set("biome-enabled", Option.isSome(config.biome) ? "true" : "false");
+
+		// Turbo output
+		yield* outputs.set("turbo-enabled", config.turbo ? "true" : "false");
+
+		// Cache outputs
+		const cacheHitOutput = cacheHit === "exact" ? "true" : cacheHit === "partial" ? "partial" : "false";
+		yield* outputs.set("cache-hit", cacheHitOutput);
+		yield* outputs.set("lockfiles", lockfiles.join(","));
+		yield* outputs.set("cache-paths", cachePaths.join(","));
+	});
+
+// ---------------------------------------------------------------------------
+// Main pipeline
+// ---------------------------------------------------------------------------
+
+const main = Effect.gen(function* () {
+	const inputs = yield* ActionInputs;
+	const outputs = yield* ActionOutputs;
+	const logger = yield* ActionLogger;
+
+	// 1. Parse configuration
+	const config = yield* logger.group(
+		"Detect configuration",
+		Effect.gen(function* () {
+			const devEngines = yield* loadPackageJson;
+			const parsed = parseDevEngines(devEngines);
+			const runtimes = parsed.runtime;
+			const packageManager = parsed.packageManager;
+			const biome = yield* detectBiome(inputs);
+			const turbo = yield* detectTurbo;
+
+			yield* Effect.log(
+				formatDetection(`runtime(s): ${runtimes.map((r) => `${r.name}@${r.version}`).join(", ")}`, true),
+			);
+			yield* Effect.log(formatDetection(`package manager: ${packageManager.name}@${packageManager.version}`, true));
+			if (Option.isSome(biome)) {
+				yield* Effect.log(formatDetection(`Biome: ${biome.value}`, true));
 			}
-		}
+			if (turbo) {
+				yield* Effect.log(formatDetection("Turbo configuration", true));
+			}
 
-		// 4. Setup package manager
-		if (config.packageManager === "npm") {
-			// npm comes with Node.js but may need version update
-			await setupNpm(config.packageManagerVersion);
-		} else if (config.packageManager === "pnpm" || config.packageManager === "yarn") {
-			// pnpm/yarn use corepack
-			await setupPackageManager(config.packageManager, config.packageManagerVersion);
-		}
-		// bun and deno are their own package managers, no setup needed
+			return { runtimes, packageManager, biome, turbo };
+		}),
+	);
 
-		// 5. Install dependencies using the primary package manager
-		if (config.installDeps) {
-			await installDependencies(config.packageManager);
-		}
+	// 2. Determine active package managers and cache config
+	const pmName = config.packageManager.name as PackageManager;
+	const activePackageManagers = getActivePackageManagers(config.runtimes, pmName);
 
-		// 6. Install Biome (optional)
-		if (config.biomeVersion) {
-			await installBiome(config.biomeVersion);
-		}
-
-		// Set all outputs
-		setOutput("node-version", installedVersions.node || "");
-		setOutput("node-enabled", !!installedVersions.node);
-		setOutput("bun-version", installedVersions.bun || "");
-		setOutput("bun-enabled", !!installedVersions.bun);
-		setOutput("deno-version", installedVersions.deno || "");
-		setOutput("deno-enabled", !!installedVersions.deno);
-		setOutput("package-manager", config.packageManager);
-		setOutput("package-manager-version", config.packageManagerVersion);
-		setOutput("biome-version", config.biomeVersion);
-		setOutput("biome-enabled", !!config.biomeVersion);
-		setOutput("turbo-enabled", config.turboEnabled);
-
-		// Summary
-		startGroup("✅ Runtime Setup Complete");
-		info(`Runtime(s): ${config.runtimes.map((r) => formatRuntime(r)).join(", ")}`);
-		if (installedVersions.node) info(`${formatRuntime("node")}: ${installedVersions.node}`);
-		if (installedVersions.bun) info(`${formatRuntime("bun")}: ${installedVersions.bun}`);
-		if (installedVersions.deno) info(`${formatRuntime("deno")}: ${installedVersions.deno}`);
-		info(`${formatPackageManager(config.packageManager)}: ${config.packageManagerVersion}`);
-		info(`Turbo: ${config.turboEnabled ? "enabled" : "disabled"}`);
-		info(`Biome: ${config.biomeVersion ? `v${config.biomeVersion}` : "not installed"}`);
-		info(`Dependencies: ${config.installDeps ? "installed" : "skipped"}`);
-		endGroup();
-	} catch (error) {
-		setFailed(`Failed to setup runtime: ${error instanceof Error ? error.message : String(error)}`);
+	// Build runtime version list for tool cache inclusion
+	const runtimeEntries: Array<{ name: string; version: string }> = config.runtimes.map((r) => ({
+		name: r.name,
+		version: r.version,
+	}));
+	if (Option.isSome(config.biome)) {
+		runtimeEntries.push({ name: "biome", version: config.biome.value });
 	}
-}
 
-await main();
+	const cacheConfig = yield* getCombinedCacheConfig(activePackageManagers, runtimeEntries);
+	const lockfiles = yield* findLockFiles(cacheConfig.lockfilePatterns);
+
+	// Handle additional cache paths for turbo
+	const cacheBust = yield* inputs.getOptional("cache-bust", Schema.String);
+	const cacheBustValue = Option.isSome(cacheBust) && cacheBust.value !== "false" ? cacheBust.value : undefined;
+
+	// Handle turbo env vars
+	if (config.turbo) {
+		const turboToken = yield* inputs.getOptional("turbo-token", Schema.String);
+		const turboTeam = yield* inputs.getOptional("turbo-team", Schema.String);
+		if (Option.isSome(turboToken) && turboToken.value !== "") {
+			yield* outputs.exportVariable("TURBO_TOKEN", turboToken.value);
+		}
+		if (Option.isSome(turboTeam) && turboTeam.value !== "") {
+			yield* outputs.exportVariable("TURBO_TEAM", turboTeam.value);
+		}
+		// Add .turbo to cache paths
+		cacheConfig.cachePaths.push("**/.turbo");
+	}
+
+	// 3. Restore cache (non-fatal)
+	const cacheResult = yield* logger.group(
+		"Restore cache",
+		restoreCache({
+			cachePaths: cacheConfig.cachePaths,
+			runtimes: runtimeEntries,
+			packageManager: { name: config.packageManager.name, version: config.packageManager.version },
+			lockfiles,
+			cacheBust: cacheBustValue,
+		}).pipe(
+			Effect.catchTag("CacheError", (e) =>
+				Effect.gen(function* () {
+					yield* Effect.logWarning(`Cache restore failed: ${e.reason}`);
+					return "none" as const;
+				}),
+			),
+		),
+	);
+
+	// 4. Install runtimes
+	const installed = yield* logger.group(
+		formatInstallation("runtimes"),
+		Effect.forEach(config.runtimes, (rt) =>
+			RuntimeInstaller.pipe(
+				Effect.flatMap((installer) => installer.install(rt.version)),
+				Effect.provide(installerLayerFor(rt.name)),
+				Effect.tap((result) =>
+					Effect.log(formatSuccess(`${formatRuntime(rt.name as "node" | "bun" | "deno")} ${result.version}`)),
+				),
+			),
+		),
+	);
+
+	// 5. Install dependencies
+	const installDeps = yield* inputs.getBooleanOptional("install-deps", true);
+	if (installDeps) {
+		yield* logger.group(
+			formatInstallation(`dependencies with ${formatPackageManager(pmName)}`),
+			installDependencies(pmName),
+		);
+	}
+
+	// 6. Install Biome (non-fatal)
+	if (Option.isSome(config.biome)) {
+		const biomeVersion = config.biome.value;
+		yield* logger.group(
+			formatInstallation("Biome"),
+			RuntimeInstaller.pipe(
+				Effect.flatMap((installer) => installer.install(biomeVersion)),
+				Effect.provide(BiomeInstallerLive),
+				Effect.catchTag("RuntimeInstallError", (e) => Effect.logWarning(`Biome installation failed: ${e.reason}`)),
+			),
+		);
+	}
+
+	// 7. Set outputs
+	yield* setOutputs(outputs, installed, config, cacheResult, lockfiles, cacheConfig.cachePaths);
+
+	// 8. Summary
+	yield* logger.group(
+		"Runtime Setup Complete",
+		Effect.gen(function* () {
+			yield* Effect.log(
+				`Runtime(s): ${config.runtimes.map((r) => formatRuntime(r.name as "node" | "bun" | "deno")).join(", ")}`,
+			);
+			for (const rt of installed) {
+				yield* Effect.log(`${formatRuntime(rt.name as "node" | "bun" | "deno")}: ${rt.version}`);
+			}
+			yield* Effect.log(`${formatPackageManager(pmName)}: ${config.packageManager.version}`);
+			yield* Effect.log(`Turbo: ${config.turbo ? "enabled" : "disabled"}`);
+			yield* Effect.log(`Biome: ${Option.isSome(config.biome) ? `v${config.biome.value}` : "not installed"}`);
+			yield* Effect.log(`Dependencies: ${installDeps ? "installed" : "skipped"}`);
+		}),
+	);
+});
+
+// ---------------------------------------------------------------------------
+// Layer composition and execution
+// ---------------------------------------------------------------------------
+
+const MainLive = Layer.mergeAll(
+	ActionCacheLive,
+	ToolInstallerLive,
+	CommandRunnerLive,
+	ActionStateLive,
+	ActionEnvironmentLive,
+);
+
+await Action.run(main, MainLive);
