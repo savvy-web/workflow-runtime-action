@@ -101,10 +101,10 @@ export const detectBiome = (inputs: Context.Tag.Service<ActionInputs>) =>
 
 		const parsed = yield* Effect.try({
 			try: () => JSON.parse(configContent) as { $schema?: string },
-			catch: () => ({}),
-		}).pipe(Effect.orElse(() => Effect.succeed({} as { $schema?: string })));
+			catch: () => ({}) as { $schema?: string },
+		});
 
-		const schema = (parsed as { $schema?: string }).$schema;
+		const schema = parsed.$schema;
 		if (!schema) {
 			return Option.none<string>();
 		}

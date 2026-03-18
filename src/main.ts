@@ -1,5 +1,6 @@
 // Force ncc to bundle packages used via dynamic import in github-action-effects Live layers
 
+import { chmod } from "node:fs/promises";
 import { arch as osArch, platform as osPlatform, tmpdir } from "node:os";
 import * as actionsCore from "@actions/core";
 import * as toolCache from "@actions/tool-cache";
@@ -77,8 +78,6 @@ const parseMultiValueInput = (raw: string): string[] => {
 const installBiome = (version: string): Effect.Effect<void, Error> =>
 	Effect.tryPromise({
 		try: async () => {
-			const { chmod } = await import("node:fs/promises");
-
 			const plat = osPlatform();
 			const architecture = osArch();
 

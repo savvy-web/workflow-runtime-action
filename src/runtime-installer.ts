@@ -64,8 +64,14 @@ export const makeRuntimeInstaller = (descriptor: RuntimeDescriptor): RuntimeInst
 			const toolInstaller = yield* ToolInstaller;
 			const runner = yield* CommandRunner;
 
-			const url = descriptor.getDownloadUrl(version, process.platform, process.arch);
-			const options = descriptor.getToolInstallOptions(version, process.platform, process.arch);
+			const url = yield* Effect.try({
+				try: () => descriptor.getDownloadUrl(version, process.platform, process.arch),
+				catch: (e) => e,
+			});
+			const options = yield* Effect.try({
+				try: () => descriptor.getToolInstallOptions(version, process.platform, process.arch),
+				catch: (e) => e,
+			});
 
 			const toolPath = yield* toolInstaller.installAndAddToPath(descriptor.name, version, url, options);
 			yield* runner.exec(descriptor.verifyCommand[0], [...descriptor.verifyCommand.slice(1)]);
