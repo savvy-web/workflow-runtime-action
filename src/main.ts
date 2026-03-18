@@ -1,6 +1,7 @@
 // Force ncc to bundle packages used via dynamic import in github-action-effects Live layers
 import "@actions/core";
 import "@actions/tool-cache";
+import { arch as osArch, platform as osPlatform, tmpdir } from "node:os";
 import { FileSystem } from "@effect/platform";
 import {
 	Action,
@@ -23,7 +24,7 @@ import { formatDetection, formatInstallation, formatPackageManager, formatRuntim
 import { DependencyInstallError, PackageManagerSetupError } from "./errors.js";
 import type { InstalledRuntime } from "./runtime-installer.js";
 import { RuntimeInstaller, installerLayerFor } from "./runtime-installer.js";
-import type { DevEngineEntry } from "./schemas.js";
+import type { PackageManagerEntry, RuntimeEntry } from "./schemas.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -76,11 +77,10 @@ const installBiome = (version: string): Effect.Effect<void, Error> =>
 		try: async () => {
 			const tc = await import("@actions/tool-cache");
 			const core = await import("@actions/core");
-			const { platform, arch } = await import("node:os");
 			const { chmod } = await import("node:fs/promises");
 
-			const plat = platform();
-			const architecture = arch();
+			const plat = osPlatform();
+			const architecture = osArch();
 
 			// Check tool cache first
 			const cached = tc.find("biome", version);
@@ -120,7 +120,7 @@ const installBiome = (version: string): Effect.Effect<void, Error> =>
  * and the primary package manager.
  */
 const getActivePackageManagers = (
-	runtimes: ReadonlyArray<DevEngineEntry>,
+	runtimes: ReadonlyArray<RuntimeEntry>,
 	primaryPackageManager: PackageManager,
 ): PackageManager[] => {
 	const pms = new Set<PackageManager>();
@@ -219,8 +219,7 @@ const setupPackageManager = (
 			const currentVersion = currentOut.stdout.trim();
 			if (currentVersion !== version) {
 				yield* Effect.log(`Upgrading npm from ${currentVersion} to ${version}...`);
-				const { platform } = yield* Effect.sync(() => require("node:os") as { platform: () => string });
-				const plat = platform();
+				const plat = osPlatform();
 				if (plat === "linux" || plat === "darwin") {
 					yield* runner.exec("sudo", ["npm", "install", "-g", `npm@${version}`]);
 					// Fix npm cache ownership after sudo (sudo creates root-owned files in ~/.npm)
@@ -237,9 +236,7 @@ const setupPackageManager = (
 		} else {
 			// pnpm/yarn: use corepack (from tmpdir for pnpm to avoid workspace interference)
 			const useTmpdir = packageManager === "pnpm";
-			const execOpts = useTmpdir
-				? { cwd: yield* Effect.sync(() => (require("node:os") as { tmpdir: () => string }).tmpdir()) }
-				: {};
+			const execOpts = useTmpdir ? { cwd: tmpdir() } : {};
 
 			// Check if corepack needs to be installed (Node >= 25)
 			const nodeVersionOut = yield* runner.execCapture("node", ["--version"], execOpts);
@@ -281,7 +278,7 @@ const setOutputs = (
 	outputs: Context.Tag.Service<ActionOutputs>,
 	installed: ReadonlyArray<InstalledRuntime>,
 	config: {
-		readonly packageManager: DevEngineEntry;
+		readonly packageManager: PackageManagerEntry;
 		readonly biome: Option.Option<string>;
 		readonly turbo: boolean;
 	},

@@ -298,7 +298,7 @@ import { findLockFiles, getCombinedCacheConfig, restoreCache } from "../src/cach
 import { detectBiome, detectTurbo, loadPackageJson, parseDevEngines } from "../src/config.js";
 import { DependencyInstallError } from "../src/errors.js";
 import type { InstalledRuntime } from "../src/runtime-installer.js";
-import { BiomeInstallerLive, RuntimeInstaller, installerLayerFor } from "../src/runtime-installer.js";
+import { RuntimeInstaller, installerLayerFor } from "../src/runtime-installer.js";
 import type { DevEngineEntry } from "../src/schemas.js";
 
 // ---------------------------------------------------------------------------
@@ -506,17 +506,11 @@ const buildPipeline: Effect.Effect<void, any, any> = Effect.gen(function* () {
 		yield* logger.group("Install dependencies", installDependencies(pmName));
 	}
 
-	// 5. Install Biome (non-fatal)
+	// 5. Install Biome (non-fatal) — in the test we just log success
 	if (Option.isSome(config.biome)) {
-		const biomeVer = config.biome.value;
-		yield* logger.group(
-			"Install Biome",
-			RuntimeInstaller.pipe(
-				Effect.flatMap((installer) => installer.install(biomeVer)),
-				Effect.provide(BiomeInstallerLive),
-				Effect.catchTag("RuntimeInstallError", () => Effect.void),
-			),
-		);
+		yield* logger
+			.group("Install Biome", Effect.log(`Biome ${config.biome.value} (test stub)`))
+			.pipe(Effect.catchAll(() => Effect.void));
 	}
 
 	// 6. Set outputs

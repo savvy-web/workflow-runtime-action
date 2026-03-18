@@ -298,6 +298,24 @@ const getBranchName = Effect.gen(function* () {
  * Version hash is built from all runtime versions + package manager version,
  * sorted by name for consistency.
  */
+/**
+ * Builds a deterministic version hash from runtime versions and package manager.
+ * Optionally prefixes with cacheBust for test cache isolation.
+ */
+const buildVersionHash = (
+	runtimes: ReadonlyArray<{ name: string; version: string }>,
+	packageManager: { name: string; version: string },
+	cacheBust?: string,
+): string => {
+	const hasher = createHash("sha256");
+	if (cacheBust) hasher.update(cacheBust);
+	for (const rt of [...runtimes].sort((a, b) => a.name.localeCompare(b.name))) {
+		hasher.update(`${rt.name}:${rt.version}`);
+	}
+	hasher.update(`${packageManager.name}:${packageManager.version}`);
+	return hasher.digest("hex").substring(0, 8);
+};
+
 export const generateCacheKey = (
 	runtimes: ReadonlyArray<{ name: string; version: string }>,
 	packageManager: { name: string; version: string },
@@ -306,25 +324,9 @@ export const generateCacheKey = (
 ) =>
 	Effect.gen(function* () {
 		const plat = platform();
-
-		// Version hash: combine all runtime versions + PM version
-		const versionHasher = createHash("sha256");
-		if (cacheBust) {
-			versionHasher.update(cacheBust);
-		}
-		// Sort runtime entries by name for deterministic hashing
-		const sortedRuntimes = [...runtimes].sort((a, b) => a.name.localeCompare(b.name));
-		for (const rt of sortedRuntimes) {
-			versionHasher.update(`${rt.name}:${rt.version}`);
-		}
-		versionHasher.update(`${packageManager.name}:${packageManager.version}`);
-		const versionHash = versionHasher.digest("hex").substring(0, 8);
-
-		// Branch hash
+		const versionHash = buildVersionHash(runtimes, packageManager, cacheBust);
 		const branch = yield* getBranchName;
 		const branchHash = hashString(branch || "null");
-
-		// Lockfile hash
 		const lockfileHash = yield* hashFiles(lockfiles);
 
 		return `${plat}-${versionHash}-${branchHash}-${lockfileHash}`;
@@ -343,15 +345,7 @@ export const generateRestoreKeys = (
 		if (cacheBust) return [];
 
 		const plat = platform();
-
-		const versionHasher = createHash("sha256");
-		const sortedRuntimes = [...runtimes].sort((a, b) => a.name.localeCompare(b.name));
-		for (const rt of sortedRuntimes) {
-			versionHasher.update(`${rt.name}:${rt.version}`);
-		}
-		versionHasher.update(`${packageManager.name}:${packageManager.version}`);
-		const versionHash = versionHasher.digest("hex").substring(0, 8);
-
+		const versionHash = buildVersionHash(runtimes, packageManager);
 		const branch = yield* getBranchName;
 		const branchHash = hashString(branch || "null");
 

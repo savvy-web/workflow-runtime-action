@@ -1,7 +1,6 @@
 import type { ToolInstallOptions } from "@savvy-web/github-action-effects";
 import { CommandRunner, ToolInstaller } from "@savvy-web/github-action-effects";
 import { Context, Effect, Layer } from "effect";
-import { descriptor as biomeDescriptor } from "./descriptors/biome.js";
 import { descriptor as bunDescriptor } from "./descriptors/bun.js";
 import { descriptor as denoDescriptor } from "./descriptors/deno.js";
 import { descriptor as nodeDescriptor } from "./descriptors/node.js";
@@ -92,7 +91,6 @@ export const makeRuntimeInstaller = (descriptor: RuntimeDescriptor): RuntimeInst
 export const NodeInstallerLive = Layer.succeed(RuntimeInstaller, makeRuntimeInstaller(nodeDescriptor));
 export const BunInstallerLive = Layer.succeed(RuntimeInstaller, makeRuntimeInstaller(bunDescriptor));
 export const DenoInstallerLive = Layer.succeed(RuntimeInstaller, makeRuntimeInstaller(denoDescriptor));
-export const BiomeInstallerLive = Layer.succeed(RuntimeInstaller, makeRuntimeInstaller(biomeDescriptor));
 
 /**
  * Returns the appropriate installer layer for the given runtime name.
@@ -105,8 +103,6 @@ export const installerLayerFor = (name: string): Layer.Layer<RuntimeInstaller, R
 			return BunInstallerLive;
 		case "deno":
 			return DenoInstallerLive;
-		case "biome":
-			return BiomeInstallerLive;
 		default:
 			return Layer.fail(
 				new RuntimeInstallError({

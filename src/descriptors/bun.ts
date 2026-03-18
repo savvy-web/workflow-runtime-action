@@ -19,7 +19,8 @@ export const descriptor = {
 		const bunArch = archMap[arch] ?? arch;
 
 		// Platform-specific archive names
-		// win32 always uses x64 regardless of arch mapping
+		// Bun does not officially support Windows ARM64 yet.
+		// Always use x64 on Windows regardless of arch.
 		let archiveName: string;
 		if (platform === "win32") {
 			archiveName = "bun-windows-x64.zip";

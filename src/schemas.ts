@@ -29,11 +29,11 @@ export type RuntimeName = typeof RuntimeName.Type;
 /**
  * Supported package manager names
  */
-export const PackageManagerName = Schema.Literal("npm", "pnpm", "yarn", "bun");
+export const PackageManagerName = Schema.Literal("npm", "pnpm", "yarn", "bun", "deno");
 export type PackageManagerName = typeof PackageManagerName.Type;
 
 /**
- * A single devEngines entry (runtime or packageManager)
+ * A single devEngines entry (generic, for backward compat)
  */
 export const DevEngineEntry = Schema.Struct({
 	name: Schema.String,
@@ -43,28 +43,33 @@ export const DevEngineEntry = Schema.Struct({
 export type DevEngineEntry = typeof DevEngineEntry.Type;
 
 /**
- * devEngines.runtime — single object or array
+ * Runtime entry with validated name
  */
-const DevEngineRuntime = Schema.Union(DevEngineEntry, Schema.Array(DevEngineEntry));
+export const RuntimeEntry = Schema.Struct({
+	name: RuntimeName,
+	version: AbsoluteVersion,
+	onFail: Schema.optional(Schema.String),
+});
+export type RuntimeEntry = typeof RuntimeEntry.Type;
 
 /**
- * Complete devEngines schema
+ * Package manager entry with validated name
+ */
+export const PackageManagerEntry = Schema.Struct({
+	name: PackageManagerName,
+	version: AbsoluteVersion,
+	onFail: Schema.optional(Schema.String),
+});
+export type PackageManagerEntry = typeof PackageManagerEntry.Type;
+
+/**
+ * Complete devEngines schema with typed entries
  */
 export const DevEngines = Schema.Struct({
-	packageManager: DevEngineEntry,
-	runtime: DevEngineRuntime,
+	packageManager: PackageManagerEntry,
+	runtime: Schema.Union(RuntimeEntry, Schema.Array(RuntimeEntry)),
 });
 export type DevEngines = typeof DevEngines.Type;
-
-/**
- * An installed runtime with name, version, and enabled flag
- */
-export const InstalledRuntime = Schema.Struct({
-	name: RuntimeName,
-	version: Schema.String,
-	enabled: Schema.Boolean,
-});
-export type InstalledRuntime = typeof InstalledRuntime.Type;
 
 /**
  * Cache state schema
