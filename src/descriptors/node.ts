@@ -52,16 +52,32 @@ const postInstall =
 				}
 			}
 
-			// Use corepack for all package managers (npm, pnpm, yarn)
-			yield* Effect.log("Enabling corepack...");
-			yield* runner.exec("corepack", ["enable"], execOpts);
+			if (packageManagerName === "npm") {
+				// npm is NOT managed by corepack -- install the exact version globally
+				// npm install -g targets the tool-cached Node's prefix (first on PATH)
+				const currentOut = yield* runner.execCapture("npm", ["--version"]);
+				const currentVersion = currentOut.stdout.trim();
+				if (currentVersion !== packageManagerVersion) {
+					yield* Effect.log(`Upgrading npm from ${currentVersion} to ${packageManagerVersion}...`);
+					// Get npm prefix to verify we're targeting the right location
+					const prefixOut = yield* runner.execCapture("npm", ["prefix", "-g"]);
+					yield* Effect.log(`npm global prefix: ${prefixOut.stdout.trim()}`);
+					yield* runner.exec("npm", ["install", "-g", `npm@${packageManagerVersion}`]);
+				} else {
+					yield* Effect.log(`npm ${currentVersion} already matches required version`);
+				}
+			} else {
+				// pnpm, yarn -- use corepack
+				yield* Effect.log("Enabling corepack...");
+				yield* runner.exec("corepack", ["enable"], execOpts);
 
-			yield* Effect.log(`Preparing ${packageManagerName}@${packageManagerVersion}...`);
-			yield* runner.exec(
-				"corepack",
-				["prepare", `${packageManagerName}@${packageManagerVersion}`, "--activate"],
-				execOpts,
-			);
+				yield* Effect.log(`Preparing ${packageManagerName}@${packageManagerVersion}...`);
+				yield* runner.exec(
+					"corepack",
+					["prepare", `${packageManagerName}@${packageManagerVersion}`, "--activate"],
+					execOpts,
+				);
+			}
 
 			// Verify
 			yield* runner.exec(packageManagerName, ["--version"], execOpts);
