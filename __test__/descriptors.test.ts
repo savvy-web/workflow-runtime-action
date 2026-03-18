@@ -1,4 +1,15 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+// Mock @savvy-web/github-action-effects so its @actions/cache import (which
+// pulls in minimatch with a broken default export) never runs.
+vi.mock("@savvy-web/github-action-effects", () => {
+	const { Context: C } = require("effect");
+	return {
+		CommandRunner: C.GenericTag("github-action-effects/CommandRunner"),
+		ToolInstaller: C.GenericTag("github-action-effects/ToolInstaller"),
+	};
+});
+
 import { descriptor as biome } from "../src/descriptors/biome.js";
 import { descriptor as bun } from "../src/descriptors/bun.js";
 import { descriptor as deno } from "../src/descriptors/deno.js";

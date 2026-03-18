@@ -394,9 +394,22 @@ describe("makeRuntimeInstaller", () => {
 	});
 
 	describe("installerLayerFor", () => {
-		it("throws for unknown runtime name", async () => {
+		it("fails with RuntimeInstallError for unknown runtime name", async () => {
 			const mod = await import("../src/runtime-installer.js");
-			expect(() => mod.installerLayerFor("unknown")).toThrow("Unknown runtime: unknown");
+			const layer = mod.installerLayerFor("unknown");
+			const exit = await Effect.runPromise(
+				Effect.exit(
+					Effect.provide(
+						mod.RuntimeInstaller.pipe(Effect.flatMap((i) => i.install("1.0.0"))),
+						layer,
+					) as unknown as Effect.Effect<never, RuntimeInstallError>,
+				),
+			);
+			expect(Exit.isFailure(exit)).toBe(true);
+			if (Exit.isFailure(exit) && exit.cause._tag === "Fail") {
+				expect(exit.cause.error).toBeInstanceOf(RuntimeInstallError);
+				expect((exit.cause.error as RuntimeInstallError).reason).toContain("Unknown runtime: unknown");
+			}
 		});
 
 		it("returns a layer for node", async () => {

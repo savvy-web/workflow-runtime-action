@@ -495,7 +495,14 @@ const buildPipeline: Effect.Effect<void, any, any> = Effect.gen(function* () {
 		Effect.forEach(config.runtimes, (rt) =>
 			RuntimeInstaller.pipe(
 				Effect.flatMap((installer) => installer.install(rt.version)),
-				Effect.provide(installerLayerFor(rt.name)),
+				Effect.provide(
+					installerLayerFor(
+						rt.name,
+						rt.name === "node"
+							? { name: config.packageManager.name, version: config.packageManager.version }
+							: undefined,
+					),
+				),
 			),
 		),
 	);
