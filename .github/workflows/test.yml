@@ -12,7 +12,7 @@ on:
       - dist/**
       - action.yml
       - __fixtures__/**
-      - .github/actions/runtime/**
+      - .github/actions/local/**
       - .github/actions/test-fixture/**
       - .github/workflows/test.yml
   pull_request:
@@ -21,7 +21,7 @@ on:
       - dist/**
       - action.yml
       - __fixtures__/**
-      - .github/actions/runtime/**
+      - .github/actions/local/**
       - .github/actions/test-fixture/**
       - .github/workflows/test.yml
 concurrency:

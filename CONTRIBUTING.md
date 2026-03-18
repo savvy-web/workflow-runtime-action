@@ -45,8 +45,8 @@ pnpm lint:fix
 # Build the action (REQUIRED before commit!)
 pnpm build
 
-# Commit both source and dist (including .github/actions/runtime/)
-git add src/ dist/ .github/actions/runtime/
+# Commit both source and dist (including .github/actions/local/)
+git add src/ dist/ .github/actions/local/
 git commit -m "feat: add new feature"
 ```
 
@@ -55,7 +55,7 @@ git commit -m "feat: add new feature"
 The build process compiles TypeScript to JavaScript and creates two copies:
 
 1. **Production build** (`dist/`) - Used by the published action
-2. **Local testing copy** (`.github/actions/runtime/`) - Used by integration
+2. **Local testing copy** (`.github/actions/local/`) - Used by integration
    tests
 
 **Important:** Always run `pnpm build` and commit both directories!
@@ -234,7 +234,7 @@ Follow the prompts to:
 
 ```bash
 pnpm build
-git add dist/ .github/actions/runtime/
+git add dist/ .github/actions/local/
 git commit --amend --no-edit
 ```
 
@@ -273,7 +273,7 @@ pnpm lint:md:fix    # Fix markdown issues
 * [ ] Type checking passes (`pnpm typecheck`)
 * [ ] Linting passes (`pnpm lint`)
 * [ ] Action is built (`pnpm build`)
-* [ ] Both `dist/` and `.github/actions/runtime/` are committed
+* [ ] Both `dist/` and `.github/actions/local/` are committed
 * [ ] Changeset created (`pnpm changeset`)
 * [ ] Documentation updated if needed
 
