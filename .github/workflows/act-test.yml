@@ -1,8 +1,9 @@
 name: Local Test
-on: push
-
 permissions:
   contents: read
+  actions: write
+on:
+  workflow_dispatch: null
 
 jobs:
   test:
