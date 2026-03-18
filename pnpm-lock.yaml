@@ -13,6 +13,14 @@ overrides:
 
 pnpmfileChecksum: sha256-Qv+ONlsQB/lfL0t1YmBdjL3a5QPlDt2h/4xdDty4BWg=
 
+patchedDependencies:
+  '@actions/glob@0.6.1':
+    hash: 82cc54dfce57caf4a9974e4186795e199afe9f1dd80885c4bc5a92c769d73d4d
+    path: patches/@actions__glob@0.6.1.patch
+  semver-effect@0.1.0:
+    hash: c5f1898a68474075c8799e323817717823edd2559078002168a754220704d06c
+    path: patches/semver-effect@0.1.0.patch
+
 importers:
 
   .:
@@ -31,7 +39,7 @@ importers:
         version: 9.0.0
       '@actions/glob':
         specifier: ^0.6.1
-        version: 0.6.1
+        version: 0.6.1(patch_hash=82cc54dfce57caf4a9974e4186795e199afe9f1dd80885c4bc5a92c769d73d4d)
       '@actions/tool-cache':
         specifier: ^4.0.0
         version: 4.0.0
@@ -2918,7 +2926,7 @@ snapshots:
     dependencies:
       '@actions/core': 3.0.0
       '@actions/exec': 3.0.0
-      '@actions/glob': 0.6.1
+      '@actions/glob': 0.6.1(patch_hash=82cc54dfce57caf4a9974e4186795e199afe9f1dd80885c4bc5a92c769d73d4d)
       '@actions/http-client': 4.0.0
       '@actions/io': 3.0.2
       '@azure/core-rest-pipeline': 1.23.0
@@ -2947,7 +2955,7 @@ snapshots:
       '@octokit/request-error': 7.1.0
       undici: 6.24.1
 
-  '@actions/glob@0.6.1':
+  '@actions/glob@0.6.1(patch_hash=82cc54dfce57caf4a9974e4186795e199afe9f1dd80885c4bc5a92c769d73d4d)':
     dependencies:
       '@actions/core': 3.0.0
       minimatch: 10.2.4
@@ -4067,7 +4075,7 @@ snapshots:
       '@opentelemetry/sdk-trace-node': 2.6.0(@opentelemetry/api@1.9.0)
       effect: 3.20.0
       jsonc-effect: 0.2.0
-      semver-effect: 0.1.0(effect@3.20.0)
+      semver-effect: 0.1.0(patch_hash=c5f1898a68474075c8799e323817717823edd2559078002168a754220704d06c)(effect@3.20.0)
       yaml-effect: 0.1.5(effect@3.20.0)
     optionalDependencies:
       '@actions/cache': 6.0.0
@@ -5776,7 +5784,7 @@ snapshots:
 
   secure-keys@1.0.0: {}
 
-  semver-effect@0.1.0(effect@3.20.0):
+  semver-effect@0.1.0(patch_hash=c5f1898a68474075c8799e323817717823edd2559078002168a754220704d06c)(effect@3.20.0):
     dependencies:
       effect: 3.20.0
 
