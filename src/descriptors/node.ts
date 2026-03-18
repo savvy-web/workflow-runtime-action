@@ -54,15 +54,18 @@ const postInstall =
 
 			if (packageManagerName === "npm") {
 				// npm is NOT managed by corepack -- install the exact version globally
-				// npm install -g targets the tool-cached Node's prefix (first on PATH)
 				const currentOut = yield* runner.execCapture("npm", ["--version"]);
 				const currentVersion = currentOut.stdout.trim();
 				if (currentVersion !== packageManagerVersion) {
 					yield* Effect.log(`Upgrading npm from ${currentVersion} to ${packageManagerVersion}...`);
-					// Get npm prefix to verify we're targeting the right location
-					const prefixOut = yield* runner.execCapture("npm", ["prefix", "-g"]);
-					yield* Effect.log(`npm global prefix: ${prefixOut.stdout.trim()}`);
-					yield* runner.exec("npm", ["install", "-g", `npm@${packageManagerVersion}`]);
+					// Use sudo on linux/darwin because npm's global prefix is /usr/local
+					const { platform: getPlatform } = yield* Effect.sync(() => require("node:os") as { platform: () => string });
+					const plat = getPlatform();
+					if (plat === "linux" || plat === "darwin") {
+						yield* runner.exec("sudo", ["npm", "install", "-g", `npm@${packageManagerVersion}`]);
+					} else {
+						yield* runner.exec("npm", ["install", "-g", `npm@${packageManagerVersion}`]);
+					}
 				} else {
 					yield* Effect.log(`npm ${currentVersion} already matches required version`);
 				}
