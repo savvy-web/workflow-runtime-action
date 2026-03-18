@@ -20,7 +20,7 @@ import type { PackageManager } from "./cache.js";
 import { findLockFiles, getCombinedCacheConfig, restoreCache } from "./cache.js";
 import { detectBiome, detectTurbo, loadPackageJson, parseDevEngines } from "./config.js";
 import { formatDetection, formatInstallation, formatPackageManager, formatRuntime, formatSuccess } from "./emoji.js";
-import { DependencyInstallError } from "./errors.js";
+import { DependencyInstallError, PackageManagerSetupError } from "./errors.js";
 import type { InstalledRuntime } from "./runtime-installer.js";
 import { BiomeInstallerLive, RuntimeInstaller, installerLayerFor } from "./runtime-installer.js";
 import type { DevEngineEntry } from "./schemas.js";
@@ -108,6 +108,80 @@ const installDependencies = (
 
 		yield* Effect.log(formatSuccess("Dependencies installed successfully"));
 	});
+
+/**
+ * Setup the package manager version after Node is installed and on PATH.
+ * npm: sudo npm install -g on linux/darwin (global prefix is /usr/local)
+ * pnpm/yarn: corepack prepare --activate (from tmpdir to avoid workspace interference)
+ * bun/deno: no setup needed (they ARE their own package manager)
+ */
+const setupPackageManager = (
+	packageManager: PackageManager,
+	version: string,
+): Effect.Effect<void, PackageManagerSetupError, CommandRunner> =>
+	Effect.gen(function* () {
+		if (packageManager === "bun" || packageManager === "deno") {
+			yield* Effect.log(`${packageManager} is its own package manager, no additional setup needed`);
+			return;
+		}
+
+		const runner = yield* CommandRunner;
+
+		if (packageManager === "npm") {
+			// npm: install exact version globally via sudo (prefix is /usr/local)
+			const currentOut = yield* runner.execCapture("npm", ["--version"]);
+			const currentVersion = currentOut.stdout.trim();
+			if (currentVersion !== version) {
+				yield* Effect.log(`Upgrading npm from ${currentVersion} to ${version}...`);
+				const { platform } = yield* Effect.sync(() => require("node:os") as { platform: () => string });
+				const plat = platform();
+				if (plat === "linux" || plat === "darwin") {
+					yield* runner.exec("sudo", ["npm", "install", "-g", `npm@${version}`]);
+				} else {
+					yield* runner.exec("npm", ["install", "-g", `npm@${version}`]);
+				}
+			} else {
+				yield* Effect.log(`npm ${currentVersion} already matches required version`);
+			}
+		} else {
+			// pnpm/yarn: use corepack (from tmpdir for pnpm to avoid workspace interference)
+			const useTmpdir = packageManager === "pnpm";
+			const execOpts = useTmpdir
+				? { cwd: yield* Effect.sync(() => (require("node:os") as { tmpdir: () => string }).tmpdir()) }
+				: {};
+
+			// Check if corepack needs to be installed (Node >= 25)
+			const nodeVersionOut = yield* runner.execCapture("node", ["--version"], execOpts);
+			const versionMatch = nodeVersionOut.stdout.trim().match(/^v(\d+)\.\d+\.\d+$/);
+			if (versionMatch) {
+				const major = Number.parseInt(versionMatch[1], 10);
+				if (major >= 25) {
+					yield* Effect.log("Node.js >= 25 detected, installing corepack globally...");
+					yield* runner.exec("npm", ["install", "-g", "--force", "corepack@latest"], execOpts);
+				}
+			}
+
+			yield* Effect.log("Enabling corepack...");
+			yield* runner.exec("corepack", ["enable"], execOpts);
+
+			yield* Effect.log(`Preparing ${packageManager}@${version}...`);
+			yield* runner.exec("corepack", ["prepare", `${packageManager}@${version}`, "--activate"], execOpts);
+		}
+
+		// Verify
+		yield* runner.exec(packageManager, ["--version"]);
+		yield* Effect.log(formatSuccess(`${packageManager}@${version} activated`));
+	}).pipe(
+		Effect.mapError(
+			(cause) =>
+				new PackageManagerSetupError({
+					packageManager,
+					version,
+					reason: `Package manager setup failed: ${cause instanceof Error ? cause.message : String(cause)}`,
+					cause,
+				}),
+		),
+	);
 
 /**
  * Sets all action outputs from the pipeline results.
@@ -262,14 +336,13 @@ const main = Effect.gen(function* () {
 		),
 	);
 
-	// 4. Install runtimes (pass PM config so Node's corepack postInstall knows what to activate)
-	const pmConfig = { name: config.packageManager.name, version: config.packageManager.version };
+	// 4. Install runtimes
 	const installed = yield* logger.group(
 		formatInstallation("runtimes"),
 		Effect.forEach(config.runtimes, (rt) =>
 			RuntimeInstaller.pipe(
 				Effect.flatMap((installer) => installer.install(rt.version)),
-				Effect.provide(installerLayerFor(rt.name, pmConfig)),
+				Effect.provide(installerLayerFor(rt.name)),
 				Effect.tap((result) =>
 					Effect.log(formatSuccess(`${formatRuntime(rt.name as "node" | "bun" | "deno")} ${result.version}`)),
 				),
@@ -277,7 +350,13 @@ const main = Effect.gen(function* () {
 		),
 	);
 
-	// 5. Install dependencies
+	// 5. Setup package manager (after runtimes are installed and on PATH)
+	yield* logger.group(
+		formatInstallation(`${formatPackageManager(pmName)} via ${pmName === "npm" ? "npm" : "corepack"}`),
+		setupPackageManager(pmName, config.packageManager.version),
+	);
+
+	// 6. Install dependencies
 	const installDeps = yield* inputs.getBooleanOptional("install-deps", true);
 	if (installDeps) {
 		yield* logger.group(
@@ -286,7 +365,7 @@ const main = Effect.gen(function* () {
 		);
 	}
 
-	// 6. Install Biome (non-fatal)
+	// 7. Install Biome (non-fatal)
 	if (Option.isSome(config.biome)) {
 		const biomeVersion = config.biome.value;
 		yield* logger.group(
@@ -299,10 +378,10 @@ const main = Effect.gen(function* () {
 		);
 	}
 
-	// 7. Set outputs
+	// 8. Set outputs
 	yield* setOutputs(outputs, installed, config, cacheResult, lockfiles, finalCachePaths);
 
-	// 8. Summary
+	// 9. Summary
 	yield* logger.group(
 		"Runtime Setup Complete",
 		Effect.gen(function* () {
