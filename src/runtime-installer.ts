@@ -32,7 +32,7 @@ export interface RuntimeDescriptor {
 	readonly getDownloadUrl: (version: string, platform: string, arch: string) => string;
 	readonly getToolInstallOptions: (version: string, platform: string, arch: string) => Partial<ToolInstallOptions>;
 	readonly verifyCommand: readonly [string, ...string[]];
-	readonly postInstall?: (version: string) => Effect.Effect<void, RuntimeInstallError, CommandRunner>;
+	readonly postInstall?: (version: string, toolPath: string) => Effect.Effect<void, RuntimeInstallError, CommandRunner>;
 }
 
 /**
@@ -74,7 +74,7 @@ export const makeRuntimeInstaller = (descriptor: RuntimeDescriptor): RuntimeInst
 			yield* runner.exec(descriptor.verifyCommand[0], [...descriptor.verifyCommand.slice(1)]);
 
 			if (descriptor.postInstall) {
-				yield* descriptor.postInstall(version);
+				yield* descriptor.postInstall(version, toolPath);
 			}
 
 			return { name: descriptor.name, version, path: toolPath } satisfies InstalledRuntime;

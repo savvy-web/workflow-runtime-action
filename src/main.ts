@@ -1,4 +1,5 @@
-// Force ncc to bundle @actions/tool-cache (used via dynamic import in ToolInstallerLive)
+// Force ncc to bundle packages used via dynamic import in github-action-effects Live layers
+import "@actions/core";
 import "@actions/tool-cache";
 import { FileSystem } from "@effect/platform";
 import {

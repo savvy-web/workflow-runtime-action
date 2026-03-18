@@ -29,7 +29,7 @@ const extractReason = (error: unknown): string => {
  */
 const postInstall =
 	(packageManagerName: string, packageManagerVersion: string) =>
-	(_version: string): Effect.Effect<void, RuntimeInstallError, CommandRunner> =>
+	(_version: string, toolPath: string): Effect.Effect<void, RuntimeInstallError, CommandRunner> =>
 		Effect.gen(function* () {
 			const runner = yield* CommandRunner;
 
@@ -54,19 +54,27 @@ const postInstall =
 
 			if (packageManagerName === "npm") {
 				// npm is NOT managed by corepack -- install the exact version into the
-				// tool-cached Node's prefix so it takes precedence on PATH
-				const currentOut = yield* runner.execCapture("npm", ["--version"]);
+				// tool-cached Node's prefix so it takes precedence on PATH.
+				// toolPath comes from ToolInstaller.installAndAddToPath, e.g.:
+				//   /opt/hostedtoolcache/node/24.9.0/x64/bin (with binSubPath)
+				//   /opt/hostedtoolcache/node/24.9.0/x64 (without binSubPath)
+				const { dirname, basename, join } = yield* Effect.sync(
+					() =>
+						require("node:path") as {
+							dirname: (p: string) => string;
+							basename: (p: string) => string;
+							join: (...p: string[]) => string;
+						},
+				);
+				const nodePrefix = basename(toolPath) === "bin" ? dirname(toolPath) : toolPath;
+				const npmBin = join(toolPath, basename(toolPath) === "bin" ? "npm" : "bin/npm");
+
+				const currentOut = yield* runner.execCapture(npmBin, ["--version"]);
 				const currentVersion = currentOut.stdout.trim();
 				if (currentVersion !== packageManagerVersion) {
 					yield* Effect.log(`Upgrading npm from ${currentVersion} to ${packageManagerVersion}...`);
-					// Find the tool-cached Node's prefix (parent of the bin dir on PATH)
-					const whichOut = yield* runner.execCapture("which", ["node"]);
-					const nodeBin = whichOut.stdout.trim();
-					// e.g. /opt/hostedtoolcache/node/24.9.0/x64/bin/node -> prefix is /opt/hostedtoolcache/node/24.9.0/x64
-					const { dirname } = yield* Effect.sync(() => require("node:path") as { dirname: (p: string) => string });
-					const nodePrefix = dirname(dirname(nodeBin));
 					yield* Effect.log(`Installing npm@${packageManagerVersion} into ${nodePrefix}...`);
-					yield* runner.exec("npm", ["install", "-g", `--prefix=${nodePrefix}`, `npm@${packageManagerVersion}`]);
+					yield* runner.exec(npmBin, ["install", "-g", `--prefix=${nodePrefix}`, `npm@${packageManagerVersion}`]);
 				} else {
 					yield* Effect.log(`npm ${currentVersion} already matches required version`);
 				}
