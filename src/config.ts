@@ -1,5 +1,6 @@
 import { FileSystem } from "@effect/platform";
 import type { ActionInputs } from "@savvy-web/github-action-effects";
+import type { Context } from "effect";
 import { Effect, Option, Schema } from "effect";
 import { ConfigError } from "./errors.js";
 import { DevEngines } from "./schemas.js";
@@ -62,7 +63,7 @@ export const parseDevEngines = (devEngines: typeof DevEngines.Type) => {
  *
  * Returns Option.none() if no Biome config is detected and no override is given.
  */
-export const detectBiome = (inputs: ActionInputs) =>
+export const detectBiome = (inputs: Context.Tag.Service<ActionInputs>) =>
 	Effect.gen(function* () {
 		// 1. Check explicit input override first
 		const override = yield* inputs.getOptional("biome-version", Schema.String);

@@ -12,8 +12,8 @@ vi.mock("@savvy-web/github-action-effects", () => {
 		Action: {
 			run: () => Promise.resolve(),
 		},
-		ActionCache: C.GenericTag("ActionCache"),
-		ActionState: C.GenericTag("ActionState"),
+		ActionCache: C.GenericTag("github-action-effects/ActionCache"),
+		ActionState: C.GenericTag("github-action-effects/ActionState"),
 		ActionCacheLive: C.GenericTag("ActionCacheLive"),
 		ActionStateLive: C.GenericTag("ActionStateLive"),
 	};

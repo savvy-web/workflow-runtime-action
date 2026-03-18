@@ -4,6 +4,27 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+catalogs:
+  silk:
+    '@effect/cluster':
+      specifier: ^0.57.0
+      version: 0.57.0
+    '@effect/platform':
+      specifier: ^0.95.0
+      version: 0.95.0
+    '@effect/platform-node':
+      specifier: ^0.105.0
+      version: 0.105.0
+    '@effect/rpc':
+      specifier: ^0.74.0
+      version: 0.74.0
+    '@effect/sql':
+      specifier: ^0.50.0
+      version: 0.50.0
+    effect:
+      specifier: ^3.20.0
+      version: 3.20.0
+
 overrides:
   '@isaacs/brace-expansion': ^5.0.1
   lodash: ^4.17.23
@@ -17,9 +38,6 @@ patchedDependencies:
   '@actions/glob@0.6.1':
     hash: 82cc54dfce57caf4a9974e4186795e199afe9f1dd80885c4bc5a92c769d73d4d
     path: patches/@actions__glob@0.6.1.patch
-  semver-effect@0.1.0:
-    hash: c5f1898a68474075c8799e323817717823edd2559078002168a754220704d06c
-    path: patches/semver-effect@0.1.0.patch
 
 importers:
 
@@ -43,17 +61,26 @@ importers:
       '@actions/tool-cache':
         specifier: ^4.0.0
         version: 4.0.0
+      '@effect/cluster':
+        specifier: catalog:silk
+        version: 0.57.0(@effect/platform@0.95.0(effect@3.20.0))(@effect/rpc@0.74.0(@effect/platform@0.95.0(effect@3.20.0))(effect@3.20.0))(@effect/sql@0.50.0(@effect/experimental@0.59.0(@effect/platform@0.95.0(effect@3.20.0))(effect@3.20.0))(@effect/platform@0.95.0(effect@3.20.0))(effect@3.20.0))(@effect/workflow@0.17.0(@effect/experimental@0.59.0(@effect/platform@0.95.0(effect@3.20.0))(effect@3.20.0))(@effect/platform@0.95.0(effect@3.20.0))(@effect/rpc@0.74.0(@effect/platform@0.95.0(effect@3.20.0))(effect@3.20.0))(effect@3.20.0))(effect@3.20.0)
       '@effect/platform':
-        specifier: latest
+        specifier: catalog:silk
         version: 0.95.0(effect@3.20.0)
       '@effect/platform-node':
-        specifier: latest
+        specifier: catalog:silk
         version: 0.105.0(@effect/cluster@0.57.0(@effect/platform@0.95.0(effect@3.20.0))(@effect/rpc@0.74.0(@effect/platform@0.95.0(effect@3.20.0))(effect@3.20.0))(@effect/sql@0.50.0(@effect/experimental@0.59.0(@effect/platform@0.95.0(effect@3.20.0))(effect@3.20.0))(@effect/platform@0.95.0(effect@3.20.0))(effect@3.20.0))(@effect/workflow@0.17.0(@effect/experimental@0.59.0(@effect/platform@0.95.0(effect@3.20.0))(effect@3.20.0))(@effect/platform@0.95.0(effect@3.20.0))(@effect/rpc@0.74.0(@effect/platform@0.95.0(effect@3.20.0))(effect@3.20.0))(effect@3.20.0))(effect@3.20.0))(@effect/platform@0.95.0(effect@3.20.0))(@effect/rpc@0.74.0(@effect/platform@0.95.0(effect@3.20.0))(effect@3.20.0))(@effect/sql@0.50.0(@effect/experimental@0.59.0(@effect/platform@0.95.0(effect@3.20.0))(effect@3.20.0))(@effect/platform@0.95.0(effect@3.20.0))(effect@3.20.0))(effect@3.20.0)
+      '@effect/rpc':
+        specifier: catalog:silk
+        version: 0.74.0(@effect/platform@0.95.0(effect@3.20.0))(effect@3.20.0)
+      '@effect/sql':
+        specifier: catalog:silk
+        version: 0.50.0(@effect/experimental@0.59.0(@effect/platform@0.95.0(effect@3.20.0))(effect@3.20.0))(@effect/platform@0.95.0(effect@3.20.0))(effect@3.20.0)
       '@savvy-web/github-action-effects':
-        specifier: latest
-        version: 0.7.0(9c844f1ebb129cc16eaa804e959cd49d)
+        specifier: ^0.8.0
+        version: 0.8.0(6cfad2aea4f177e2a7507a81ee085e83)
       effect:
-        specifier: latest
+        specifier: catalog:silk
         version: 3.20.0
     devDependencies:
       '@savvy-web/changesets':
@@ -984,17 +1011,20 @@ packages:
       '@typescript/native-preview': ^7.0.0-dev.20260124.1
       typescript: ^5.9.3
 
-  '@savvy-web/github-action-effects@0.7.0':
-    resolution: {integrity: sha512-W15PztIT0CZnQn4CCYwXETjda715xYSmybWDGruUC7pd9sq5N3DHk8o7K/al4pp9+5NWyBAIFASewRSqaqZyxQ==}
+  '@savvy-web/github-action-effects@0.8.0':
+    resolution: {integrity: sha512-b2x9d17DSrCdSfg7B5wAGtVr0zd243mWZju3hgFy5mA/d04LVb3daTbRNFk7AJ1GZJvc1JlFCARXLV8Db4eLtg==}
     peerDependencies:
       '@actions/cache': ^6.0.0
       '@actions/core': ^3.0.0
       '@actions/exec': ^3.0.0
       '@actions/github': ^9.0.0
       '@actions/tool-cache': ^4.0.0
+      '@effect/cluster': '>=0.56.0'
       '@effect/platform': '>=0.94.0'
       '@effect/platform-node': '>=0.104.0'
-      '@octokit/auth-app': '>=8.0.0'
+      '@effect/rpc': '>=0.73.0'
+      '@effect/sql': '>=0.49.0'
+      '@octokit/auth-app': ^8.2.0
       effect: ^3.19.0
     peerDependenciesMeta:
       '@actions/cache':
@@ -2503,10 +2533,10 @@ packages:
   secure-keys@1.0.0:
     resolution: {integrity: sha512-nZi59hW3Sl5P3+wOO89eHBAAGwmCPd2aE1+dLZV5MO+ItQctIvAqihzaAXIQhvtH4KJPxM080HsnqltR2y8cWg==}
 
-  semver-effect@0.1.0:
-    resolution: {integrity: sha512-QMV5tYjNaw0rshAg9niTMkqdQrCZ/0js4nskBIzzdEx/LAcHEGPMGQbTlR++YC9JUkSssGjh/YC/JaMRV7JExw==}
+  semver-effect@0.2.0:
+    resolution: {integrity: sha512-N2ieg9JiBQ3DZDzklqyUHF/1Lx4nOxHeKkAb0YYOkwj8sz4PyqPFEXzPHotLKdgCchIVUpvJpO/+ekPgH2T+6w==}
     peerDependencies:
-      effect: ^3.19.19
+      effect: ^3.19.0
 
   semver@7.7.4:
     resolution: {integrity: sha512-vFKC2IEtQnVhpT78h1Yp8wzwrf8CM+MzKMHGJZfBtzhZNycRFnXsHk6E5TxIkkMsgNS7mdX3AGB7x2QM2di4lA==}
@@ -4057,12 +4087,15 @@ snapshots:
       - bufferutil
       - utf-8-validate
 
-  '@savvy-web/github-action-effects@0.7.0(9c844f1ebb129cc16eaa804e959cd49d)':
+  '@savvy-web/github-action-effects@0.8.0(6cfad2aea4f177e2a7507a81ee085e83)':
     dependencies:
       '@actions/core': 3.0.0
+      '@effect/cluster': 0.57.0(@effect/platform@0.95.0(effect@3.20.0))(@effect/rpc@0.74.0(@effect/platform@0.95.0(effect@3.20.0))(effect@3.20.0))(@effect/sql@0.50.0(@effect/experimental@0.59.0(@effect/platform@0.95.0(effect@3.20.0))(effect@3.20.0))(@effect/platform@0.95.0(effect@3.20.0))(effect@3.20.0))(@effect/workflow@0.17.0(@effect/experimental@0.59.0(@effect/platform@0.95.0(effect@3.20.0))(effect@3.20.0))(@effect/platform@0.95.0(effect@3.20.0))(@effect/rpc@0.74.0(@effect/platform@0.95.0(effect@3.20.0))(effect@3.20.0))(effect@3.20.0))(effect@3.20.0)
       '@effect/opentelemetry': 0.62.0(@effect/platform@0.95.0(effect@3.20.0))(@opentelemetry/api@1.9.0)(@opentelemetry/resources@2.6.0(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-logs@0.213.0(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-metrics@2.6.0(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-trace-base@2.6.0(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-trace-node@2.6.0(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-trace-web@2.6.0(@opentelemetry/api@1.9.0))(@opentelemetry/semantic-conventions@1.40.0)(effect@3.20.0)
       '@effect/platform': 0.95.0(effect@3.20.0)
       '@effect/platform-node': 0.105.0(@effect/cluster@0.57.0(@effect/platform@0.95.0(effect@3.20.0))(@effect/rpc@0.74.0(@effect/platform@0.95.0(effect@3.20.0))(effect@3.20.0))(@effect/sql@0.50.0(@effect/experimental@0.59.0(@effect/platform@0.95.0(effect@3.20.0))(effect@3.20.0))(@effect/platform@0.95.0(effect@3.20.0))(effect@3.20.0))(@effect/workflow@0.17.0(@effect/experimental@0.59.0(@effect/platform@0.95.0(effect@3.20.0))(effect@3.20.0))(@effect/platform@0.95.0(effect@3.20.0))(@effect/rpc@0.74.0(@effect/platform@0.95.0(effect@3.20.0))(effect@3.20.0))(effect@3.20.0))(effect@3.20.0))(@effect/platform@0.95.0(effect@3.20.0))(@effect/rpc@0.74.0(@effect/platform@0.95.0(effect@3.20.0))(effect@3.20.0))(@effect/sql@0.50.0(@effect/experimental@0.59.0(@effect/platform@0.95.0(effect@3.20.0))(effect@3.20.0))(@effect/platform@0.95.0(effect@3.20.0))(effect@3.20.0))(effect@3.20.0)
+      '@effect/rpc': 0.74.0(@effect/platform@0.95.0(effect@3.20.0))(effect@3.20.0)
+      '@effect/sql': 0.50.0(@effect/experimental@0.59.0(@effect/platform@0.95.0(effect@3.20.0))(effect@3.20.0))(@effect/platform@0.95.0(effect@3.20.0))(effect@3.20.0)
       '@opentelemetry/api': 1.9.0
       '@opentelemetry/exporter-metrics-otlp-grpc': 0.213.0(@opentelemetry/api@1.9.0)
       '@opentelemetry/exporter-metrics-otlp-http': 0.213.0(@opentelemetry/api@1.9.0)
@@ -4075,7 +4108,7 @@ snapshots:
       '@opentelemetry/sdk-trace-node': 2.6.0(@opentelemetry/api@1.9.0)
       effect: 3.20.0
       jsonc-effect: 0.2.0
-      semver-effect: 0.1.0(patch_hash=c5f1898a68474075c8799e323817717823edd2559078002168a754220704d06c)(effect@3.20.0)
+      semver-effect: 0.2.0(effect@3.20.0)
       yaml-effect: 0.1.5(effect@3.20.0)
     optionalDependencies:
       '@actions/cache': 6.0.0
@@ -5784,7 +5817,7 @@ snapshots:
 
   secure-keys@1.0.0: {}
 
-  semver-effect@0.1.0(patch_hash=c5f1898a68474075c8799e323817717823edd2559078002168a754220704d06c)(effect@3.20.0):
+  semver-effect@0.2.0(effect@3.20.0):
     dependencies:
       effect: 3.20.0
 

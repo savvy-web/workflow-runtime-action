@@ -11,6 +11,7 @@ import {
 	CommandRunnerLive,
 	ToolInstallerLive,
 } from "@savvy-web/github-action-effects";
+import type { Context } from "effect";
 import { Effect, Layer, Option, Schema } from "effect";
 import type { PackageManager } from "./cache.js";
 import { findLockFiles, getCombinedCacheConfig, restoreCache } from "./cache.js";
@@ -109,7 +110,7 @@ const installDependencies = (
  * Sets all action outputs from the pipeline results.
  */
 const setOutputs = (
-	outputs: ActionOutputs,
+	outputs: Context.Tag.Service<ActionOutputs>,
 	installed: ReadonlyArray<InstalledRuntime>,
 	config: {
 		readonly packageManager: DevEngineEntry;

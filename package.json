@@ -36,10 +36,13 @@
 		"@actions/github": "^9.0.0",
 		"@actions/glob": "^0.6.1",
 		"@actions/tool-cache": "^4.0.0",
-		"@effect/platform": "latest",
-		"@effect/platform-node": "latest",
-		"@savvy-web/github-action-effects": "latest",
-		"effect": "latest"
+		"@effect/cluster": "catalog:silk",
+		"@effect/platform": "catalog:silk",
+		"@effect/platform-node": "catalog:silk",
+		"@effect/rpc": "catalog:silk",
+		"@effect/sql": "catalog:silk",
+		"@savvy-web/github-action-effects": "^0.8.0",
+		"effect": "catalog:silk"
 	},
 	"devDependencies": {
 		"@savvy-web/changesets": "^0.5.3",

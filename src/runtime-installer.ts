@@ -1,5 +1,5 @@
-import type { CommandRunner, ToolInstallOptions, ToolInstaller } from "@savvy-web/github-action-effects";
-import { CommandRunner as CommandRunnerTag, ToolInstaller as ToolInstallerTag } from "@savvy-web/github-action-effects";
+import type { ToolInstallOptions } from "@savvy-web/github-action-effects";
+import { CommandRunner, ToolInstaller } from "@savvy-web/github-action-effects";
 import { Context, Effect, Layer } from "effect";
 import { descriptor as biomeDescriptor } from "./descriptors/biome.js";
 import { descriptor as bunDescriptor } from "./descriptors/bun.js";
@@ -55,8 +55,8 @@ export const RuntimeInstaller = Context.GenericTag<RuntimeInstaller>("RuntimeIns
 export const makeRuntimeInstaller = (descriptor: RuntimeDescriptor): RuntimeInstaller => ({
 	install: (version) =>
 		Effect.gen(function* () {
-			const toolInstaller = yield* ToolInstallerTag;
-			const runner = yield* CommandRunnerTag;
+			const toolInstaller = yield* ToolInstaller;
+			const runner = yield* CommandRunner;
 
 			const url = descriptor.getDownloadUrl(version, process.platform, process.arch);
 			const options = descriptor.getToolInstallOptions(version, process.platform, process.arch);
