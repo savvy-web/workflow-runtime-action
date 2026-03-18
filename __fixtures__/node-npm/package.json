@@ -6,12 +6,12 @@
 		"packageManager": {
 			"name": "npm",
 			"version": "11.6.0",
-			"onFail": "error"
+			"onFail": "ignore"
 		},
 		"runtime": {
 			"name": "node",
 			"version": "24.9.0",
-			"onFail": "error"
+			"onFail": "ignore"
 		}
 	},
 	"dependencies": {
