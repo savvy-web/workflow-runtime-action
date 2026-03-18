@@ -11,6 +11,15 @@ import { Effect } from "effect";
 import { RuntimeInstallError } from "../errors.js";
 import type { RuntimeDescriptor } from "../runtime-installer.js";
 
+const extractReason = (error: unknown): string => {
+	if (error && typeof error === "object") {
+		const e = error as Record<string, unknown>;
+		if (typeof e.reason === "string" && e.reason) return e.reason;
+		if (typeof e.message === "string" && e.message) return e.message;
+	}
+	return String(error) || "Unknown error";
+};
+
 /**
  * Enables corepack and activates the specified package manager version.
  * Runs from a temp directory to avoid pnpm workspace config interference.
@@ -56,7 +65,7 @@ const postInstall =
 					new RuntimeInstallError({
 						runtime: "node",
 						version: _version,
-						reason: `corepack setup failed: ${error instanceof Error ? error.message : String(error)}`,
+						reason: `corepack setup failed: ${extractReason(error)}`,
 						cause: error,
 					}),
 				),

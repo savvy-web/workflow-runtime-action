@@ -8,6 +8,23 @@ import { createNodeDescriptor } from "./descriptors/node.js";
 import { RuntimeInstallError } from "./errors.js";
 
 /**
+ * Extract a human-readable reason from an error.
+ * Effect TaggedErrors have a `message` that may be empty and store data in custom fields.
+ */
+const extractErrorReason = (error: unknown): string => {
+	if (error && typeof error === "object") {
+		// Effect TaggedError: check for common fields
+		const e = error as Record<string, unknown>;
+		if (typeof e.reason === "string" && e.reason) return e.reason;
+		if (typeof e.message === "string" && e.message) return e.message;
+		if (typeof e._tag === "string") return `${e._tag}${e.reason ? `: ${e.reason}` : ""}`;
+	}
+	if (error instanceof Error && error.message) return error.message;
+	const str = String(error);
+	return str || "Unknown error";
+};
+
+/**
  * Descriptor for a runtime or tool that can be installed.
  */
 export interface RuntimeDescriptor {
@@ -67,7 +84,7 @@ export const makeRuntimeInstaller = (descriptor: RuntimeDescriptor): RuntimeInst
 					new RuntimeInstallError({
 						runtime: descriptor.name,
 						version,
-						reason: error instanceof Error ? error.message : String(error),
+						reason: extractErrorReason(error),
 						cause: error,
 					}),
 				),
