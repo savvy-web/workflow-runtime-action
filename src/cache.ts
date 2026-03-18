@@ -1,0 +1,466 @@
+import { createHash } from "node:crypto";
+import { platform } from "node:os";
+import { FileSystem } from "@effect/platform";
+import { ActionCache, ActionEnvironment, ActionState, CommandRunner } from "@savvy-web/github-action-effects";
+import { Effect, Option } from "effect";
+import { CacheError } from "./errors.js";
+import { CacheStateSchema } from "./schemas.js";
+
+/**
+ * Supported package managers for caching.
+ */
+export type PackageManager = "npm" | "pnpm" | "yarn" | "bun" | "deno";
+
+/**
+ * Cache configuration for a package manager.
+ */
+export interface CacheConfig {
+	/** Cache directory paths */
+	readonly cachePaths: string[];
+	/** Lock file patterns to look for */
+	readonly lockfilePatterns: string[];
+}
+
+// ---------------------------------------------------------------------------
+// Pure helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * SHA256 hash truncated to 8 hex characters.
+ */
+const hashString = (input: string): string => createHash("sha256").update(input).digest("hex").substring(0, 8);
+
+/**
+ * Gets default fallback cache paths for a package manager based on the
+ * current platform.
+ */
+export const getDefaultCachePaths = (pm: PackageManager): string[] => {
+	const plat = platform();
+
+	switch (pm) {
+		case "npm":
+			return [plat === "win32" ? "~/AppData/Local/npm-cache" : "~/.npm"];
+
+		case "pnpm":
+			return [plat === "win32" ? "~/AppData/Local/pnpm/store" : "~/.local/share/pnpm/store"];
+
+		case "yarn":
+			return [
+				plat === "win32" ? "~/AppData/Local/Yarn/Cache" : "~/.yarn/cache",
+				plat === "win32" ? "~/AppData/Local/Yarn/Berry/cache" : "~/.cache/yarn",
+			];
+
+		case "bun":
+			return [plat === "win32" ? "~/AppData/Local/bun/install/cache" : "~/.bun/install/cache"];
+
+		case "deno":
+			return [plat === "win32" ? "~/AppData/Local/deno" : "~/.cache/deno"];
+	}
+};
+
+/**
+ * Lockfile glob patterns per package manager.
+ */
+export const getLockfilePatterns = (pm: PackageManager): string[] => {
+	switch (pm) {
+		case "npm":
+			return ["**/package-lock.json", "**/npm-shrinkwrap.json"];
+		case "pnpm":
+			return ["**/pnpm-lock.yaml", "**/pnpm-workspace.yaml", "**/.pnpmfile.cjs"];
+		case "yarn":
+			return ["**/yarn.lock", "**/.pnp.cjs", "**/.yarn/install-state.gz"];
+		case "bun":
+			return ["**/bun.lock", "**/bun.lockb"];
+		case "deno":
+			return ["**/deno.lock"];
+	}
+};
+
+/**
+ * Gets additional dependency paths beyond the global cache directory.
+ */
+const getAdditionalPaths = (pm: PackageManager): string[] => {
+	switch (pm) {
+		case "npm":
+		case "pnpm":
+			return ["**/node_modules"];
+		case "yarn":
+			return ["**/node_modules", "**/.yarn/cache", "**/.yarn/unplugged", "**/.yarn/install-state.gz"];
+		case "bun":
+			return ["**/node_modules"];
+		case "deno":
+			return [];
+	}
+};
+
+/**
+ * Gets tool cache paths for specific runtimes.
+ * Tool cache is at /opt/hostedtoolcache on Linux/macOS, C:\\hostedtoolcache on Windows.
+ */
+const getToolCachePaths = (runtimes: ReadonlyArray<{ name: string; version: string }>): string[] => {
+	const plat = platform();
+	const toolCacheBase = plat === "win32" ? "C:\\hostedtoolcache" : "/opt/hostedtoolcache";
+	const paths: string[] = [];
+
+	for (const { name, version } of runtimes) {
+		if (name === "node" || name === "bun" || name === "deno" || name === "biome") {
+			paths.push(`${toolCacheBase}/${name}/${version}`);
+			paths.push(`${toolCacheBase}/${name}/${version}/*`);
+		}
+	}
+
+	return paths;
+};
+
+/**
+ * Sorts paths with absolute paths first, then glob patterns, for readability.
+ */
+const sortPaths = (paths: string[]): string[] => {
+	const absolute = paths.filter((p) => !p.startsWith("*")).sort();
+	const globs = paths.filter((p) => p.startsWith("*")).sort();
+	return [...absolute, ...globs];
+};
+
+// ---------------------------------------------------------------------------
+// Effectful functions
+// ---------------------------------------------------------------------------
+
+/**
+ * Queries a package manager for its cache directory.
+ * Falls back to platform-specific defaults on failure.
+ *
+ * Uses CommandRunner.execCapture to run:
+ *   npm  → `npm config get cache`
+ *   pnpm → `pnpm store path`
+ *   yarn → `yarn config get cacheFolder` (Berry), `yarn cache dir` (Classic)
+ *   bun  → `bun pm cache`
+ *   deno → `deno info --json` → parse denoDir
+ */
+export const detectCachePath = (pm: PackageManager) =>
+	Effect.gen(function* () {
+		const runner = yield* CommandRunner;
+		const tmpDir = yield* Effect.sync(() => {
+			// Lazy import to avoid issues in tests
+			const { tmpdir } = require("node:os") as { tmpdir: () => string };
+			return tmpdir();
+		});
+
+		const opts = { silent: true, cwd: tmpDir };
+
+		const detected: string | null = yield* Effect.gen(function* () {
+			switch (pm) {
+				case "npm": {
+					const out = yield* runner.execCapture("npm", ["config", "get", "cache"], opts);
+					return out.stdout.trim() || null;
+				}
+				case "pnpm": {
+					const out = yield* runner.execCapture("pnpm", ["store", "path"], opts);
+					return out.stdout.trim() || null;
+				}
+				case "yarn": {
+					// Try Yarn Berry first
+					const berry = yield* runner
+						.execCapture("yarn", ["config", "get", "cacheFolder"], opts)
+						.pipe(Effect.orElse(() => Effect.succeed({ exitCode: 1, stdout: "", stderr: "" })));
+					if (berry.stdout.trim() && berry.stdout.trim() !== "undefined") {
+						return berry.stdout.trim();
+					}
+					// Fallback to Yarn Classic
+					const classic = yield* runner.execCapture("yarn", ["cache", "dir"], opts);
+					return classic.stdout.trim() || null;
+				}
+				case "bun": {
+					const out = yield* runner.execCapture("bun", ["pm", "cache"], opts);
+					return out.stdout.trim() || null;
+				}
+				case "deno": {
+					const out = yield* runner.execCapture("deno", ["info", "--json"], opts);
+					if (out.stdout.trim()) {
+						const info = JSON.parse(out.stdout) as { denoDir?: string };
+						return info.denoDir ?? null;
+					}
+					return null;
+				}
+			}
+		}).pipe(Effect.orElse(() => Effect.succeed(null)));
+
+		return detected ?? null;
+	});
+
+/**
+ * Gets cache config (paths + lockfile patterns) for a single package manager.
+ */
+export const getCacheConfig = (pm: PackageManager) =>
+	Effect.gen(function* () {
+		const detected = yield* detectCachePath(pm).pipe(Effect.orElse(() => Effect.succeed(null)));
+
+		const globalCachePaths = detected ? [detected] : getDefaultCachePaths(pm);
+		const additionalPaths = getAdditionalPaths(pm);
+		const cachePaths = [...globalCachePaths, ...additionalPaths];
+		const lockfilePatterns = getLockfilePatterns(pm);
+
+		return { cachePaths, lockfilePatterns } satisfies CacheConfig;
+	});
+
+/**
+ * Merges configs from multiple package managers, deduplicating paths.
+ * Also includes tool cache paths for the given runtimes.
+ */
+export const getCombinedCacheConfig = (
+	pms: PackageManager[],
+	runtimes: ReadonlyArray<{ name: string; version: string }> = [],
+) =>
+	Effect.gen(function* () {
+		const cachePathsSet = new Set<string>();
+		const lockfilePatternsSet = new Set<string>();
+
+		for (const pm of pms) {
+			const config = yield* getCacheConfig(pm);
+			for (const p of config.cachePaths) cachePathsSet.add(p);
+			for (const p of config.lockfilePatterns) lockfilePatternsSet.add(p);
+		}
+
+		// Add tool cache paths for runtimes
+		for (const p of getToolCachePaths(runtimes)) {
+			cachePathsSet.add(p);
+		}
+
+		return {
+			cachePaths: sortPaths(Array.from(cachePathsSet)),
+			lockfilePatterns: sortPaths(Array.from(lockfilePatternsSet)),
+		} satisfies CacheConfig;
+	});
+
+/**
+ * Finds lockfiles matching glob patterns using FileSystem.
+ * Since we cannot use @actions/glob in Effect context, we check each
+ * well-known lockfile name at the workspace root.
+ */
+export const findLockFiles = (patterns: string[]) =>
+	Effect.gen(function* () {
+		const fs = yield* FileSystem.FileSystem;
+		const found: string[] = [];
+
+		// Extract concrete filenames from glob patterns (e.g., "**/pnpm-lock.yaml" → "pnpm-lock.yaml")
+		const filenames = patterns.map((p) => p.replace(/^\*\*\//, ""));
+
+		for (const filename of filenames) {
+			const exists = yield* fs.access(filename).pipe(
+				Effect.map(() => true),
+				Effect.orElse(() => Effect.succeed(false)),
+			);
+			if (exists) {
+				found.push(filename);
+			}
+		}
+
+		return found;
+	});
+
+/**
+ * Read file contents and produce a combined SHA256 hash (truncated to 8 chars).
+ */
+const hashFiles = (files: string[]) =>
+	Effect.gen(function* () {
+		const fs = yield* FileSystem.FileSystem;
+		const hash = createHash("sha256");
+
+		for (const file of files) {
+			const content = yield* fs.readFileString(file, "utf-8").pipe(Effect.orElse(() => Effect.succeed("")));
+			hash.update(content);
+		}
+
+		return hash.digest("hex").substring(0, 8);
+	});
+
+/**
+ * Gets the branch name from GitHub Actions environment variables.
+ * For PRs: uses GITHUB_HEAD_REF.
+ * For pushes: strips "refs/heads/" from GITHUB_REF.
+ */
+const getBranchName = Effect.gen(function* () {
+	const env = yield* ActionEnvironment;
+
+	// PR branch
+	const headRef = yield* env.getOptional("GITHUB_HEAD_REF");
+	if (Option.isSome(headRef) && headRef.value !== "") {
+		return headRef.value;
+	}
+
+	// Push branch — strip refs/heads/ prefix
+	const ref = yield* env.getOptional("GITHUB_REF");
+	if (Option.isSome(ref) && ref.value.startsWith("refs/heads/")) {
+		return ref.value.replace("refs/heads/", "");
+	}
+
+	return "";
+});
+
+/**
+ * Generates a cache key in format: {os}-{versionHash}-{branchHash}-{lockfileHash}
+ *
+ * Version hash is built from all runtime versions + package manager version,
+ * sorted by name for consistency.
+ */
+export const generateCacheKey = (
+	runtimes: ReadonlyArray<{ name: string; version: string }>,
+	packageManager: { name: string; version: string },
+	lockfiles: string[],
+	cacheBust?: string,
+) =>
+	Effect.gen(function* () {
+		const plat = platform();
+
+		// Version hash: combine all runtime versions + PM version
+		const versionHasher = createHash("sha256");
+		if (cacheBust) {
+			versionHasher.update(cacheBust);
+		}
+		// Sort runtime entries by name for deterministic hashing
+		const sortedRuntimes = [...runtimes].sort((a, b) => a.name.localeCompare(b.name));
+		for (const rt of sortedRuntimes) {
+			versionHasher.update(`${rt.name}:${rt.version}`);
+		}
+		versionHasher.update(`${packageManager.name}:${packageManager.version}`);
+		const versionHash = versionHasher.digest("hex").substring(0, 8);
+
+		// Branch hash
+		const branch = yield* getBranchName;
+		const branchHash = hashString(branch || "null");
+
+		// Lockfile hash
+		const lockfileHash = yield* hashFiles(lockfiles);
+
+		return `${plat}-${versionHash}-${branchHash}-${lockfileHash}`;
+	});
+
+/**
+ * Generates restore key prefixes for cache fallback.
+ * When cacheBust is set (testing), returns empty to force exact matches.
+ */
+export const generateRestoreKeys = (
+	runtimes: ReadonlyArray<{ name: string; version: string }>,
+	packageManager: { name: string; version: string },
+	cacheBust?: string,
+) =>
+	Effect.gen(function* () {
+		if (cacheBust) return [];
+
+		const plat = platform();
+
+		const versionHasher = createHash("sha256");
+		const sortedRuntimes = [...runtimes].sort((a, b) => a.name.localeCompare(b.name));
+		for (const rt of sortedRuntimes) {
+			versionHasher.update(`${rt.name}:${rt.version}`);
+		}
+		versionHasher.update(`${packageManager.name}:${packageManager.version}`);
+		const versionHash = versionHasher.digest("hex").substring(0, 8);
+
+		const branch = yield* getBranchName;
+		const branchHash = hashString(branch || "null");
+
+		return [`${plat}-${versionHash}-${branchHash}-`, `${plat}-${versionHash}-`];
+	});
+
+/**
+ * Restores cache and saves state for the post action.
+ *
+ * Uses ActionCache.restore to attempt cache restoration, then persists
+ * the result via ActionState.save so saveCache can decide whether to
+ * save a new entry.
+ */
+export const restoreCache = (config: {
+	readonly cachePaths: string[];
+	readonly runtimes: ReadonlyArray<{ name: string; version: string }>;
+	readonly packageManager: { name: string; version: string };
+	readonly lockfiles: string[];
+	readonly cacheBust?: string;
+}) =>
+	Effect.gen(function* () {
+		const cache = yield* ActionCache;
+		const state = yield* ActionState;
+
+		const primaryKey = yield* generateCacheKey(
+			config.runtimes,
+			config.packageManager,
+			config.lockfiles,
+			config.cacheBust,
+		);
+
+		const restoreKeys = yield* generateRestoreKeys(config.runtimes, config.packageManager, config.cacheBust);
+
+		const result = yield* cache.restore(primaryKey, config.cachePaths, restoreKeys).pipe(
+			Effect.mapError(
+				(cause) =>
+					new CacheError({
+						operation: "restore",
+						reason: `Failed to restore cache with key ${primaryKey}`,
+						cause,
+					}),
+			),
+		);
+
+		// Determine hit status
+		const hit = result.hit
+			? result.matchedKey === primaryKey
+				? ("exact" as const)
+				: ("partial" as const)
+			: ("none" as const);
+
+		// Save state for post action
+		yield* state.save(
+			"CACHE_STATE",
+			{
+				hit,
+				key: primaryKey,
+				paths: config.cachePaths,
+			},
+			CacheStateSchema,
+		);
+
+		return hit;
+	});
+
+/**
+ * Saves cache if the previous restore was not an exact hit.
+ * Called from post.ts — reads state saved by restoreCache.
+ */
+export const saveCache = () =>
+	Effect.gen(function* () {
+		const cache = yield* ActionCache;
+		const state = yield* ActionState;
+
+		const cacheState = yield* state.get("CACHE_STATE", CacheStateSchema).pipe(
+			Effect.mapError(
+				(cause) =>
+					new CacheError({
+						operation: "save",
+						reason: "Failed to read cache state",
+						cause,
+					}),
+			),
+		);
+
+		// Skip save on exact hit — cache is already up to date
+		if (cacheState.hit === "exact") {
+			return;
+		}
+
+		const key = cacheState.key;
+		const paths = cacheState.paths;
+
+		if (!key || !paths || paths.length === 0) {
+			return;
+		}
+
+		yield* cache.save(key, paths).pipe(
+			Effect.mapError(
+				(cause) =>
+					new CacheError({
+						operation: "save",
+						reason: `Failed to save cache with key ${key}`,
+						cause,
+					}),
+			),
+		);
+	});
