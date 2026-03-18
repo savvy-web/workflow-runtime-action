@@ -30,6 +30,44 @@ import type { DevEngineEntry } from "./schemas.js";
 // ---------------------------------------------------------------------------
 
 /**
+ * Parses a multi-value input string supporting multiple formats:
+ * - Newline-separated: "a\nb\nc"
+ * - Bullet lists: "* a\n* b\n* c"
+ * - Comma-separated: "a, b, c"
+ * - JSON arrays: '["a", "b", "c"]'
+ */
+const parseMultiValueInput = (raw: string): string[] => {
+	const trimmed = raw.trim();
+	if (!trimmed) return [];
+
+	// JSON array?
+	if (trimmed.startsWith("[")) {
+		try {
+			const parsed = JSON.parse(trimmed);
+			if (Array.isArray(parsed)) {
+				return parsed.map((s: unknown) => String(s).trim()).filter((s) => s.length > 0);
+			}
+		} catch {
+			// Not valid JSON, fall through to other formats
+		}
+	}
+
+	// Newline or bullet list?
+	if (trimmed.includes("\n")) {
+		return trimmed
+			.split("\n")
+			.map((s) => s.trim().replace(/^\*\s*/, "")) // Strip bullet prefix
+			.filter((s) => s.length > 0 && !s.startsWith("#"));
+	}
+
+	// Comma-separated
+	return trimmed
+		.split(",")
+		.map((s) => s.trim())
+		.filter((s) => s.length > 0);
+};
+
+/**
  * Determines active package managers from the set of installed runtimes
  * and the primary package manager.
  */
@@ -285,20 +323,11 @@ const main = Effect.gen(function* () {
 	const cacheConfig = yield* getCombinedCacheConfig(activePackageManagers, runtimeEntries);
 
 	// Read additional lockfile patterns and cache paths from inputs (optional, may be empty)
+	// Supports: newlines, bullet lists, comma-separated, JSON arrays
 	const rawLockfiles = yield* inputs.getOptional("additional-lockfiles", Schema.String);
-	const additionalLockfiles = Option.isSome(rawLockfiles)
-		? rawLockfiles.value
-				.split("\n")
-				.map((s) => s.trim())
-				.filter((s) => s.length > 0 && !s.startsWith("#"))
-		: [];
+	const additionalLockfiles = Option.isSome(rawLockfiles) ? parseMultiValueInput(rawLockfiles.value) : [];
 	const rawCachePaths = yield* inputs.getOptional("additional-cache-paths", Schema.String);
-	const additionalCachePaths = Option.isSome(rawCachePaths)
-		? rawCachePaths.value
-				.split("\n")
-				.map((s) => s.trim())
-				.filter((s) => s.length > 0 && !s.startsWith("#"))
-		: [];
+	const additionalCachePaths = Option.isSome(rawCachePaths) ? parseMultiValueInput(rawCachePaths.value) : [];
 
 	const allLockfilePatterns = [...cacheConfig.lockfilePatterns, ...additionalLockfiles];
 	const lockfiles = yield* findLockFiles(allLockfilePatterns);
