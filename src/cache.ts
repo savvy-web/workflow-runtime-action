@@ -4,12 +4,13 @@ import { FileSystem } from "@effect/platform";
 import { ActionCache, ActionEnvironment, ActionState, CommandRunner } from "@savvy-web/github-action-effects";
 import { Effect, Option } from "effect";
 import { CacheError } from "./errors.js";
+import type { PackageManagerName } from "./schemas.js";
 import { CacheStateSchema } from "./schemas.js";
 
 /**
  * Supported package managers for caching.
  */
-export type PackageManager = "npm" | "pnpm" | "yarn" | "bun" | "deno";
+export type PackageManager = PackageManagerName;
 
 /**
  * Cache configuration for a package manager.
@@ -172,8 +173,11 @@ export const detectCachePath = (pm: PackageManager) =>
 				case "deno": {
 					const out = yield* runner.execCapture("deno", ["info", "--json"], opts);
 					if (out.stdout.trim()) {
-						const info = JSON.parse(out.stdout) as { denoDir?: string };
-						return info.denoDir ?? null;
+						const info = yield* Effect.try({
+							try: () => JSON.parse(out.stdout) as { denoDir?: string },
+							catch: () => null,
+						});
+						return info?.denoDir ?? null;
 					}
 					return null;
 				}

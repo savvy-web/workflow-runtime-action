@@ -1,7 +1,8 @@
 // Force ncc to bundle packages used via dynamic import in github-action-effects Live layers
-import "@actions/core";
-import "@actions/tool-cache";
+
 import { arch as osArch, platform as osPlatform, tmpdir } from "node:os";
+import * as actionsCore from "@actions/core";
+import * as toolCache from "@actions/tool-cache";
 import { FileSystem } from "@effect/platform";
 import {
 	Action,
@@ -20,6 +21,7 @@ import { Effect, Layer, Option, Schema } from "effect";
 import type { PackageManager } from "./cache.js";
 import { findLockFiles, getCombinedCacheConfig, restoreCache } from "./cache.js";
 import { detectBiome, detectTurbo, loadPackageJson, parseDevEngines } from "./config.js";
+import { binaryMap as biomeBinaryMap } from "./descriptors/biome.js";
 import { formatDetection, formatInstallation, formatPackageManager, formatRuntime, formatSuccess } from "./emoji.js";
 import { DependencyInstallError, PackageManagerSetupError } from "./errors.js";
 import type { InstalledRuntime } from "./runtime-installer.js";
@@ -75,42 +77,35 @@ const parseMultiValueInput = (raw: string): string[] => {
 const installBiome = (version: string): Effect.Effect<void, Error> =>
 	Effect.tryPromise({
 		try: async () => {
-			const tc = await import("@actions/tool-cache");
-			const core = await import("@actions/core");
 			const { chmod } = await import("node:fs/promises");
 
 			const plat = osPlatform();
 			const architecture = osArch();
 
 			// Check tool cache first
-			const cached = tc.find("biome", version);
+			const cached = toolCache.find("biome", version);
 			if (cached) {
-				core.addPath(cached);
+				actionsCore.addPath(cached);
 				return;
 			}
 
-			// Build download URL
-			const binaryMap: Record<string, Record<string, string>> = {
-				linux: { x64: "biome-linux-x64", arm64: "biome-linux-arm64" },
-				darwin: { x64: "biome-darwin-x64", arm64: "biome-darwin-arm64" },
-				win32: { x64: "biome-win32-x64.exe", arm64: "biome-win32-arm64.exe" },
-			};
-			const binaryName = binaryMap[plat]?.[architecture];
+			// Build download URL using shared binaryMap from descriptor
+			const binaryName = biomeBinaryMap[plat]?.[architecture];
 			if (!binaryName) throw new Error(`Unsupported platform for Biome: ${plat}-${architecture}`);
 
 			const url = `https://github.com/biomejs/biome/releases/download/%40biomejs%2Fbiome%40${version}/${binaryName}`;
-			const downloadPath = await tc.downloadTool(url);
+			const downloadPath = await toolCache.downloadTool(url);
 
 			// Cache as a single file, renamed to "biome" (or "biome.exe" on Windows)
 			const finalName = plat === "win32" ? "biome.exe" : "biome";
-			const cachedPath = await tc.cacheFile(downloadPath, finalName, "biome", version);
+			const cachedPath = await toolCache.cacheFile(downloadPath, finalName, "biome", version);
 
 			// Make executable on Unix
 			if (plat !== "win32") {
 				await chmod(`${cachedPath}/${finalName}`, 0o755);
 			}
 
-			core.addPath(cachedPath);
+			actionsCore.addPath(cachedPath);
 		},
 		catch: (error) => new Error(`Biome install failed: ${error instanceof Error ? error.message : String(error)}`),
 	});

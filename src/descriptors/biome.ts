@@ -6,7 +6,7 @@
  * URL uses URL-encoded @ characters: %40biomejs%2Fbiome%40{version}
  */
 
-const binaryMap: Record<string, Record<string, string>> = {
+export const binaryMap: Record<string, Record<string, string>> = {
 	linux: {
 		x64: "biome-linux-x64",
 		arm64: "biome-linux-arm64",

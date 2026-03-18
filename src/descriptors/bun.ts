@@ -41,7 +41,10 @@ export const descriptor = {
 	): { archiveType?: "tar.gz" | "tar.xz" | "zip"; binSubPath?: string } {
 		// Bun zip extracts to bun-{platform}-{arch}/ containing the binary
 		const bunPlatform = platform === "win32" ? "windows" : platform;
-		const bunArch = arch === "arm64" ? "aarch64" : arch;
+		// Bun does not officially support Windows ARM64 yet.
+		// Always use x64 on Windows regardless of arch (mirrors getDownloadUrl behaviour).
+		const effectiveArch = platform === "win32" ? "x64" : arch;
+		const bunArch = effectiveArch === "arm64" ? "aarch64" : effectiveArch;
 		return { archiveType: "zip", binSubPath: `bun-${bunPlatform}-${bunArch}` };
 	},
 
