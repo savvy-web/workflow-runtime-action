@@ -296,124 +296,15 @@ const makeFileSystemLayer = (
 import type { PackageManager } from "../src/cache.js";
 import { findLockFiles, getCombinedCacheConfig, restoreCache } from "../src/cache.js";
 import { detectBiome, detectTurbo, loadPackageJson, parseDevEngines } from "../src/config.js";
-import { DependencyInstallError } from "../src/errors.js";
-import type { InstalledRuntime } from "../src/runtime-installer.js";
+import {
+	getActivePackageManagers,
+	installBiome,
+	installDependencies,
+	parseMultiValueInput,
+	setOutputs,
+	setupPackageManager,
+} from "../src/main.js";
 import { RuntimeInstaller, installerLayerFor } from "../src/runtime-installer.js";
-import type { DevEngineEntry } from "../src/schemas.js";
-
-// ---------------------------------------------------------------------------
-// Re-create the pipeline functions from main.ts for testability
-// ---------------------------------------------------------------------------
-
-const getActivePackageManagers = (
-	runtimes: ReadonlyArray<DevEngineEntry>,
-	primaryPackageManager: PackageManager,
-): PackageManager[] => {
-	const pms = new Set<PackageManager>();
-	for (const rt of runtimes) {
-		if (rt.name === "node") pms.add(primaryPackageManager);
-		else if (rt.name === "bun") pms.add("bun");
-		else if (rt.name === "deno") pms.add("deno");
-	}
-	return Array.from(pms);
-};
-
-const installDependencies = (
-	packageManager: PackageManager,
-): Effect.Effect<
-	void,
-	DependencyInstallError,
-	ContextType.Tag.Identifier<typeof CommandRunner> | FileSystem.FileSystem
-> =>
-	Effect.gen(function* () {
-		const runner = yield* CommandRunner;
-		const fs = yield* FileSystem.FileSystem;
-
-		const fileExists = (path: string) =>
-			fs.access(path).pipe(
-				Effect.map(() => true),
-				Effect.orElse(() => Effect.succeed(false)),
-			);
-
-		if (packageManager === "deno") {
-			return;
-		}
-
-		let command: string[];
-
-		switch (packageManager) {
-			case "npm": {
-				const hasLock = yield* fileExists("package-lock.json");
-				command = hasLock ? ["ci"] : ["install"];
-				break;
-			}
-			case "pnpm": {
-				const hasLock = yield* fileExists("pnpm-lock.yaml");
-				command = hasLock ? ["install", "--frozen-lockfile"] : ["install"];
-				break;
-			}
-			case "yarn": {
-				const hasLock = yield* fileExists("yarn.lock");
-				command = hasLock ? ["install", "--immutable"] : ["install", "--no-immutable"];
-				break;
-			}
-			case "bun": {
-				const hasLock = yield* fileExists("bun.lock");
-				command = hasLock ? ["install", "--frozen-lockfile"] : ["install"];
-				break;
-			}
-		}
-
-		yield* runner.exec(packageManager, command).pipe(
-			Effect.mapError(
-				(cause) =>
-					new DependencyInstallError({
-						packageManager,
-						reason: `Failed to install dependencies: ${cause instanceof Error ? cause.message : String(cause)}`,
-						cause,
-					}),
-			),
-		);
-	});
-
-const setOutputs = (
-	outputs: {
-		set: (name: string, value: string) => Effect.Effect<void>;
-	},
-	installed: ReadonlyArray<InstalledRuntime>,
-	config: {
-		readonly packageManager: DevEngineEntry;
-		readonly biome: Option.Option<string>;
-		readonly turbo: boolean;
-	},
-	cacheHit: "exact" | "partial" | "none",
-	lockfiles: string[],
-	cachePaths: string[],
-) =>
-	Effect.gen(function* () {
-		const nodeRt = installed.find((r) => r.name === "node");
-		const bunRt = installed.find((r) => r.name === "bun");
-		const denoRt = installed.find((r) => r.name === "deno");
-
-		yield* outputs.set("node-version", nodeRt?.version ?? "");
-		yield* outputs.set("node-enabled", nodeRt ? "true" : "false");
-		yield* outputs.set("bun-version", bunRt?.version ?? "");
-		yield* outputs.set("bun-enabled", bunRt ? "true" : "false");
-		yield* outputs.set("deno-version", denoRt?.version ?? "");
-		yield* outputs.set("deno-enabled", denoRt ? "true" : "false");
-
-		yield* outputs.set("package-manager", config.packageManager.name);
-		yield* outputs.set("package-manager-version", config.packageManager.version);
-
-		yield* outputs.set("biome-version", Option.isSome(config.biome) ? config.biome.value : "");
-		yield* outputs.set("biome-enabled", Option.isSome(config.biome) ? "true" : "false");
-		yield* outputs.set("turbo-enabled", config.turbo ? "true" : "false");
-
-		const cacheHitOutput = cacheHit === "exact" ? "true" : cacheHit === "partial" ? "partial" : "false";
-		yield* outputs.set("cache-hit", cacheHitOutput);
-		yield* outputs.set("lockfiles", lockfiles.join(","));
-		yield* outputs.set("cache-paths", cachePaths.join(","));
-	});
 
 /**
  * Build the full pipeline Effect the same way main.ts does,
@@ -514,7 +405,7 @@ const buildPipeline: Effect.Effect<void, any, any> = Effect.gen(function* () {
 	}
 
 	// 6. Set outputs
-	yield* setOutputs(outputs, installed, config, cacheResult, lockfiles, cacheConfig.cachePaths);
+	yield* setOutputs(outputs as never, installed, config, cacheResult, lockfiles, cacheConfig.cachePaths);
 });
 
 // ---------------------------------------------------------------------------
@@ -717,5 +608,166 @@ describe("main pipeline", () => {
 		expect(outputStore["turbo-enabled"]).toBe("true");
 		expect(exportedVars.TURBO_TOKEN).toBe("my-token");
 		expect(exportedVars.TURBO_TEAM).toBe("my-team");
+	});
+});
+
+// ---------------------------------------------------------------------------
+// parseMultiValueInput tests
+// ---------------------------------------------------------------------------
+
+describe("parseMultiValueInput", () => {
+	it("returns empty array for empty string", () => {
+		expect(parseMultiValueInput("")).toEqual([]);
+		expect(parseMultiValueInput("   ")).toEqual([]);
+	});
+
+	it("parses comma-separated values", () => {
+		expect(parseMultiValueInput("a, b, c")).toEqual(["a", "b", "c"]);
+	});
+
+	it("parses newline-separated values", () => {
+		expect(parseMultiValueInput("a\nb\nc")).toEqual(["a", "b", "c"]);
+	});
+
+	it("parses bullet list values", () => {
+		expect(parseMultiValueInput("* a\n* b\n* c")).toEqual(["a", "b", "c"]);
+	});
+
+	it("parses JSON array values", () => {
+		expect(parseMultiValueInput('["a", "b", "c"]')).toEqual(["a", "b", "c"]);
+	});
+
+	it("filters out comment lines in newline format", () => {
+		expect(parseMultiValueInput("a\n# comment\nb")).toEqual(["a", "b"]);
+	});
+
+	it("handles invalid JSON gracefully by falling through", () => {
+		expect(parseMultiValueInput("[not valid json")).toEqual(["[not valid json"]);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// installDependencies branch coverage
+// ---------------------------------------------------------------------------
+
+describe("installDependencies", () => {
+	it("runs bun install for bun PM", async () => {
+		const responses = new Map([["bun install", { exitCode: 0, stdout: "", stderr: "" }]]);
+		const cmdLayer = makeCommandRunnerLayer(responses);
+		const fsLayer = Layer.succeed(FileSystem.FileSystem, {
+			access: () => Effect.fail("not found"),
+		} as unknown as FileSystem.FileSystem);
+		const layer = Layer.mergeAll(cmdLayer, fsLayer);
+		await Effect.runPromise(
+			Effect.provide(installDependencies("bun") as Effect.Effect<void, unknown, never>, layer as never),
+		);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// setupPackageManager tests
+// ---------------------------------------------------------------------------
+
+describe("setupPackageManager", () => {
+	it("skips setup for bun", async () => {
+		const cmdLayer = makeCommandRunnerLayer();
+		await Effect.runPromise(
+			Effect.provide(setupPackageManager("bun", "1.3.3") as Effect.Effect<void, unknown, never>, cmdLayer as never),
+		);
+	});
+
+	it("skips setup for deno", async () => {
+		const cmdLayer = makeCommandRunnerLayer();
+		await Effect.runPromise(
+			Effect.provide(setupPackageManager("deno", "2.5.6") as Effect.Effect<void, unknown, never>, cmdLayer as never),
+		);
+	});
+
+	it("runs corepack for pnpm", async () => {
+		const responses = new Map([
+			["node --version", { exitCode: 0, stdout: "v24.9.0\n", stderr: "" }],
+			["corepack enable", { exitCode: 0, stdout: "", stderr: "" }],
+			["corepack prepare pnpm@10.20.0 --activate", { exitCode: 0, stdout: "", stderr: "" }],
+			["pnpm --version", { exitCode: 0, stdout: "10.20.0\n", stderr: "" }],
+		]);
+		const cmdLayer = makeCommandRunnerLayer(responses);
+		await Effect.runPromise(
+			Effect.provide(setupPackageManager("pnpm", "10.20.0") as Effect.Effect<void, unknown, never>, cmdLayer as never),
+		);
+	});
+
+	it("runs npm install -g for npm when version differs", async () => {
+		const responses = new Map([
+			["npm --version", { exitCode: 0, stdout: "10.8.2\n", stderr: "" }],
+			["sudo npm install -g npm@11.6.0", { exitCode: 0, stdout: "", stderr: "" }],
+			["sudo chown -R", { exitCode: 0, stdout: "", stderr: "" }],
+		]);
+		const cmdLayer = makeCommandRunnerLayer(responses);
+		await Effect.runPromise(
+			Effect.provide(setupPackageManager("npm", "11.6.0") as Effect.Effect<void, unknown, never>, cmdLayer as never),
+		);
+	});
+
+	it("skips npm install when version already matches", async () => {
+		const responses = new Map([["npm --version", { exitCode: 0, stdout: "11.6.0\n", stderr: "" }]]);
+		const cmdLayer = makeCommandRunnerLayer(responses);
+		await Effect.runPromise(
+			Effect.provide(setupPackageManager("npm", "11.6.0") as Effect.Effect<void, unknown, never>, cmdLayer as never),
+		);
+	});
+
+	it("runs corepack for yarn (no tmpdir)", async () => {
+		const responses = new Map([
+			["node --version", { exitCode: 0, stdout: "v24.9.0\n", stderr: "" }],
+			["corepack enable", { exitCode: 0, stdout: "", stderr: "" }],
+			["corepack prepare yarn@4.6.0 --activate", { exitCode: 0, stdout: "", stderr: "" }],
+			["yarn --version", { exitCode: 0, stdout: "4.6.0\n", stderr: "" }],
+		]);
+		const cmdLayer = makeCommandRunnerLayer(responses);
+		await Effect.runPromise(
+			Effect.provide(setupPackageManager("yarn", "4.6.0") as Effect.Effect<void, unknown, never>, cmdLayer as never),
+		);
+	});
+
+	it("runs npm install -g without sudo on windows", async () => {
+		// Temporarily mock platform to win32
+		const origPlatform = process.platform;
+		Object.defineProperty(process, "platform", { value: "win32", writable: true });
+		try {
+			const responses = new Map([
+				["npm --version", { exitCode: 0, stdout: "10.8.2\n", stderr: "" }],
+				["npm install -g npm@11.6.0", { exitCode: 0, stdout: "", stderr: "" }],
+			]);
+			const cmdLayer = makeCommandRunnerLayer(responses);
+			await Effect.runPromise(
+				Effect.provide(setupPackageManager("npm", "11.6.0") as Effect.Effect<void, unknown, never>, cmdLayer as never),
+			);
+		} finally {
+			Object.defineProperty(process, "platform", { value: origPlatform, writable: true });
+		}
+	});
+
+	it("installs corepack for Node >= 25", async () => {
+		const responses = new Map([
+			["node --version", { exitCode: 0, stdout: "v25.0.0\n", stderr: "" }],
+			["npm install -g --force corepack@latest", { exitCode: 0, stdout: "", stderr: "" }],
+			["corepack enable", { exitCode: 0, stdout: "", stderr: "" }],
+			["corepack prepare pnpm@10.20.0 --activate", { exitCode: 0, stdout: "", stderr: "" }],
+			["pnpm --version", { exitCode: 0, stdout: "10.20.0\n", stderr: "" }],
+		]);
+		const cmdLayer = makeCommandRunnerLayer(responses);
+		await Effect.runPromise(
+			Effect.provide(setupPackageManager("pnpm", "10.20.0") as Effect.Effect<void, unknown, never>, cmdLayer as never),
+		);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// installBiome tests (stub — real impl uses @actions/tool-cache directly)
+// ---------------------------------------------------------------------------
+
+describe("installBiome", () => {
+	it("is exported and callable", () => {
+		expect(typeof installBiome).toBe("function");
 	});
 });

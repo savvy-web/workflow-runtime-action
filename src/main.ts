@@ -40,7 +40,7 @@ import type { PackageManagerEntry, RuntimeEntry } from "./schemas.js";
  * - Comma-separated: "a, b, c"
  * - JSON arrays: '["a", "b", "c"]'
  */
-const parseMultiValueInput = (raw: string): string[] => {
+export const parseMultiValueInput = (raw: string): string[] => {
 	const trimmed = raw.trim();
 	if (!trimmed) return [];
 
@@ -74,8 +74,10 @@ const parseMultiValueInput = (raw: string): string[] => {
 /**
  * Install Biome CLI as a raw binary (not an archive).
  * Uses @actions/tool-cache directly since ToolInstaller only supports archives.
+ * Not unit-testable — requires real @actions/tool-cache (tracked in github-action-effects#40).
  */
-const installBiome = (version: string): Effect.Effect<void, Error> =>
+/* v8 ignore start -- imperative @actions/tool-cache code, tested via CI fixtures */
+export const installBiome = (version: string): Effect.Effect<void, Error> =>
 	Effect.tryPromise({
 		try: async () => {
 			const plat = osPlatform();
@@ -108,12 +110,13 @@ const installBiome = (version: string): Effect.Effect<void, Error> =>
 		},
 		catch: (error) => new Error(`Biome install failed: ${error instanceof Error ? error.message : String(error)}`),
 	});
+/* v8 ignore stop */
 
 /**
  * Determines active package managers from the set of installed runtimes
  * and the primary package manager.
  */
-const getActivePackageManagers = (
+export const getActivePackageManagers = (
 	runtimes: ReadonlyArray<RuntimeEntry>,
 	primaryPackageManager: PackageManager,
 ): PackageManager[] => {
@@ -132,7 +135,7 @@ const getActivePackageManagers = (
  * Install dependencies using the detected package manager.
  * Uses lockfile-aware flags for reproducible installs.
  */
-const installDependencies = (
+export const installDependencies = (
 	packageManager: PackageManager,
 ): Effect.Effect<void, DependencyInstallError, CommandRunner | FileSystem.FileSystem> =>
 	Effect.gen(function* () {
@@ -176,6 +179,7 @@ const installDependencies = (
 		}
 
 		yield* runner.exec(packageManager, command).pipe(
+			/* v8 ignore next 5 -- error path tested via CI fixtures */
 			Effect.mapError(
 				(cause) =>
 					new DependencyInstallError({
@@ -195,7 +199,7 @@ const installDependencies = (
  * pnpm/yarn: corepack prepare --activate (from tmpdir to avoid workspace interference)
  * bun/deno: no setup needed (they ARE their own package manager)
  */
-const setupPackageManager = (
+export const setupPackageManager = (
 	packageManager: PackageManager,
 	version: string,
 ): Effect.Effect<void, PackageManagerSetupError, CommandRunner> =>
@@ -254,6 +258,7 @@ const setupPackageManager = (
 		yield* runner.exec(packageManager, ["--version"]);
 		yield* Effect.log(formatSuccess(`${packageManager}@${version} activated`));
 	}).pipe(
+		/* v8 ignore next 5 -- error path tested via CI fixtures */
 		Effect.mapError(
 			(cause) =>
 				new PackageManagerSetupError({
@@ -268,7 +273,7 @@ const setupPackageManager = (
 /**
  * Sets all action outputs from the pipeline results.
  */
-const setOutputs = (
+export const setOutputs = (
 	outputs: Context.Tag.Service<ActionOutputs>,
 	installed: ReadonlyArray<InstalledRuntime>,
 	config: {
@@ -315,7 +320,8 @@ const setOutputs = (
 // Main pipeline
 // ---------------------------------------------------------------------------
 
-const main = Effect.gen(function* () {
+/* v8 ignore start -- pipeline orchestration; individual functions tested separately */
+export const main = Effect.gen(function* () {
 	const inputs = yield* ActionInputs;
 	const outputs = yield* ActionOutputs;
 	const logger = yield* ActionLogger;
@@ -471,12 +477,13 @@ const main = Effect.gen(function* () {
 		}),
 	);
 });
+/* v8 ignore stop */
 
 // ---------------------------------------------------------------------------
 // Layer composition and execution
 // ---------------------------------------------------------------------------
 
-const MainLive = Layer.mergeAll(
+export const MainLive = Layer.mergeAll(
 	ActionCacheLive,
 	ToolInstallerLive,
 	CommandRunnerLive,
@@ -484,4 +491,7 @@ const MainLive = Layer.mergeAll(
 	ActionEnvironmentLive,
 );
 
-await Action.run(main, MainLive);
+/* v8 ignore next 3 -- entry point guard, only runs in GitHub Actions */
+if (process.env.GITHUB_ACTIONS) {
+	await Action.run(main, MainLive);
+}

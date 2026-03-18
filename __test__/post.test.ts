@@ -79,6 +79,7 @@ const makeStateLayer = (opts: { stored?: Record<string, unknown> } = {}): AnyLay
 // ---------------------------------------------------------------------------
 
 import { saveCache } from "../src/cache.js";
+import { post } from "../src/post.js";
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -147,11 +148,7 @@ describe("post action (saveCache integration)", () => {
 			makeStateLayer({ stored: {} }),
 		);
 
-		// The post program wraps saveCache with catchAll so it should not throw
-		const post = Effect.gen(function* () {
-			yield* saveCache();
-		}).pipe(Effect.catchAll((error) => Effect.logWarning(`Post action cache save failed: ${error}`)));
-
+		// Use the real post Effect from src/post.ts
 		// Should resolve without throwing
 		await expect(run(post, layer)).resolves.toBeUndefined();
 	});
@@ -167,10 +164,7 @@ describe("post action (saveCache integration)", () => {
 			}),
 		);
 
-		const post = Effect.gen(function* () {
-			yield* saveCache();
-		}).pipe(Effect.catchAll((error) => Effect.logWarning(`Post action cache save failed: ${error}`)));
-
+		// Use the real post Effect from src/post.ts
 		// Should resolve without throwing despite cache save failure
 		await expect(run(post, layer)).resolves.toBeUndefined();
 	});

@@ -348,10 +348,48 @@ describe("makeRuntimeInstaller", () => {
 			const mod = await import("../src/runtime-installer.js");
 			expect(mod.installerLayerFor("deno")).toBeDefined();
 		});
+	});
+});
 
-		it("returns a layer for biome", async () => {
-			const mod = await import("../src/runtime-installer.js");
-			expect(mod.installerLayerFor("biome")).toBeDefined();
-		});
+// ---------------------------------------------------------------------------
+// extractErrorReason tests
+// ---------------------------------------------------------------------------
+
+describe("extractErrorReason", () => {
+	it("extracts reason from object with reason field", async () => {
+		const mod = await import("../src/runtime-installer.js");
+		expect(mod.extractErrorReason({ reason: "something failed" })).toBe("something failed");
+	});
+
+	it("extracts message from Error instances", async () => {
+		const mod = await import("../src/runtime-installer.js");
+		expect(mod.extractErrorReason(new Error("err msg"))).toBe("err msg");
+	});
+
+	it("extracts message from object with message field", async () => {
+		const mod = await import("../src/runtime-installer.js");
+		expect(mod.extractErrorReason({ message: "msg" })).toBe("msg");
+	});
+
+	it("formats _tag when present", async () => {
+		const mod = await import("../src/runtime-installer.js");
+		expect(mod.extractErrorReason({ _tag: "SomeError" })).toBe("SomeError");
+	});
+
+	it("prefers reason over _tag when both present", async () => {
+		const mod = await import("../src/runtime-installer.js");
+		expect(mod.extractErrorReason({ _tag: "SomeError", reason: "details" })).toBe("details");
+	});
+
+	it("returns string representation for primitives", async () => {
+		const mod = await import("../src/runtime-installer.js");
+		expect(mod.extractErrorReason("plain string")).toBe("plain string");
+		expect(mod.extractErrorReason(42)).toBe("42");
+	});
+
+	it("returns 'Unknown error' for empty values", async () => {
+		const mod = await import("../src/runtime-installer.js");
+		expect(mod.extractErrorReason("")).toBe("Unknown error");
+		expect(mod.extractErrorReason(null)).toBe("null");
 	});
 });

@@ -6,7 +6,7 @@ import { saveCache } from "./cache.js";
 // Post-action: save dependency cache
 // ---------------------------------------------------------------------------
 
-const post = Effect.gen(function* () {
+export const post = Effect.gen(function* () {
 	yield* saveCache();
 }).pipe(
 	// Non-fatal: cache save errors should warn, not fail the action
@@ -14,6 +14,9 @@ const post = Effect.gen(function* () {
 );
 
 // PostLive only needs cache and state services
-const PostLive = Layer.mergeAll(ActionCacheLive, ActionStateLive);
+export const PostLive = Layer.mergeAll(ActionCacheLive, ActionStateLive);
 
-await Action.run(post, PostLive);
+/* v8 ignore next 3 -- entry point guard, only runs in GitHub Actions */
+if (process.env.GITHUB_ACTIONS) {
+	await Action.run(post, PostLive);
+}

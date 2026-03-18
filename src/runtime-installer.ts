@@ -10,7 +10,7 @@ import { RuntimeInstallError } from "./errors.js";
  * Extract a human-readable reason from an error.
  * Effect TaggedErrors have a `message` that may be empty and store data in custom fields.
  */
-const extractErrorReason = (error: unknown): string => {
+export const extractErrorReason = (error: unknown): string => {
 	if (error && typeof error === "object") {
 		const e = error as Record<string, unknown>;
 		if (typeof e.reason === "string" && e.reason) return e.reason;

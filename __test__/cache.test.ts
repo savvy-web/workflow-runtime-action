@@ -519,6 +519,30 @@ describe("detectCachePath", () => {
 		expect(result).toBe("/home/runner/.npm");
 	});
 
+	it("returns detected path for yarn Berry", async () => {
+		const layer = makeCommandRunnerLayer(() => ({
+			exitCode: 0,
+			stdout: "/home/runner/.yarn/cache\n",
+			stderr: "",
+		}));
+
+		const result = await run(detectCachePath("yarn"), layer);
+
+		expect(result).toBe("/home/runner/.yarn/cache");
+	});
+
+	it("returns detected path for bun", async () => {
+		const layer = makeCommandRunnerLayer(() => ({
+			exitCode: 0,
+			stdout: "/home/runner/.bun/install/cache\n",
+			stderr: "",
+		}));
+
+		const result = await run(detectCachePath("bun"), layer);
+
+		expect(result).toBe("/home/runner/.bun/install/cache");
+	});
+
 	it("parses deno info --json for denoDir", async () => {
 		const layer = makeCommandRunnerLayer(() => ({
 			exitCode: 0,

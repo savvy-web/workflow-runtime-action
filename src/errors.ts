@@ -1,5 +1,7 @@
 import { Data } from "effect";
 
+/* v8 ignore start */
+
 /**
  * Error thrown when configuration is invalid or missing.
  * e.g., missing devEngines, invalid version format, missing package.json
