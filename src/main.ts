@@ -22,7 +22,7 @@ import { detectBiome, detectTurbo, loadPackageJson, parseDevEngines } from "./co
 import { formatDetection, formatInstallation, formatPackageManager, formatRuntime, formatSuccess } from "./emoji.js";
 import { DependencyInstallError, PackageManagerSetupError } from "./errors.js";
 import type { InstalledRuntime } from "./runtime-installer.js";
-import { BiomeInstallerLive, RuntimeInstaller, installerLayerFor } from "./runtime-installer.js";
+import { RuntimeInstaller, installerLayerFor } from "./runtime-installer.js";
 import type { DevEngineEntry } from "./schemas.js";
 
 // ---------------------------------------------------------------------------
@@ -66,6 +66,54 @@ const parseMultiValueInput = (raw: string): string[] => {
 		.map((s) => s.trim())
 		.filter((s) => s.length > 0);
 };
+
+/**
+ * Install Biome CLI as a raw binary (not an archive).
+ * Uses @actions/tool-cache directly since ToolInstaller only supports archives.
+ */
+const installBiome = (version: string): Effect.Effect<void, Error> =>
+	Effect.tryPromise({
+		try: async () => {
+			const tc = await import("@actions/tool-cache");
+			const core = await import("@actions/core");
+			const { platform, arch } = await import("node:os");
+			const { chmod } = await import("node:fs/promises");
+
+			const plat = platform();
+			const architecture = arch();
+
+			// Check tool cache first
+			const cached = tc.find("biome", version);
+			if (cached) {
+				core.addPath(cached);
+				return;
+			}
+
+			// Build download URL
+			const binaryMap: Record<string, Record<string, string>> = {
+				linux: { x64: "biome-linux-x64", arm64: "biome-linux-arm64" },
+				darwin: { x64: "biome-darwin-x64", arm64: "biome-darwin-arm64" },
+				win32: { x64: "biome-win32-x64.exe", arm64: "biome-win32-arm64.exe" },
+			};
+			const binaryName = binaryMap[plat]?.[architecture];
+			if (!binaryName) throw new Error(`Unsupported platform for Biome: ${plat}-${architecture}`);
+
+			const url = `https://github.com/biomejs/biome/releases/download/%40biomejs%2Fbiome%40${version}/${binaryName}`;
+			const downloadPath = await tc.downloadTool(url);
+
+			// Cache as a single file, renamed to "biome" (or "biome.exe" on Windows)
+			const finalName = plat === "win32" ? "biome.exe" : "biome";
+			const cachedPath = await tc.cacheFile(downloadPath, finalName, "biome", version);
+
+			// Make executable on Unix
+			if (plat !== "win32") {
+				await chmod(`${cachedPath}/${finalName}`, 0o755);
+			}
+
+			core.addPath(cachedPath);
+		},
+		catch: (error) => new Error(`Biome install failed: ${error instanceof Error ? error.message : String(error)}`),
+	});
 
 /**
  * Determines active package managers from the set of installed runtimes
@@ -399,15 +447,15 @@ const main = Effect.gen(function* () {
 		);
 	}
 
-	// 7. Install Biome (non-fatal)
+	// 7. Install Biome (non-fatal) -- uses direct download since biome is a raw binary, not an archive
 	if (Option.isSome(config.biome)) {
 		const biomeVersion = config.biome.value;
 		yield* logger.group(
 			formatInstallation("Biome"),
-			RuntimeInstaller.pipe(
-				Effect.flatMap((installer) => installer.install(biomeVersion)),
-				Effect.provide(BiomeInstallerLive),
-				Effect.catchTag("RuntimeInstallError", (e) => Effect.logWarning(`Biome installation failed: ${e.reason}`)),
+			installBiome(biomeVersion).pipe(
+				Effect.catchAll((e) =>
+					Effect.logWarning(`Biome installation failed: ${e instanceof Error ? e.message : String(e)}`),
+				),
 			),
 		);
 	}
