@@ -32,12 +32,6 @@ importers:
       '@actions/glob':
         specifier: ^0.6.1
         version: 0.6.1
-      '@actions/http-client':
-        specifier: ^4.0.0
-        version: 4.0.0
-      '@actions/io':
-        specifier: ^3.0.2
-        version: 3.0.2
       '@actions/tool-cache':
         specifier: ^4.0.0
         version: 4.0.0
@@ -53,15 +47,6 @@ importers:
       effect:
         specifier: latest
         version: 3.20.0
-      jsonc-parser:
-        specifier: ^3.3.1
-        version: 3.3.1
-      semver:
-        specifier: ^7.7.4
-        version: 7.7.4
-      workspace-tools:
-        specifier: 0.41.0
-        version: 0.41.0
     devDependencies:
       '@savvy-web/changesets':
         specifier: ^0.5.3
