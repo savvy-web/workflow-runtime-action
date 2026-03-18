@@ -4,7 +4,7 @@ import { Context, Effect, Layer } from "effect";
 import { descriptor as biomeDescriptor } from "./descriptors/biome.js";
 import { descriptor as bunDescriptor } from "./descriptors/bun.js";
 import { descriptor as denoDescriptor } from "./descriptors/deno.js";
-import { descriptor as nodeDescriptor } from "./descriptors/node.js";
+import { createNodeDescriptor } from "./descriptors/node.js";
 import { RuntimeInstallError } from "./errors.js";
 
 /**
@@ -43,14 +43,6 @@ export const RuntimeInstaller = Context.GenericTag<RuntimeInstaller>("RuntimeIns
 
 /**
  * Factory: creates a RuntimeInstaller from a descriptor.
- *
- * The returned install function:
- * 1. Computes download URL from descriptor
- * 2. Calls ToolInstaller.installAndAddToPath(name, version, url, options)
- * 3. Runs CommandRunner.exec(verifyCommand[0], verifyCommand.slice(1))
- * 4. Runs descriptor.postInstall if defined
- * 5. Returns InstalledRuntime { name, version, path }
- * 6. Wraps ALL errors (ToolInstallerError, CommandRunnerError) in RuntimeInstallError
  */
 export const makeRuntimeInstaller = (descriptor: RuntimeDescriptor): RuntimeInstaller => ({
 	install: (version) =>
@@ -84,20 +76,37 @@ export const makeRuntimeInstaller = (descriptor: RuntimeDescriptor): RuntimeInst
 });
 
 /**
- * Pre-built layers for each supported runtime.
+ * Pre-built layers for runtimes that don't need dynamic config.
  */
-export const NodeInstallerLive = Layer.succeed(RuntimeInstaller, makeRuntimeInstaller(nodeDescriptor));
 export const BunInstallerLive = Layer.succeed(RuntimeInstaller, makeRuntimeInstaller(bunDescriptor));
 export const DenoInstallerLive = Layer.succeed(RuntimeInstaller, makeRuntimeInstaller(denoDescriptor));
 export const BiomeInstallerLive = Layer.succeed(RuntimeInstaller, makeRuntimeInstaller(biomeDescriptor));
 
 /**
- * Returns the appropriate installer layer for the given runtime name.
+ * Creates a Node.js installer layer with corepack postInstall for the given package manager.
  */
-export const installerLayerFor = (name: string): Layer.Layer<RuntimeInstaller> => {
+export const makeNodeInstallerLive = (pmName: string, pmVersion: string): Layer.Layer<RuntimeInstaller> =>
+	Layer.succeed(RuntimeInstaller, makeRuntimeInstaller(createNodeDescriptor(pmName, pmVersion)));
+
+/**
+ * Returns the appropriate installer layer for the given runtime name.
+ * Node requires package manager config for corepack setup.
+ */
+export const installerLayerFor = (
+	name: string,
+	pmConfig?: { name: string; version: string },
+): Layer.Layer<RuntimeInstaller, RuntimeInstallError> => {
 	switch (name) {
 		case "node":
-			return NodeInstallerLive;
+			return pmConfig
+				? makeNodeInstallerLive(pmConfig.name, pmConfig.version)
+				: Layer.fail(
+						new RuntimeInstallError({
+							runtime: "node",
+							version: "unknown",
+							reason: "Node installer requires package manager config for corepack setup",
+						}),
+					);
 		case "bun":
 			return BunInstallerLive;
 		case "deno":
@@ -105,6 +114,12 @@ export const installerLayerFor = (name: string): Layer.Layer<RuntimeInstaller> =
 		case "biome":
 			return BiomeInstallerLive;
 		default:
-			throw new Error(`Unknown runtime: ${name}`);
+			return Layer.fail(
+				new RuntimeInstallError({
+					runtime: name,
+					version: "unknown",
+					reason: `Unknown runtime: ${name}`,
+				}),
+			);
 	}
 };

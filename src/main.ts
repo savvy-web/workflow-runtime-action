@@ -201,11 +201,20 @@ const main = Effect.gen(function* () {
 	}
 
 	const cacheConfig = yield* getCombinedCacheConfig(activePackageManagers, runtimeEntries);
-	const lockfiles = yield* findLockFiles(cacheConfig.lockfilePatterns);
 
-	// Handle additional cache paths for turbo
+	// Read additional lockfile patterns and cache paths from inputs
+	const additionalLockfiles = yield* inputs.getMultiline("additional-lockfiles", Schema.String);
+	const additionalCachePaths = yield* inputs.getMultiline("additional-cache-paths", Schema.String);
+
+	const allLockfilePatterns = [...cacheConfig.lockfilePatterns, ...additionalLockfiles];
+	const lockfiles = yield* findLockFiles(allLockfilePatterns);
+
 	const cacheBust = yield* inputs.getOptional("cache-bust", Schema.String);
 	const cacheBustValue = Option.isSome(cacheBust) && cacheBust.value !== "false" ? cacheBust.value : undefined;
+
+	// Build final cache paths: base + additional inputs + turbo
+	const turboPaths = config.turbo ? ["**/.turbo"] : [];
+	const finalCachePaths = [...cacheConfig.cachePaths, ...additionalCachePaths, ...turboPaths];
 
 	// Handle turbo env vars
 	if (config.turbo) {
@@ -217,15 +226,13 @@ const main = Effect.gen(function* () {
 		if (Option.isSome(turboTeam) && turboTeam.value !== "") {
 			yield* outputs.exportVariable("TURBO_TEAM", turboTeam.value);
 		}
-		// Add .turbo to cache paths
-		cacheConfig.cachePaths.push("**/.turbo");
 	}
 
 	// 3. Restore cache (non-fatal)
 	const cacheResult = yield* logger.group(
 		"Restore cache",
 		restoreCache({
-			cachePaths: cacheConfig.cachePaths,
+			cachePaths: finalCachePaths,
 			runtimes: runtimeEntries,
 			packageManager: { name: config.packageManager.name, version: config.packageManager.version },
 			lockfiles,
@@ -240,13 +247,14 @@ const main = Effect.gen(function* () {
 		),
 	);
 
-	// 4. Install runtimes
+	// 4. Install runtimes (pass PM config so Node's corepack postInstall knows what to activate)
+	const pmConfig = { name: config.packageManager.name, version: config.packageManager.version };
 	const installed = yield* logger.group(
 		formatInstallation("runtimes"),
 		Effect.forEach(config.runtimes, (rt) =>
 			RuntimeInstaller.pipe(
 				Effect.flatMap((installer) => installer.install(rt.version)),
-				Effect.provide(installerLayerFor(rt.name)),
+				Effect.provide(installerLayerFor(rt.name, pmConfig)),
 				Effect.tap((result) =>
 					Effect.log(formatSuccess(`${formatRuntime(rt.name as "node" | "bun" | "deno")} ${result.version}`)),
 				),
@@ -277,7 +285,7 @@ const main = Effect.gen(function* () {
 	}
 
 	// 7. Set outputs
-	yield* setOutputs(outputs, installed, config, cacheResult, lockfiles, cacheConfig.cachePaths);
+	yield* setOutputs(outputs, installed, config, cacheResult, lockfiles, finalCachePaths);
 
 	// 8. Summary
 	yield* logger.group(

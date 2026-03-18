@@ -285,16 +285,15 @@ The `emoji.ts` module carries over unchanged. It provides:
 
 ```typescript
 // Collapsible log groups with emoji headers
-yield* logger.group(formatInstallation(formatRuntime("deno")), Effect.gen(function* () {
-  yield* Effect.log(formatDetection(`Deno ${version} in tool cache`, true))
-  yield* Effect.log(formatSuccess(`Deno ${version} installed successfully`))
+yield* logger.group(formatInstallation("runtimes"), Effect.gen(function* () {
+  // Install each runtime and log success
+  yield* Effect.log(formatSuccess(`${formatRuntime("node")} 24.11.0`))
 }))
 
-// Buffered logging for verbose operations
-yield* logger.withBuffer("cache-restore", Effect.gen(function* () {
-  yield* Effect.log(`Primary key: ${primaryKey}`)
-  yield* Effect.log(`Restore keys: ${restoreKeys.join(", ")}`)
-  // On failure: all buffered lines flush to output
+// Summary group
+yield* logger.group("Runtime Setup Complete", Effect.gen(function* () {
+  yield* Effect.log(`Runtime(s): ${runtimes.map(r => formatRuntime(r.name)).join(", ")}`)
+  yield* Effect.log(`${formatPackageManager(pmName)}: ${version}`)
 }))
 ```
 
@@ -400,19 +399,27 @@ await Action.run(post, PostLive)
 - `NodeContext.layer` (FileSystem, Path, CommandExecutor)
 - OTel tracing (auto-configured from inputs)
 
-**`MainLive`** -- composed with `Layer.mergeAll` and `Layer.provide` to satisfy transitive deps:
+Services from `github-action-effects` 0.8.0 use the **class-based `Context.Tag` pattern** with namespaced identifiers (e.g., `"github-action-effects/ActionInputs"`). This means accessing them in Effect programs uses the standard `yield* ServiceTag` pattern. Our project-local `RuntimeInstaller`, by contrast, uses `Context.GenericTag` since it is not a library export.
 
-- `ActionCacheLive` (self-contained, dynamic-imports `@actions/cache`)
-- `ToolInstallerLive` (self-contained, dynamic-imports `@actions/tool-cache`)
-- `CommandRunnerLive` (self-contained, dynamic-imports `@actions/exec`)
-- `ActionStateLive` (self-contained, uses `@actions/core`)
-- `ActionEnvironmentLive` (self-contained, reads `process.env`)
+**Service type annotations** use `Context.Tag.Service<T>` to extract the service type from a tag. For example, `setOutputs` takes `outputs: Context.Tag.Service<ActionOutputs>` rather than using the tag type directly.
+
+**`MainLive`** -- composed with `Layer.mergeAll`:
+
+```typescript
+const MainLive = Layer.mergeAll(
+  ActionCacheLive,
+  ToolInstallerLive,
+  CommandRunnerLive,
+  ActionStateLive,
+  ActionEnvironmentLive,
+)
+```
 
 Most Live layers in `github-action-effects` use static top-level imports of their `@actions/*` peer deps (e.g., `ActionCacheLive` statically imports `@actions/cache`, `CommandRunnerLive` statically imports `@actions/exec`). Only `ToolInstallerLive` uses dynamic `import()`. This means `@actions/*` packages must be resolvable at module load time and must be listed as direct dependencies (not just peers) so the bundler can include them. The layers do not require other Effect services in their construction -- they are self-contained in terms of the Effect dependency graph.
 
 `FileSystem` and `Path` from `@effect/platform` are provided by `Action.run` via `NodeContext.layer` (part of `CoreServices`) and are available in the program's environment without being listed in `MainLive`.
 
-**`PostLive`**: `ActionCacheLive`, `ActionStateLive`
+**`PostLive`**: `Layer.mergeAll(ActionCacheLive, ActionStateLive)`
 
 ## Build
 
@@ -455,28 +462,41 @@ dist/
 
 ### Dependency Changes
 
-**Removed (direct):**
+**Removed:**
 
-- `@actions/core`
-- `@actions/exec`
-- `@actions/tool-cache`
-- `@actions/cache`
-- `@actions/github`
-- `@actions/glob`
-- `@vercel/ncc`
+- `@vercel/ncc` (replaced by `github-action-builder`)
+- All pnpm patches (no patches remain in the project)
 
-**Added as direct dependencies** (required as peer dependencies by `github-action-effects`):
+**Added as direct dependencies:**
 
-- `@savvy-web/github-action-effects`
-- `effect`
-- `@effect/platform`
-- `@effect/platform-node`
+- `@savvy-web/github-action-effects` (^0.8.0 -- uses class-based `Context.Tag` with namespaced identifiers)
+- `effect` (catalog:silk)
+- `@effect/platform` (catalog:silk)
+- `@effect/platform-node` (catalog:silk)
+- `@effect/cluster`, `@effect/rpc`, `@effect/sql` (catalog:silk, transitive requirements)
 
 **Added as devDependencies:**
 
-- `@savvy-web/github-action-builder`
+- `@savvy-web/github-action-builder` (^0.4.0)
 
-The `@actions/*` packages become transitive peers satisfied through `github-action-effects`. They must also be listed as direct dependencies since ncc needs to resolve them at bundle time.
+**Retained as direct dependencies:**
+
+- `@actions/core` (^3.0.0)
+- `@actions/exec` (^3.0.0)
+- `@actions/tool-cache` (^4.0.0)
+- `@actions/cache` (^6.0.0)
+- `@actions/github` (^9.0.0)
+
+The `@actions/*` packages are peer dependencies of `github-action-effects` but must also remain as direct dependencies so the bundler can resolve them at bundle time.
+
+**`@actions/glob` handling:** Not a direct dependency of this project. It is a transitive dependency via `@actions/cache`. Its sub-dependency `minimatch` is pinned to 3.1.2 via a pnpm override in `pnpm-workspace.yaml` (not a patch) to avoid bundler collisions:
+
+```yaml
+overrides:
+  "@actions/glob>minimatch": 3.1.2
+```
+
+**`semver-effect`** updated to 0.2.0 (transitive dependency via `github-action-effects`), resolving the previous rslib/webpack collision that required patching.
 
 ## Test Strategy
 

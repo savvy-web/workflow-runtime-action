@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { platform } from "node:os";
+import { platform, tmpdir } from "node:os";
 import { FileSystem } from "@effect/platform";
 import { ActionCache, ActionEnvironment, ActionState, CommandRunner } from "@savvy-web/github-action-effects";
 import { Effect, Option } from "effect";
@@ -139,11 +139,7 @@ const sortPaths = (paths: string[]): string[] => {
 export const detectCachePath = (pm: PackageManager) =>
 	Effect.gen(function* () {
 		const runner = yield* CommandRunner;
-		const tmpDir = yield* Effect.sync(() => {
-			// Lazy import to avoid issues in tests
-			const { tmpdir } = require("node:os") as { tmpdir: () => string };
-			return tmpdir();
-		});
+		const tmpDir = tmpdir();
 
 		const opts = { silent: true, cwd: tmpDir };
 

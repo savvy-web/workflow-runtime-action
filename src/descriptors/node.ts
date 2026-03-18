@@ -3,25 +3,79 @@
  *
  * Downloads from https://nodejs.org/dist/v{version}/
  * Archive format: tar.gz on Unix, zip on Windows
+ * postInstall: enables corepack for package manager versioning
  */
 
-export const descriptor = {
+import { CommandRunner } from "@savvy-web/github-action-effects";
+import { Effect } from "effect";
+import { RuntimeInstallError } from "../errors.js";
+import type { RuntimeDescriptor } from "../runtime-installer.js";
+
+/**
+ * Enables corepack and activates the specified package manager version.
+ * Runs from a temp directory to avoid pnpm workspace config interference.
+ *
+ * For npm as package manager, installs the exact version globally instead.
+ * For Node >= 25, installs corepack globally first (no longer bundled).
+ */
+const postInstall =
+	(packageManagerName: string, packageManagerVersion: string) =>
+	(_version: string): Effect.Effect<void, RuntimeInstallError, CommandRunner> =>
+		Effect.gen(function* () {
+			const runner = yield* CommandRunner;
+			const { tmpdir } = yield* Effect.sync(() => require("node:os") as { tmpdir: () => string });
+			const cwd = tmpdir();
+
+			// Check if corepack needs to be installed (Node >= 25)
+			const nodeVersionOut = yield* runner.execCapture("node", ["--version"], { cwd });
+			const versionMatch = nodeVersionOut.stdout.trim().match(/^v(\d+)\.\d+\.\d+$/);
+			if (versionMatch) {
+				const major = Number.parseInt(versionMatch[1], 10);
+				if (major >= 25) {
+					yield* Effect.log("Node.js >= 25 detected, installing corepack globally...");
+					yield* runner.exec("npm", ["install", "-g", "--force", "corepack@latest"], { cwd });
+				}
+			}
+
+			// Enable corepack
+			yield* Effect.log("Enabling corepack...");
+			yield* runner.exec("corepack", ["enable"], { cwd });
+
+			// Prepare the package manager
+			yield* Effect.log(`Preparing ${packageManagerName}@${packageManagerVersion}...`);
+			yield* runner.exec("corepack", ["prepare", `${packageManagerName}@${packageManagerVersion}`, "--activate"], {
+				cwd,
+			});
+
+			// Verify
+			yield* runner.exec(packageManagerName, ["--version"], { cwd });
+			yield* Effect.log(`${packageManagerName}@${packageManagerVersion} activated via corepack`);
+		}).pipe(
+			Effect.catchAll((error) =>
+				Effect.fail(
+					new RuntimeInstallError({
+						runtime: "node",
+						version: _version,
+						reason: `corepack setup failed: ${error instanceof Error ? error.message : String(error)}`,
+						cause: error,
+					}),
+				),
+			),
+		);
+
+export const descriptor: RuntimeDescriptor = {
 	name: "node",
 
 	getDownloadUrl(version: string, platform: string, arch: string): string {
-		// Map arch names: arm -> armv7l, others stay as-is
 		const archMap: Record<string, string> = {
 			x64: "x64",
 			arm64: "arm64",
 			arm: "armv7l",
 		};
 		const nodeArch = archMap[arch] ?? arch;
-
-		// Node.js uses "win" in filenames, not "win32"
 		const isWindows = platform === "win32";
 		const platName = isWindows ? "win" : platform;
 		const ext = isWindows ? "zip" : "tar.gz";
-
 		const fileName = `node-v${version}-${platName}-${nodeArch}.${ext}`;
 		return `https://nodejs.org/dist/v${version}/${fileName}`;
 	},
@@ -39,4 +93,15 @@ export const descriptor = {
 	},
 
 	verifyCommand: ["node", "--version"] as [string, ...string[]],
+
+	// postInstall is set dynamically in main.ts based on the devEngines.packageManager config
+	// This is a placeholder — the real postInstall is created via createNodePostInstall()
 };
+
+/**
+ * Creates a node descriptor with corepack postInstall for the given package manager.
+ */
+export const createNodeDescriptor = (pmName: string, pmVersion: string): RuntimeDescriptor => ({
+	...descriptor,
+	postInstall: postInstall(pmName, pmVersion),
+});
