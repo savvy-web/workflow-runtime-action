@@ -37,17 +37,13 @@ const postInstall =
 
 			if (packageManagerName === "npm") {
 				// npm is bundled with Node -- use npm install -g to get the exact version
-				const currentOut = yield* runner.execCapture("npm", ["--version"], { cwd });
+				// Do NOT use cwd=tmpdir here: npm must run from the tool-cached Node's PATH
+				// Do NOT use sudo: we want to install into the tool-cached Node prefix, not the system one
+				const currentOut = yield* runner.execCapture("npm", ["--version"]);
 				const currentVersion = currentOut.stdout.trim();
 				if (currentVersion !== packageManagerVersion) {
 					yield* Effect.log(`Upgrading npm from ${currentVersion} to ${packageManagerVersion}...`);
-					const { platform } = yield* Effect.sync(() => require("node:os") as { platform: () => string });
-					const plat = platform();
-					if (plat === "linux" || plat === "darwin") {
-						yield* runner.exec("sudo", ["npm", "install", "-g", `npm@${packageManagerVersion}`], { cwd });
-					} else {
-						yield* runner.exec("npm", ["install", "-g", `npm@${packageManagerVersion}`], { cwd });
-					}
+					yield* runner.exec("npm", ["install", "-g", `npm@${packageManagerVersion}`]);
 				} else {
 					yield* Effect.log(`npm ${currentVersion} already matches required version`);
 				}
