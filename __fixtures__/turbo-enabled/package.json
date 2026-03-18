@@ -1,0 +1,17 @@
+{
+	"name": "turbo-enabled-test",
+	"version": "1.0.0",
+	"description": "Turborepo configuration for monorepo detection testing",
+	"devEngines": {
+		"packageManager": {
+			"name": "pnpm",
+			"version": "10.20.0",
+			"onFail": "error"
+		},
+		"runtime": {
+			"name": "node",
+			"version": "24.11.0",
+			"onFail": "error"
+		}
+	}
+}
