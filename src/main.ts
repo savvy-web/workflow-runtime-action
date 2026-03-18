@@ -202,9 +202,21 @@ const main = Effect.gen(function* () {
 
 	const cacheConfig = yield* getCombinedCacheConfig(activePackageManagers, runtimeEntries);
 
-	// Read additional lockfile patterns and cache paths from inputs
-	const additionalLockfiles = yield* inputs.getMultiline("additional-lockfiles", Schema.String);
-	const additionalCachePaths = yield* inputs.getMultiline("additional-cache-paths", Schema.String);
+	// Read additional lockfile patterns and cache paths from inputs (optional, may be empty)
+	const rawLockfiles = yield* inputs.getOptional("additional-lockfiles", Schema.String);
+	const additionalLockfiles = Option.isSome(rawLockfiles)
+		? rawLockfiles.value
+				.split("\n")
+				.map((s) => s.trim())
+				.filter((s) => s.length > 0 && !s.startsWith("#"))
+		: [];
+	const rawCachePaths = yield* inputs.getOptional("additional-cache-paths", Schema.String);
+	const additionalCachePaths = Option.isSome(rawCachePaths)
+		? rawCachePaths.value
+				.split("\n")
+				.map((s) => s.trim())
+				.filter((s) => s.length > 0 && !s.startsWith("#"))
+		: [];
 
 	const allLockfilePatterns = [...cacheConfig.lockfilePatterns, ...additionalLockfiles];
 	const lockfiles = yield* findLockFiles(allLockfilePatterns);
