@@ -137,6 +137,11 @@ const setupPackageManager = (
 				const plat = platform();
 				if (plat === "linux" || plat === "darwin") {
 					yield* runner.exec("sudo", ["npm", "install", "-g", `npm@${version}`]);
+					// Fix npm cache ownership after sudo (sudo creates root-owned files in ~/.npm)
+					const npmCacheDir = `${process.env.HOME}/.npm`;
+					yield* runner
+						.exec("sudo", ["chown", "-R", `${process.getuid?.() ?? 1000}:${process.getgid?.() ?? 1000}`, npmCacheDir])
+						.pipe(Effect.catchAll(() => Effect.void));
 				} else {
 					yield* runner.exec("npm", ["install", "-g", `npm@${version}`]);
 				}
