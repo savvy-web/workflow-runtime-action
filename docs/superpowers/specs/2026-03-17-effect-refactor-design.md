@@ -307,42 +307,49 @@ const main = Effect.gen(function* () {
   const inputs = yield* ActionInputs
   const outputs = yield* ActionOutputs
   const logger = yield* ActionLogger
-  const fs = yield* FileSystem
 
   // 1. Parse configuration
   const config = yield* logger.group("Detect configuration", Effect.gen(function* () {
-    const pkg = yield* loadPackageJson(fs)
-    const runtimes = yield* parseDevEngines(pkg)
-    const biome = yield* detectBiome(fs, inputs)
-    const turbo = yield* detectTurbo(fs)
-    return { runtimes, packageManager: pkg.devEngines.packageManager, biome, turbo }
+    const devEngines = yield* loadPackageJson  // Effect value, gets FileSystem from context
+    const parsed = parseDevEngines(devEngines)
+    const biome = yield* detectBiome(inputs)   // gets FileSystem from context
+    const turbo = yield* detectTurbo           // gets FileSystem from context
+    return { runtimes: parsed.runtime, packageManager: parsed.packageManager, biome, turbo }
   }))
 
-  // 2. Restore cache
-  const cacheResult = yield* logger.group("Restore cache", restoreCache(config))
+  // 2. Compute cache config and find lockfiles
+  const activePackageManagers = getActivePackageManagers(config.runtimes, pmName)
+  const cacheConfig = yield* getCombinedCacheConfig(activePackageManagers, runtimeEntries)
+  const lockfiles = yield* findLockFiles(cacheConfig.lockfilePatterns)
 
-  // 3. Install runtimes
-  const installed = yield* logger.group("Install runtimes",
+  // 3. Restore cache (non-fatal -- CacheError caught and demoted to warning)
+  const cacheResult = yield* logger.group("Restore cache",
+    restoreCache({ cachePaths, runtimes, packageManager, lockfiles, cacheBust }).pipe(
+      Effect.catchTag("CacheError", (e) => Effect.logWarning(...) *> Effect.succeed("none"))
+    )
+  )
+
+  // 4. Install runtimes (GenericTag pattern -- must flatMap to get service)
+  const installed = yield* logger.group(formatInstallation("runtimes"),
     Effect.forEach(config.runtimes, (rt) =>
-      RuntimeInstaller.install(rt.version).pipe(
-        Effect.provide(installerLayerFor(rt.name))
+      RuntimeInstaller.pipe(
+        Effect.flatMap((installer) => installer.install(rt.version)),
+        Effect.provide(installerLayerFor(rt.name)),
       )
     )
   )
 
-  // 4. Setup package manager
-  yield* logger.group("Setup package manager", setupPackageManager(config.packageManager))
-
-  // 5. Install dependencies
+  // 5. Install dependencies (lockfile-aware, no separate "setup package manager" step)
   const installDeps = yield* inputs.getBooleanOptional("install-deps", true)
   if (installDeps) {
-    yield* logger.group("Install dependencies", installDependencies(config.packageManager))
+    yield* logger.group(formatInstallation(...), installDependencies(pmName))
   }
 
   // 6. Install Biome (non-fatal)
-  if (config.biome) {
-    yield* logger.group("Install Biome",
-      RuntimeInstaller.install(config.biome).pipe(
+  if (Option.isSome(config.biome)) {
+    yield* logger.group(formatInstallation("Biome"),
+      RuntimeInstaller.pipe(
+        Effect.flatMap((installer) => installer.install(biomeVersion)),
         Effect.provide(BiomeInstallerLive),
         Effect.catchTag("RuntimeInstallError", (e) =>
           Effect.logWarning(`Biome installation failed: ${e.reason}`)
@@ -351,21 +358,38 @@ const main = Effect.gen(function* () {
     )
   }
 
-  // 7. Set outputs
-  yield* setOutputs(outputs, installed, config, cacheResult)
+  // 7. Set outputs (includes lockfiles and cachePaths)
+  yield* setOutputs(outputs, installed, config, cacheResult, lockfiles, cacheConfig.cachePaths)
+
+  // 8. Log summary
+  yield* logger.group("Runtime Setup Complete", ...)
 })
 
-Action.run(main, MainLive)
+await Action.run(main, MainLive)
 ```
+
+Key differences from the original spec:
+
+- **No `setupPackageManager` step** -- package manager setup (corepack) is handled by Node's `postInstall` descriptor
+- **`RuntimeInstaller` access uses `GenericTag` pattern** -- requires `RuntimeInstaller.pipe(Effect.flatMap(...))` instead of direct `.install()` call
+- **`setOutputs` takes six arguments** -- includes `lockfiles` and `cachePaths` for cache output reporting
+- **`loadPackageJson` is an Effect** -- obtains `FileSystem` from context, not a function argument
+- **`detectBiome(inputs)` only takes inputs** -- obtains `FileSystem` from context
+- **`config.biome` is `Option<string>`** -- checked with `Option.isSome()`
 
 ### post.ts
 
 ```typescript
 const post = Effect.gen(function* () {
   yield* saveCache()
-})
+}).pipe(
+  // Non-fatal: cache save errors should warn, not fail the action
+  Effect.catchAll((error) => Effect.logWarning(`Post action cache save failed: ${error}`)),
+)
 
-Action.run(post, PostLive)
+const PostLive = Layer.mergeAll(ActionCacheLive, ActionStateLive)
+
+await Action.run(post, PostLive)
 ```
 
 ### Layer Composition
