@@ -172,8 +172,9 @@ export const installDependencies = (
 				break;
 			}
 			case "bun": {
-				const hasLock = yield* fileExists("bun.lock");
-				command = hasLock ? ["install", "--frozen-lockfile"] : ["install"];
+				const hasBunLock = yield* fileExists("bun.lock");
+				const hasBunLockb = yield* fileExists("bun.lockb");
+				command = hasBunLock || hasBunLockb ? ["install", "--frozen-lockfile"] : ["install"];
 				break;
 			}
 		}

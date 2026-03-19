@@ -300,12 +300,6 @@ const getBranchName = Effect.gen(function* () {
 });
 
 /**
- * Generates a cache key in format: {os}-{versionHash}-{branchHash}-{lockfileHash}
- *
- * Version hash is built from all runtime versions + package manager version,
- * sorted by name for consistency.
- */
-/**
  * Builds a deterministic version hash from runtime versions and package manager.
  * Optionally prefixes with cacheBust for test cache isolation.
  */
