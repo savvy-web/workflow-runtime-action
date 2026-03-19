@@ -22,10 +22,10 @@ import {
 vi.mock("@savvy-web/github-action-effects", () => {
 	const { Context: C } = require("effect") as typeof import("effect");
 	return {
-		ActionCache: C.GenericTag("ActionCache"),
-		ActionState: C.GenericTag("ActionState"),
-		ActionEnvironment: C.GenericTag("ActionEnvironment"),
-		CommandRunner: C.GenericTag("CommandRunner"),
+		ActionCache: C.GenericTag("github-action-effects/ActionCache"),
+		ActionState: C.GenericTag("github-action-effects/ActionState"),
+		ActionEnvironment: C.GenericTag("github-action-effects/ActionEnvironment"),
+		CommandRunner: C.GenericTag("github-action-effects/CommandRunner"),
 	};
 });
 

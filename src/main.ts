@@ -26,7 +26,7 @@ import { binaryMap as biomeBinaryMap } from "./descriptors/biome.js";
 import { formatDetection, formatInstallation, formatPackageManager, formatRuntime, formatSuccess } from "./emoji.js";
 import { DependencyInstallError, PackageManagerSetupError } from "./errors.js";
 import type { InstalledRuntime } from "./runtime-installer.js";
-import { RuntimeInstaller, installerLayerFor } from "./runtime-installer.js";
+import { RuntimeInstaller, extractErrorReason, installerLayerFor } from "./runtime-installer.js";
 import type { PackageManagerEntry, RuntimeEntry } from "./schemas.js";
 
 // ---------------------------------------------------------------------------
@@ -243,7 +243,12 @@ export const setupPackageManager = (
 				const major = Number.parseInt(versionMatch[1], 10);
 				if (major >= 25) {
 					yield* Effect.log("Node.js >= 25 detected, installing corepack globally...");
-					yield* runner.exec("npm", ["install", "-g", "--force", "corepack@latest"], execOpts);
+					const plat = osPlatform();
+					if (plat === "linux" || plat === "darwin") {
+						yield* runner.exec("sudo", ["npm", "install", "-g", "--force", "corepack@latest"], execOpts);
+					} else {
+						yield* runner.exec("npm", ["install", "-g", "--force", "corepack@latest"], execOpts);
+					}
 				}
 			}
 
@@ -264,7 +269,7 @@ export const setupPackageManager = (
 				new PackageManagerSetupError({
 					packageManager,
 					version,
-					reason: `Package manager setup failed: ${cause instanceof Error ? cause.message : String(cause)}`,
+					reason: `Package manager setup failed: ${extractErrorReason(cause)}`,
 					cause,
 				}),
 		),

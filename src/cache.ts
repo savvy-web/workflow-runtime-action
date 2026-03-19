@@ -100,7 +100,8 @@ const getAdditionalPaths = (pm: PackageManager): string[] => {
  */
 const getToolCachePaths = (runtimes: ReadonlyArray<{ name: string; version: string }>): string[] => {
 	const plat = platform();
-	const toolCacheBase = plat === "win32" ? "C:\\hostedtoolcache" : "/opt/hostedtoolcache";
+	const toolCacheBase =
+		process.env.RUNNER_TOOL_CACHE ?? (plat === "win32" ? "C:\\hostedtoolcache" : "/opt/hostedtoolcache");
 	const paths: string[] = [];
 
 	for (const { name, version } of runtimes) {
@@ -184,7 +185,7 @@ export const detectCachePath = (pm: PackageManager) =>
 			}
 		}).pipe(Effect.orElse(() => Effect.succeed(null)));
 
-		return detected ?? null;
+		return detected;
 	});
 
 /**

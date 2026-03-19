@@ -10,7 +10,7 @@ vi.mock("@savvy-web/github-action-effects", () => {
 	};
 });
 
-import { descriptor as biome } from "../src/descriptors/biome.js";
+import { binaryMap as biomeBinaryMap } from "../src/descriptors/biome.js";
 import { descriptor as bun } from "../src/descriptors/bun.js";
 import { descriptor as deno } from "../src/descriptors/deno.js";
 import { descriptor as node } from "../src/descriptors/node.js";
@@ -162,51 +162,23 @@ describe("deno descriptor", () => {
 	});
 });
 
-describe("biome descriptor", () => {
-	describe("getDownloadUrl", () => {
-		it("linux/x64 → biome-linux-x64 (no extension)", () => {
-			const url = biome.getDownloadUrl("2.3.14", "linux", "x64");
-			expect(url).toContain("biome-linux-x64");
-			expect(url).toContain("%40biomejs%2Fbiome%40");
-			expect(url).toContain("2.3.14");
-		});
-
-		it("darwin/arm64 → biome-darwin-arm64", () => {
-			const url = biome.getDownloadUrl("2.3.14", "darwin", "arm64");
-			expect(url).toContain("biome-darwin-arm64");
-		});
-
-		it("win32/x64 → biome-win32-x64.exe", () => {
-			const url = biome.getDownloadUrl("2.3.14", "win32", "x64");
-			expect(url).toContain("biome-win32-x64.exe");
-		});
-
-		it("URL uses encoded @ characters", () => {
-			const url = biome.getDownloadUrl("2.3.14", "linux", "x64");
-			expect(url).toBe(
-				"https://github.com/biomejs/biome/releases/download/%40biomejs%2Fbiome%402.3.14/biome-linux-x64",
-			);
-		});
-
-		it("throws for unsupported platform", () => {
-			expect(() => biome.getDownloadUrl("2.3.14", "freebsd", "x64")).toThrow("Unsupported platform for Biome");
-		});
+describe("biome binaryMap", () => {
+	it("has entries for linux x64 and arm64", () => {
+		expect(biomeBinaryMap.linux.x64).toBe("biome-linux-x64");
+		expect(biomeBinaryMap.linux.arm64).toBe("biome-linux-arm64");
 	});
 
-	describe("getToolInstallOptions", () => {
-		it("returns empty object (raw binary, no archive)", () => {
-			expect(biome.getToolInstallOptions("2.3.14", "linux", "x64")).toEqual({});
-			expect(biome.getToolInstallOptions("2.3.14", "darwin", "arm64")).toEqual({});
-			expect(biome.getToolInstallOptions("2.3.14", "win32", "x64")).toEqual({});
-		});
-
-		it("archiveType is undefined (not an archive)", () => {
-			const opts = biome.getToolInstallOptions("2.3.14", "linux", "x64");
-			expect(opts.archiveType).toBeUndefined();
-		});
+	it("has entries for darwin x64 and arm64", () => {
+		expect(biomeBinaryMap.darwin.x64).toBe("biome-darwin-x64");
+		expect(biomeBinaryMap.darwin.arm64).toBe("biome-darwin-arm64");
 	});
 
-	it("verifyCommand starts with biome", () => {
-		expect(biome.verifyCommand[0]).toBe("biome");
+	it("has .exe suffix for win32", () => {
+		expect(biomeBinaryMap.win32.x64).toBe("biome-win32-x64.exe");
+		expect(biomeBinaryMap.win32.arm64).toBe("biome-win32-arm64.exe");
+	});
+
+	it("returns undefined for unsupported platforms", () => {
+		expect(biomeBinaryMap.freebsd).toBeUndefined();
 	});
 });

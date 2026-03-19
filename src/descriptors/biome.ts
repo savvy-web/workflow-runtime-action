@@ -1,9 +1,11 @@
 /**
- * Biome CLI descriptor.
+ * Biome CLI binary name map.
  *
- * Downloads from https://github.com/biomejs/biome/releases/download/%40biomejs%2Fbiome%40{version}/
- * Single binary download (NOT an archive) -- no archiveType needed
- * URL uses URL-encoded @ characters: %40biomejs%2Fbiome%40{version}
+ * Biome is a single binary download (not an archive), so it doesn't use
+ * the RuntimeInstaller pattern. This map is imported by installBiome()
+ * in main.ts to construct the download URL.
+ *
+ * URL format: https://github.com/biomejs/biome/releases/download/%40biomejs%2Fbiome%40{version}/{binaryName}
  */
 
 export const binaryMap: Record<string, Record<string, string>> = {
@@ -19,28 +21,4 @@ export const binaryMap: Record<string, Record<string, string>> = {
 		x64: "biome-win32-x64.exe",
 		arm64: "biome-win32-arm64.exe",
 	},
-};
-
-export const descriptor = {
-	name: "biome",
-
-	getDownloadUrl(version: string, platform: string, arch: string): string {
-		const binaryName = binaryMap[platform]?.[arch];
-		if (!binaryName) {
-			throw new Error(`Unsupported platform for Biome: ${platform}-${arch}`);
-		}
-
-		return `https://github.com/biomejs/biome/releases/download/%40biomejs%2Fbiome%40${version}/${binaryName}`;
-	},
-
-	getToolInstallOptions(
-		_version: string,
-		_platform: string,
-		_arch: string,
-	): { archiveType?: "tar.gz" | "tar.xz" | "zip"; binSubPath?: string } {
-		// Biome is a raw binary, not an archive
-		return {};
-	},
-
-	verifyCommand: ["biome", "--version"] as [string, ...string[]],
 };

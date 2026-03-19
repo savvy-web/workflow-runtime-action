@@ -612,6 +612,44 @@ describe("main pipeline", () => {
 });
 
 // ---------------------------------------------------------------------------
+// getActivePackageManagers tests
+// ---------------------------------------------------------------------------
+
+describe("getActivePackageManagers", () => {
+	it("includes primary PM for node runtime", () => {
+		const result = getActivePackageManagers([{ name: "node", version: "24.9.0" }] as never, "pnpm");
+		expect(result).toContain("pnpm");
+	});
+
+	it("includes bun for bun runtime", () => {
+		const result = getActivePackageManagers([{ name: "bun", version: "1.3.3" }] as never, "pnpm");
+		expect(result).toContain("bun");
+	});
+
+	it("includes deno for deno runtime", () => {
+		const result = getActivePackageManagers([{ name: "deno", version: "2.5.6" }] as never, "pnpm");
+		expect(result).toContain("deno");
+	});
+
+	it("deduplicates when bun is both runtime and PM", () => {
+		const result = getActivePackageManagers([{ name: "bun", version: "1.3.3" }] as never, "bun");
+		expect(result).toEqual(["bun"]);
+	});
+
+	it("handles multi-runtime", () => {
+		const result = getActivePackageManagers(
+			[
+				{ name: "node", version: "24.9.0" },
+				{ name: "deno", version: "2.5.6" },
+			] as never,
+			"npm",
+		);
+		expect(result).toContain("npm");
+		expect(result).toContain("deno");
+	});
+});
+
+// ---------------------------------------------------------------------------
 // parseMultiValueInput tests
 // ---------------------------------------------------------------------------
 

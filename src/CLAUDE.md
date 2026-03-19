@@ -73,7 +73,7 @@ Service-based runtime installation:
 * **`RuntimeDescriptor`** interface — Describes how to download and install a tool: download URL factory, tool install options factory, verify command, optional `postInstall` Effect
 * **`RuntimeInstaller`** service tag — `Context.GenericTag<RuntimeInstaller>` with a single `install(version)` method
 * **`makeRuntimeInstaller`** — Factory that creates a `RuntimeInstaller` from a `RuntimeDescriptor`; wraps all `ToolInstallerError` and `CommandRunnerError` failures in `RuntimeInstallError`
-* Pre-built layers: `NodeInstallerLive`, `BunInstallerLive`, `DenoInstallerLive`, `BiomeInstallerLive`
+* Pre-built layers: `NodeInstallerLive`, `BunInstallerLive`, `DenoInstallerLive` (Biome uses `installBiome()` directly since it's a raw binary)
 * **`installerLayerFor(name)`** — Returns the appropriate layer by runtime name
 
 ### [schemas.ts](schemas.ts)
