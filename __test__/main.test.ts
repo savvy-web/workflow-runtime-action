@@ -356,6 +356,9 @@ const buildPipeline: Effect.Effect<void, any, any> = Effect.gen(function* () {
 	const cacheBust = yield* inputs.getOptional("cache-bust", Schema.String);
 	const cacheBustValue = Option.isSome(cacheBust) && cacheBust.value !== "false" ? cacheBust.value : undefined;
 
+	const turboPaths = config.turbo ? ["**/.turbo"] : [];
+	const finalCachePaths = [...cacheConfig.cachePaths, ...turboPaths];
+
 	if (config.turbo) {
 		const turboToken = yield* inputs.getOptional("turbo-token", Schema.String);
 		const turboTeam = yield* inputs.getOptional("turbo-team", Schema.String);
@@ -365,14 +368,13 @@ const buildPipeline: Effect.Effect<void, any, any> = Effect.gen(function* () {
 		if (Option.isSome(turboTeam) && turboTeam.value !== "") {
 			yield* outputs.exportVariable("TURBO_TEAM", turboTeam.value);
 		}
-		cacheConfig.cachePaths.push("**/.turbo");
 	}
 
 	// Restore cache (non-fatal)
 	const cacheResult = yield* logger.group(
 		"Restore cache",
 		restoreCache({
-			cachePaths: cacheConfig.cachePaths,
+			cachePaths: finalCachePaths,
 			runtimes: runtimeEntries,
 			packageManager: { name: config.packageManager.name, version: config.packageManager.version },
 			lockfiles,
@@ -405,7 +407,7 @@ const buildPipeline: Effect.Effect<void, any, any> = Effect.gen(function* () {
 	}
 
 	// 6. Set outputs
-	yield* setOutputs(outputs as never, installed, config, cacheResult, lockfiles, cacheConfig.cachePaths);
+	yield* setOutputs(outputs as never, installed, config, cacheResult, lockfiles, finalCachePaths);
 });
 
 // ---------------------------------------------------------------------------
