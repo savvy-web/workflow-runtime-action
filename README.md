@@ -1,26 +1,22 @@
-# 🚀 JavaScript Runtime Setup Action
+# JavaScript Runtime Setup Action
 
-Automatically detect and setup JavaScript runtime environments in GitHub Actions
-from your `package.json` or explicit configuration. One action for Node.js,
+Automatically detect and set up JavaScript runtime environments in GitHub Actions
+from your `package.json` `devEngines` configuration. One action for Node.js,
 Bun, and Deno with intelligent package manager detection and dependency caching.
 
-## ✨ Why This Action?
+## Why This Action?
 
 Setting up JavaScript environments in CI should be simple. This action:
 
-* 🔍 **Detects your environment** from `package.json` `devEngines` configuration
-* 📌 **Installs exact versions** of runtimes and package managers
-* ⚡ **Caches dependencies** automatically for faster builds
-* 🎯 **Supports multiple runtimes** simultaneously (Node.js + Deno, Node.js + Bun)
-* 🛠️ **Works with explicit inputs** when you don't have a `package.json`
+- **Detects your environment** from `package.json` `devEngines` configuration
+- **Installs exact versions** of runtimes and package managers
+- **Caches dependencies** automatically for faster builds
+- **Supports multiple runtimes** simultaneously (Node.js + Deno, Node.js + Bun)
 
-**No configuration needed** - just add the action and it figures everything out!
+**No configuration needed** -- just add the action and it figures everything out
+from your `package.json`.
 
-## 🚀 Quick Start
-
-### 🔮 Auto-Detect from package.json
-
-The simplest setup - let the action detect everything:
+## Quick Start
 
 ```yaml
 name: CI
@@ -37,23 +33,7 @@ jobs:
       - run: pnpm build
 ```
 
-### ⚙️ Explicit Configuration
-
-Use explicit inputs when you don't have or want to override `package.json`:
-
-```yaml
-- uses: savvy-web/workflow-runtime-action@v1
-  with:
-    node-version: '24.10.0'
-    package-manager: pnpm
-    package-manager-version: '10.20.0'
-```
-
-## 🎯 How It Works
-
-### 🔍 Auto-Detection Mode
-
-The action reads configuration from your `package.json` `devEngines` field:
+The action reads all configuration from your `package.json` `devEngines` field:
 
 ```json
 {
@@ -74,31 +54,33 @@ The action reads configuration from your `package.json` `devEngines` field:
 
 **Requirements:**
 
-* Versions must be **exact** (e.g., `24.10.0`, not `^24.0.0`)
-* `onFail` must be set to `"error"` for strict validation
-* Supports single or multiple runtimes
+- Versions must be **exact** (e.g., `24.10.0`, not `^24.0.0`)
+- `onFail` is recommended to be set to `"error"` for strict validation
+- Supports single or multiple runtimes
 
-### 📦 What Gets Installed
+### What Gets Installed
 
-1. ⚡ **Runtime(s)** - Node.js, Bun, and/or Deno at specified versions
-2. 📦 **Package Manager** - pnpm, yarn, npm, bun, or deno at specified version
-3. 🔧 **Dependencies** - Automatically installs with appropriate lockfile flags
-4. 💾 **Caching** - Sets up dependency caching optimized for your package manager
+1. **Runtime(s)** -- Node.js, Bun, and/or Deno at specified versions
+2. **Package Manager** -- pnpm, yarn, npm, bun, or deno at specified version
+3. **Dependencies** -- Automatically installs with appropriate lockfile flags
+4. **Caching** -- Sets up dependency caching optimized for your package manager
 
-## 📥 Inputs
+## Inputs
 
-All inputs are optional. The action uses auto-detection if not provided.
+All inputs are optional. Runtime and package manager versions are read
+exclusively from `devEngines` in `package.json`.
 
 | Input | Description | Default |
 | ----- | ----------- | ------- |
-| `node-version` | Node.js version (e.g., `24.10.0`) | Auto-detect from `devEngines.runtime` |
-| `bun-version` | Bun version (e.g., `1.3.3`) | Auto-detect from `devEngines.runtime` |
-| `deno-version` | Deno version (e.g., `2.5.6`) | Auto-detect from `devEngines.runtime` |
-| `package-manager` | Package manager (`npm` \| `pnpm` \| `yarn` \| `bun` \| `deno`) | Auto-detect from `devEngines.packageManager` |
-| `package-manager-version` | Package manager version | Auto-detect from `devEngines.packageManager` |
-| `install-deps` | Install dependencies (`true` \| `false`) | `"true"` |
+| `biome-version` | Biome version to install (e.g., `2.3.14`). Auto-detects from `biome.jsonc`/`biome.json` `$schema` field if not provided. Leave empty to skip. | `""` |
+| `turbo-token` | Turbo remote cache token (for Vercel Remote Cache) | `""` |
+| `turbo-team` | Turbo team slug (for Vercel Remote Cache) | `""` |
+| `install-deps` | Whether to install dependencies (`true` \| `false`) | `"true"` |
+| `cache-bust` | Cache busting for testing -- `true` (auto-generate), `false` (normal), or custom string. **Testing only.** | `"false"` |
+| `additional-lockfiles` | Additional lockfile patterns for cache key generation (multiline glob patterns) | `""` |
+| `additional-cache-paths` | Additional paths to cache/restore (multiline glob patterns) | `""` |
 
-## 📤 Outputs
+## Outputs
 
 | Output | Description |
 | ------ | ----------- |
@@ -108,13 +90,18 @@ All inputs are optional. The action uses auto-detection if not provided.
 | `bun-enabled` | Whether Bun was installed (`true` \| `false`) |
 | `deno-version` | Installed Deno version or empty |
 | `deno-enabled` | Whether Deno was installed (`true` \| `false`) |
-| `package-manager` | Package manager name |
+| `package-manager` | Package manager name (`npm` \| `pnpm` \| `yarn` \| `bun` \| `deno`) |
 | `package-manager-version` | Package manager version |
+| `biome-version` | Installed Biome version or empty |
+| `biome-enabled` | Whether Biome was installed (`true` \| `false`) |
+| `turbo-enabled` | Whether Turbo configuration was detected (`true` \| `false`) |
 | `cache-hit` | Cache status (`true` \| `partial` \| `false` \| `n/a`) |
+| `lockfiles` | Comma-separated list of detected lockfiles |
+| `cache-paths` | Comma-separated list of cached paths |
 
-## 💡 Usage Examples
+## Usage Examples
 
-### 🟢 Basic Node.js Project
+### Basic Node.js Project
 
 ```yaml
 # Automatically detects Node.js version and pnpm from package.json
@@ -122,7 +109,7 @@ All inputs are optional. The action uses auto-detection if not provided.
 - run: pnpm ci:test
 ```
 
-### 🎭 Multi-Runtime Project
+### Multi-Runtime Project
 
 ```yaml
 # Sets up both Node.js and Deno from package.json devEngines
@@ -135,7 +122,7 @@ All inputs are optional. The action uses auto-detection if not provided.
   run: deno ci:test
 ```
 
-### 🛠️ Custom Dependency Installation
+### Custom Dependency Installation
 
 ```yaml
 # Skip automatic installation
@@ -147,7 +134,7 @@ All inputs are optional. The action uses auto-detection if not provided.
 - run: pnpm install --no-frozen-lockfile --prefer-offline
 ```
 
-### 📊 Using Outputs
+### Using Outputs
 
 ```yaml
 - name: Setup runtime
@@ -161,72 +148,62 @@ All inputs are optional. The action uses auto-detection if not provided.
     echo "Cache Hit: ${{ steps.setup.outputs.cache-hit }}"
 ```
 
-### ⚡ Explicit Configuration (No package.json Required)
+### With Biome and Turbo
 
 ```yaml
-# Perfect for projects without package.json
 - uses: savvy-web/workflow-runtime-action@v1
   with:
-    node-version: '24.10.0'
-    package-manager: npm
-    package-manager-version: '11.0.0'
+    turbo-token: ${{ secrets.TURBO_TOKEN }}
+    turbo-team: ${{ secrets.TURBO_TEAM }}
+# Biome auto-detected from biome.jsonc $schema field
 ```
 
-## 📦 Supported Package Managers
+## Supported Package Managers
 
-### 📦 pnpm
+### pnpm
 
-* Installed via corepack with exact version
-* Install command: `pnpm install --frozen-lockfile` (or `pnpm install` without
+- Installed via corepack with exact version
+- Install command: `pnpm install --frozen-lockfile` (or `pnpm install` without
   lockfile)
 
-### 🧶 Yarn
+### Yarn
 
-* Installed via corepack with exact version
-* Supports Yarn Classic (1.x) and Berry (2.x+)
-* Install command: `yarn install --immutable` (or `yarn install --no-immutable`
+- Installed via corepack with exact version
+- Supports Yarn Classic (1.x) and Berry (2.x+)
+- Install command: `yarn install --immutable` (or `yarn install --no-immutable`
   without lockfile)
 
-### 📦 npm
+### npm
 
-* Installed via corepack with exact version
-* Install command: `npm ci` (or `npm install` without lockfile)
+- Installed via corepack with exact version
+- Install command: `npm ci` (or `npm install` without lockfile)
 
-### 🥟 bun
+### bun
 
-* Downloaded from official releases
-* Install command: `bun install --frozen-lockfile` (or `bun install` without
+- Downloaded from official releases
+- Install command: `bun install --frozen-lockfile` (or `bun install` without
   lockfile)
 
-### 🦕 deno
+### deno
 
-* Downloaded from official releases
-* Install command: `deno install` (respects `deno.lock` automatically)
+- Downloaded from official releases
+- Install command: `deno install` (respects `deno.lock` automatically)
 
-## 💾 Dependency Caching
+## Dependency Caching
 
 The action automatically caches dependencies based on your package manager and
 lockfile:
 
-* 🔑 **Cache key** includes lockfile hash for invalidation on changes
-* 🖥️ **Platform-specific** cache paths for each package manager
-* 🔄 **Restore keys** for partial cache hits
-* ⚡ **Automatic setup** - no configuration needed
-* 🦀 **Polyglot support** - Cache Rust, Python, Go dependencies alongside JavaScript
+- **Cache key** includes lockfile hash for invalidation on changes
+- **Platform-specific** cache paths for each package manager
+- **Restore keys** for partial cache hits
+- **Automatic setup** -- no configuration needed
 
 Cache hit status is available in the `cache-hit` output.
 
-📚 **See [Caching Strategy Documentation](docs/CACHING.md)** for:
+## Troubleshooting
 
-* How cache keys are generated
-* Default lockfiles and cache paths for each package manager
-* Caching Rust/Cargo, Python, and Go dependencies
-* Advanced caching strategies for monorepos
-* Debugging cache issues
-
-## 🔧 Troubleshooting
-
-### ❌ Missing devEngines Configuration
+### Missing devEngines Configuration
 
 **Error:** `devEngines.runtime or devEngines.packageManager not found`
 
@@ -249,37 +226,14 @@ Cache hit status is available in the `cache-hit` output.
 }
 ```
 
-Or use explicit inputs:
-
-```yaml
-- uses: savvy-web/workflow-runtime-action@v1
-  with:
-    node-version: '24.10.0'
-    package-manager: pnpm
-    package-manager-version: '10.20.0'
-```
-
-### ⚠️ Version Must Be Exact
+### Version Must Be Exact
 
 **Error:** `Must be an absolute version, not a semver range`
 
 **Solution:** Use exact versions (e.g., `24.10.0`) instead of ranges (e.g.,
-`^24.0.0`):
+`^24.0.0`).
 
-```json
-{
-  "devEngines": {
-    "runtime": {
-      "name": "node",
-      "version": "24.10.0",  // ✅ Exact version
-      // NOT: "version": "^24.0.0"  // ❌ Semver range
-      "onFail": "error"
-    }
-  }
-}
-```
-
-### 💥 Dependency Installation Fails
+### Dependency Installation Fails
 
 **Solution:** Skip automatic installation and install manually:
 
@@ -291,7 +245,7 @@ Or use explicit inputs:
 - run: pnpm install --no-frozen-lockfile
 ```
 
-## 🎭 Multiple Runtimes
+## Multiple Runtimes
 
 You can set up multiple runtimes simultaneously by specifying an array in
 `devEngines.runtime`:
@@ -323,20 +277,20 @@ You can set up multiple runtimes simultaneously by specifying an array in
 The action will install all specified runtimes and make them available in your
 workflow.
 
-## 🤝 Contributing
+## Contributing
 
 We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for development
 setup, testing, and contribution guidelines.
 
-## 📄 License
+## License
 
-MIT License - See [LICENSE](LICENSE) for details.
+MIT License -- See [LICENSE](LICENSE) for details.
 
-## 💬 Support
+## Support
 
-* 🐛 **Issues:** [GitHub Issues](https://github.com/savvy-web/workflow-runtime-action/issues)
-* 💭 **Discussions:** [GitHub Discussions](https://github.com/savvy-web/workflow-runtime-action/discussions)
+- **Issues:** [GitHub Issues](https://github.com/savvy-web/workflow-runtime-action/issues)
+- **Discussions:** [GitHub Discussions](https://github.com/savvy-web/workflow-runtime-action/discussions)
 
 ---
 
-**Made with ❤️ by [Savvy Web Systems](https://github.com/savvy-web)**
+**Made with care by [Savvy Web Systems](https://github.com/savvy-web)**

@@ -1,32 +1,25 @@
-import { endGroup, startGroup, warning } from "@actions/core";
-import { saveCache } from "./utils/cache-utils.js";
+import { NodeFileSystem } from "@effect/platform-node";
+import { Action, ActionCacheLive, ActionStateLive } from "@savvy-web/github-action-effects";
+import { Effect, Layer } from "effect";
+import { saveCache } from "./cache.js";
+import { extractErrorReason } from "./runtime-installer.js";
 
-/**
- * Post-action hook that runs after the main action completes
- *
- * @remarks
- * This runs after the main action completes and handles:
- * - Saving the dependency cache for future runs
- * - Cleanup operations (if needed)
- *
- * Cache is only saved if:
- * 1. Dependencies were installed
- * 2. No cache hit occurred on the primary key
- * 3. The workflow completed successfully
- */
-async function post(): Promise<void> {
-	try {
-		startGroup("🏁 Post-action: Saving cache");
+// ---------------------------------------------------------------------------
+// Post-action: save dependency cache
+// ---------------------------------------------------------------------------
 
-		// Save the cache if needed
-		await saveCache();
+export const post = Effect.gen(function* () {
+	yield* saveCache();
+}).pipe(
+	// Non-fatal: cache save errors should warn, not fail the action
+	Effect.catchAll((error) => Effect.logWarning(`Post action cache save failed: ${extractErrorReason(error)}`)),
+);
 
-		endGroup();
-	} catch (error) {
-		endGroup();
-		// Don't fail the workflow on post-action errors
-		warning(`Post-action encountered an error: ${error instanceof Error ? error.message : String(error)}`);
-	}
+// Business logic layers for post action — Action.run provides core services
+// ActionStateLive requires FileSystem, so we provide NodeFileSystem.layer.
+export const PostLive = Layer.mergeAll(ActionCacheLive, ActionStateLive.pipe(Layer.provide(NodeFileSystem.layer)));
+
+/* v8 ignore next 3 -- entry point guard, only runs in GitHub Actions */
+if (process.env.GITHUB_ACTIONS) {
+	await Action.run(post, { layer: PostLive });
 }
-
-await post();

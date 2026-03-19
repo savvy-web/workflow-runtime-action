@@ -1,7 +1,7 @@
 {
-	"name": "node-pnpm-test",
+	"name": "turbo-enabled-test",
 	"version": "1.0.0",
-	"description": "Node.js with pnpm test project",
+	"description": "Turborepo configuration for monorepo detection testing",
 	"devEngines": {
 		"packageManager": {
 			"name": "pnpm",
@@ -10,11 +10,8 @@
 		},
 		"runtime": {
 			"name": "node",
-			"version": "20.11.0",
+			"version": "24.11.0",
 			"onFail": "ignore"
 		}
-	},
-	"dependencies": {
-		"isarray": "1.0.0"
 	}
 }
