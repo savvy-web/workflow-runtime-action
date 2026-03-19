@@ -35,6 +35,7 @@ const hashString = (input: string): string => createHash("sha256").update(input)
  * Gets default fallback cache paths for a package manager based on the
  * current platform.
  */
+/* v8 ignore start -- platform-specific constant mappings, only one branch executes per OS */
 export const getDefaultCachePaths = (pm: PackageManager): string[] => {
 	const plat = platform();
 
@@ -58,6 +59,7 @@ export const getDefaultCachePaths = (pm: PackageManager): string[] => {
 			return [plat === "win32" ? "~/AppData/Local/deno" : "~/.cache/deno"];
 	}
 };
+/* v8 ignore stop */
 
 /**
  * Lockfile glob patterns per package manager.
@@ -163,7 +165,7 @@ export const detectCachePath = (pm: PackageManager) =>
 					if (berry.stdout.trim() && berry.stdout.trim() !== "undefined") {
 						return berry.stdout.trim();
 					}
-					// Fallback to Yarn Classic
+					/* v8 ignore next 3 -- Yarn Classic fallback, only reached when Berry isn't installed */
 					const classic = yield* runner.execCapture("yarn", ["cache", "dir"], opts);
 					return classic.stdout.trim() || null;
 				}
