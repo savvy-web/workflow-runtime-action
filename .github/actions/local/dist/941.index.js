@@ -2,7 +2,7 @@ export const id = 941;
 export const ids = [941];
 export const modules = {
 
-/***/ 413:
+/***/ 62794:
 /***/ ((__unused_webpack_module, exports, __webpack_require__) => {
 
 
@@ -12,8 +12,8 @@ export const modules = {
  */
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.execAsync = void 0;
-const child_process = __webpack_require__(5317);
-const util = __webpack_require__(9023);
+const child_process = __webpack_require__(35317);
+const util = __webpack_require__(39023);
 exports.execAsync = util.promisify(child_process.exec);
 //# sourceMappingURL=execAsync.js.map
 
@@ -29,8 +29,8 @@ exports.execAsync = util.promisify(child_process.exec);
  */
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.getMachineId = void 0;
-const execAsync_1 = __webpack_require__(413);
-const api_1 = __webpack_require__(1609);
+const execAsync_1 = __webpack_require__(62794);
+const api_1 = __webpack_require__(11609);
 async function getMachineId() {
     try {
         const result = await (0, execAsync_1.execAsync)('ioreg -rd1 -c "IOPlatformExpertDevice"');

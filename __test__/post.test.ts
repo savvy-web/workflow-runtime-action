@@ -7,15 +7,15 @@ import { Effect, Layer, Option } from "effect";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@savvy-web/github-action-effects", () => {
-	const { Context: C } = require("effect");
+	const { Context: C, Layer: L } = require("effect");
 	return {
-		Action: {
-			run: () => Promise.resolve(),
-		},
+		Action: { run: () => Promise.resolve() },
 		ActionCache: C.GenericTag("github-action-effects/ActionCache"),
 		ActionState: C.GenericTag("github-action-effects/ActionState"),
-		ActionCacheLive: C.GenericTag("ActionCacheLive"),
-		ActionStateLive: C.GenericTag("ActionStateLive"),
+		ActionCacheLive: L.empty,
+		ActionStateLive: L.empty,
+		ActionsCoreLive: L.empty,
+		ActionsCacheLive: L.empty,
 	};
 });
 

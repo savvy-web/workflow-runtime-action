@@ -9,11 +9,10 @@ import { Data, Effect, Exit, Layer, Option, Schema } from "effect";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@savvy-web/github-action-effects", () => {
-	const { Context: C } = require("effect");
+	const { Context: C, Layer: L } = require("effect");
 	return {
-		Action: {
-			run: () => Promise.resolve(),
-		},
+		Action: { run: () => Promise.resolve() },
+		// Service tags
 		ActionInputs: C.GenericTag("github-action-effects/ActionInputs"),
 		ActionOutputs: C.GenericTag("github-action-effects/ActionOutputs"),
 		ActionLogger: C.GenericTag("github-action-effects/ActionLogger"),
@@ -22,11 +21,17 @@ vi.mock("@savvy-web/github-action-effects", () => {
 		ActionEnvironment: C.GenericTag("github-action-effects/ActionEnvironment"),
 		CommandRunner: C.GenericTag("github-action-effects/CommandRunner"),
 		ToolInstaller: C.GenericTag("github-action-effects/ToolInstaller"),
-		ActionCacheLive: C.GenericTag("ActionCacheLive"),
-		ActionEnvironmentLive: C.GenericTag("ActionEnvironmentLive"),
-		ActionStateLive: C.GenericTag("ActionStateLive"),
-		CommandRunnerLive: C.GenericTag("CommandRunnerLive"),
-		ToolInstallerLive: C.GenericTag("ToolInstallerLive"),
+		// Business logic layers (stubs — tests provide their own layers)
+		ActionCacheLive: L.empty,
+		ActionEnvironmentLive: L.empty,
+		ActionStateLive: L.empty,
+		CommandRunnerLive: L.empty,
+		ToolInstallerLive: L.empty,
+		// Platform wrapper layers (stubs — not needed in unit tests)
+		ActionsCoreLive: L.empty,
+		ActionsCacheLive: L.empty,
+		ActionsExecLive: L.empty,
+		ActionsToolCacheLive: L.empty,
 	};
 });
 

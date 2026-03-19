@@ -1,9 +1,5 @@
-// Force ncc to bundle packages used via dynamic import in github-action-effects Live layers
-
 import { chmod } from "node:fs/promises";
 import { arch as osArch, platform as osPlatform, tmpdir } from "node:os";
-import * as actionsCore from "@actions/core";
-import * as toolCache from "@actions/tool-cache";
 import { FileSystem } from "@effect/platform";
 import {
 	Action,
@@ -13,6 +9,10 @@ import {
 	ActionLogger,
 	ActionOutputs,
 	ActionStateLive,
+	ActionsCacheLive,
+	ActionsCoreLive,
+	ActionsExecLive,
+	ActionsToolCacheLive,
 	CommandRunner,
 	CommandRunnerLive,
 	ToolInstallerLive,
@@ -78,38 +78,39 @@ export const parseMultiValueInput = (raw: string): string[] => {
  */
 /* v8 ignore start -- imperative @actions/tool-cache code, tested via CI fixtures */
 export const installBiome = (version: string): Effect.Effect<void, Error> =>
-	Effect.tryPromise({
-		try: async () => {
-			const plat = osPlatform();
-			const architecture = osArch();
+	Effect.gen(function* () {
+		// Use the DI'd platform services instead of direct imports
+		const tc = yield* Effect.promise(() => import("@actions/tool-cache"));
+		const core = yield* Effect.promise(() => import("@actions/core"));
 
-			// Check tool cache first
-			const cached = toolCache.find("biome", version);
-			if (cached) {
-				actionsCore.addPath(cached);
-				return;
-			}
+		const plat = osPlatform();
+		const architecture = osArch();
 
-			// Build download URL using shared binaryMap from descriptor
-			const binaryName = biomeBinaryMap[plat]?.[architecture];
-			if (!binaryName) throw new Error(`Unsupported platform for Biome: ${plat}-${architecture}`);
+		// Check tool cache first
+		const cached = tc.find("biome", version);
+		if (cached) {
+			core.addPath(cached);
+			return;
+		}
 
-			const url = `https://github.com/biomejs/biome/releases/download/%40biomejs%2Fbiome%40${version}/${binaryName}`;
-			const downloadPath = await toolCache.downloadTool(url);
+		// Build download URL using shared binaryMap from descriptor
+		const binaryName = biomeBinaryMap[plat]?.[architecture];
+		if (!binaryName) throw new Error(`Unsupported platform for Biome: ${plat}-${architecture}`);
 
-			// Cache as a single file, renamed to "biome" (or "biome.exe" on Windows)
-			const finalName = plat === "win32" ? "biome.exe" : "biome";
-			const cachedPath = await toolCache.cacheFile(downloadPath, finalName, "biome", version);
+		const url = `https://github.com/biomejs/biome/releases/download/%40biomejs%2Fbiome%40${version}/${binaryName}`;
+		const downloadPath = yield* Effect.promise(() => tc.downloadTool(url));
 
-			// Make executable on Unix
-			if (plat !== "win32") {
-				await chmod(`${cachedPath}/${finalName}`, 0o755);
-			}
+		// Cache as a single file, renamed to "biome" (or "biome.exe" on Windows)
+		const finalName = plat === "win32" ? "biome.exe" : "biome";
+		const cachedPath = yield* Effect.promise(() => tc.cacheFile(downloadPath, finalName, "biome", version));
 
-			actionsCore.addPath(cachedPath);
-		},
-		catch: (error) => new Error(`Biome install failed: ${error instanceof Error ? error.message : String(error)}`),
-	});
+		// Make executable on Unix
+		if (plat !== "win32") {
+			yield* Effect.promise(() => chmod(`${cachedPath}/${finalName}`, 0o755));
+		}
+
+		core.addPath(cachedPath);
+	}).pipe(Effect.catchAll((error) => Effect.fail(new Error(`Biome install failed: ${error}`))));
 /* v8 ignore stop */
 
 /**
@@ -489,15 +490,21 @@ export const main = Effect.gen(function* () {
 // Layer composition and execution
 // ---------------------------------------------------------------------------
 
-export const MainLive = Layer.mergeAll(
+// Platform wrapper layers provide DI'd @actions/* dependencies to business logic layers
+const PlatformLive = Layer.mergeAll(ActionsCoreLive, ActionsCacheLive, ActionsExecLive, ActionsToolCacheLive);
+
+// Business logic layers depend on platform services
+const BusinessLive = Layer.mergeAll(
 	ActionCacheLive,
 	ToolInstallerLive,
 	CommandRunnerLive,
 	ActionStateLive,
 	ActionEnvironmentLive,
-);
+).pipe(Layer.provide(PlatformLive));
+
+export const MainLive = BusinessLive;
 
 /* v8 ignore next 3 -- entry point guard, only runs in GitHub Actions */
 if (process.env.GITHUB_ACTIONS) {
-	await Action.run(main, MainLive);
+	await Action.run(main, { layer: MainLive });
 }
