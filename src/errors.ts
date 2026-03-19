@@ -49,3 +49,4 @@ export class CacheError extends Data.TaggedError("CacheError")<{
 	readonly reason: string;
 	readonly cause?: unknown;
 }> {}
+/* v8 ignore stop */
