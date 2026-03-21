@@ -28,14 +28,14 @@ Repositories using this action **MUST** have a `package.json` in their root dire
    * Must be an object with `name` and `version` properties (and optionally `onFail`)
    * Supported package managers: `npm`, `pnpm`, `yarn`, `bun`
    * Version MUST be absolute (e.g., "10.20.0"), NOT semver ranges
-   * `onFail` is optional but recommended to be set to `"error"` for strict validation (a notice is emitted if not set)
+   * `onFail` is optional (parsed and stored but not currently acted upon by this action)
    * This follows the [Corepack devEngines format](https://github.com/nodejs/corepack)
 
 2. **`devEngines.runtime` field** - Specifies runtime(s) and exact versions
    * Can be a single runtime object or an array of runtimes
    * Each runtime MUST have `name` (node|bun|deno) and `version` (absolute version) properties (and optionally `onFail`)
    * Versions MUST be absolute (e.g., "24.11.0"), NOT semver ranges (e.g., "^24.0.0")
-   * `onFail` is optional but recommended to be set to `"error"` for strict validation (a notice is emitted if not set)
+   * `onFail` is optional (parsed and stored but not currently acted upon by this action)
    * See [pnpm devEngines.runtime](https://pnpm.io/package_json#devenginesruntime) for format details
 
 **Example package.json:**

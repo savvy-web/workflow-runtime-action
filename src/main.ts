@@ -342,7 +342,7 @@ export const main = Effect.gen(function* () {
 	);
 
 	// 2. Determine active package managers and cache config
-	const pmName = config.packageManager.name as PackageManager;
+	const pmName: PackageManager = config.packageManager.name;
 	const activePackageManagers = getActivePackageManagers(config.runtimes, pmName);
 
 	// Build runtime version list for tool cache inclusion
