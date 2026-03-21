@@ -56,7 +56,7 @@ outputs:
   turbo-enabled:
     description: Whether Turbo configuration was detected (true | false)
   cache-hit:
-    description: Whether dependencies were restored from cache (true | partial | false | n/a)
+    description: Whether dependencies were restored from cache (true | partial | false)
   lockfiles:
     description: Comma-separated list of detected lockfiles used for cache key generation (e.g., 'pnpm-lock.yaml,deno.lock')
   cache-paths:

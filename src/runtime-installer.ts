@@ -22,6 +22,20 @@ export const extractErrorReason = (error: unknown): string => {
 };
 
 /**
+ * Formats structured cause detail from an error's cause field.
+ * Returns a human-readable string or undefined if no structured cause exists.
+ */
+export const formatCauseDetail = (error: unknown): string | undefined => {
+	if (error && typeof error === "object" && "cause" in error) {
+		const cause = (error as { cause?: Record<string, unknown> }).cause;
+		if (cause) {
+			return `reason=${cause.reason ?? "?"}, operation=${cause.operation ?? "?"}, key=${cause.key ?? "?"}`;
+		}
+	}
+	return undefined;
+};
+
+/**
  * Descriptor for a runtime or tool that can be installed.
  */
 export interface RuntimeDescriptor {

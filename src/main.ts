@@ -22,7 +22,7 @@ import { binaryMap as biomeBinaryMap } from "./descriptors/biome.js";
 import { formatDetection, formatInstallation, formatPackageManager, formatRuntime, formatSuccess } from "./emoji.js";
 import { DependencyInstallError, PackageManagerSetupError } from "./errors.js";
 import type { InstalledRuntime } from "./runtime-installer.js";
-import { RuntimeInstaller, extractErrorReason, installerLayerFor } from "./runtime-installer.js";
+import { RuntimeInstaller, extractErrorReason, formatCauseDetail, installerLayerFor } from "./runtime-installer.js";
 import type { PackageManagerEntry, RuntimeEntry } from "./schemas.js";
 
 // ---------------------------------------------------------------------------
@@ -413,11 +413,9 @@ export const main = Effect.gen(function* () {
 			Effect.catchTag("CacheError", (e) =>
 				Effect.gen(function* () {
 					yield* Effect.logWarning(`Cache restore failed: ${e.reason}`);
-					const cause = e.cause as Record<string, unknown> | undefined;
-					if (cause) {
-						yield* Effect.logWarning(
-							`Cache restore cause detail: reason=${cause.reason ?? "?"}, operation=${cause.operation ?? "?"}, key=${cause.key ?? "?"}`,
-						);
+					const detail = formatCauseDetail(e);
+					if (detail) {
+						yield* Effect.logWarning(`Cache restore cause detail: ${detail}`);
 					}
 					return "none" as const;
 				}),

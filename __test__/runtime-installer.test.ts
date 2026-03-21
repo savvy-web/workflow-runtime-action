@@ -406,3 +406,37 @@ describe("extractErrorReason", () => {
 		expect(mod.extractErrorReason(null)).toBe("null");
 	});
 });
+
+// ---------------------------------------------------------------------------
+// formatCauseDetail tests
+// ---------------------------------------------------------------------------
+
+describe("formatCauseDetail", () => {
+	it("extracts cause detail from error with structured cause", async () => {
+		const mod = await import("../src/runtime-installer.js");
+		const error = { cause: { reason: "timeout", operation: "restore", key: "cache-key" } };
+		expect(mod.formatCauseDetail(error)).toBe("reason=timeout, operation=restore, key=cache-key");
+	});
+
+	it("uses ? for missing cause fields", async () => {
+		const mod = await import("../src/runtime-installer.js");
+		const error = { cause: {} };
+		expect(mod.formatCauseDetail(error)).toBe("reason=?, operation=?, key=?");
+	});
+
+	it("returns undefined for error without cause", async () => {
+		const mod = await import("../src/runtime-installer.js");
+		expect(mod.formatCauseDetail({ reason: "no cause" })).toBeUndefined();
+	});
+
+	it("returns undefined for non-object error", async () => {
+		const mod = await import("../src/runtime-installer.js");
+		expect(mod.formatCauseDetail("string error")).toBeUndefined();
+		expect(mod.formatCauseDetail(null)).toBeUndefined();
+	});
+
+	it("returns undefined when cause is undefined", async () => {
+		const mod = await import("../src/runtime-installer.js");
+		expect(mod.formatCauseDetail({ cause: undefined })).toBeUndefined();
+	});
+});

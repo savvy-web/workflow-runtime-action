@@ -284,7 +284,7 @@ are read exclusively from `devEngines` — there are no explicit version inputs.
 ### Cache Outputs
 
 * **`cache-hit`** - Whether dependencies were restored from cache (`"true"` |
-  `"partial"` | `"false"` | `"n/a"`)
+  `"partial"` | `"false"`)
 * **`lockfiles`** - Comma-separated list of detected lockfiles used for cache
   key generation (e.g., `"pnpm-lock.yaml,deno.lock"`)
 * **`cache-paths`** - Comma-separated list of cache paths being
