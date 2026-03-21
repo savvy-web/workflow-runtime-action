@@ -1,5 +1,5 @@
 import { ActionCache, ActionState } from "@savvy-web/github-action-effects";
-import { Effect, Layer, Option } from "effect";
+import { Effect, Layer, Logger, Option } from "effect";
 import { describe, expect, it } from "vitest";
 
 // ---------------------------------------------------------------------------
@@ -12,7 +12,12 @@ const asLayer = (l: AnyLayer): Layer.Layer<never> => l as Layer.Layer<never>;
 
 // biome-ignore lint/suspicious/noExplicitAny: test mock requires any for mocked effect results
 const run = <A>(effect: Effect.Effect<A, any, any>, layer: AnyLayer): Promise<A> =>
-	Effect.runPromise(Effect.provide(effect, asLayer(layer)) as Effect.Effect<A, never, never>);
+	Effect.runPromise(
+		effect.pipe(
+			Effect.provide(asLayer(layer)),
+			Effect.provide(Logger.replace(Logger.defaultLogger, Logger.none)),
+		) as Effect.Effect<A, never, never>,
+	);
 
 // ---------------------------------------------------------------------------
 // Service layer factories

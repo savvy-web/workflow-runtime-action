@@ -389,7 +389,7 @@ export const restoreCache = (config: {
 
 		const restoreKeys = yield* generateRestoreKeys(config.runtimes, config.packageManager, config.cacheBust);
 
-		// Log cache key details for debugging
+		// Log cache key details for debugging (debug level — visible with RUNNER_DEBUG=1)
 		yield* Effect.logDebug(`Cache primary key: ${primaryKey}`);
 		yield* Effect.logDebug(
 			`Cache restore keys: ${restoreKeys.length > 0 ? restoreKeys.join(", ") : "(none — exact match only)"}`,

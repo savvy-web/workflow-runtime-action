@@ -1,6 +1,6 @@
 import { ActionOutputs, CommandRunner, ToolInstaller } from "@savvy-web/github-action-effects";
 import type { Context } from "effect";
-import { Data, Effect, Exit, Layer, Option } from "effect";
+import { Data, Effect, Exit, Layer, Logger, Option } from "effect";
 import { describe, expect, it } from "vitest";
 import { RuntimeInstallError } from "../src/errors.js";
 import type { RuntimeDescriptor } from "../src/runtime-installer.js";
@@ -177,14 +177,18 @@ const nodeTestDescriptor: RuntimeDescriptor = {
 const runInstall = (version: string, descriptor: RuntimeDescriptor, testLayer: Layer.Layer<never>) => {
 	const installer = makeRuntimeInstaller(descriptor);
 	return Effect.runPromise(
-		Effect.provide(
-			installer.install(version),
-			testLayer as unknown as Layer.Layer<
-				| Context.Tag.Identifier<typeof ToolInstaller>
-				| Context.Tag.Identifier<typeof CommandRunner>
-				| Context.Tag.Identifier<typeof ActionOutputs>
-			>,
-		),
+		installer
+			.install(version)
+			.pipe(
+				Effect.provide(
+					testLayer as unknown as Layer.Layer<
+						| Context.Tag.Identifier<typeof ToolInstaller>
+						| Context.Tag.Identifier<typeof CommandRunner>
+						| Context.Tag.Identifier<typeof ActionOutputs>
+					>,
+				),
+				Effect.provide(Logger.replace(Logger.defaultLogger, Logger.none)),
+			),
 	);
 };
 
@@ -192,14 +196,18 @@ const runInstallExit = (version: string, descriptor: RuntimeDescriptor, testLaye
 	const installer = makeRuntimeInstaller(descriptor);
 	return Effect.runPromise(
 		Effect.exit(
-			Effect.provide(
-				installer.install(version),
-				testLayer as unknown as Layer.Layer<
-					| Context.Tag.Identifier<typeof ToolInstaller>
-					| Context.Tag.Identifier<typeof CommandRunner>
-					| Context.Tag.Identifier<typeof ActionOutputs>
-				>,
-			),
+			installer
+				.install(version)
+				.pipe(
+					Effect.provide(
+						testLayer as unknown as Layer.Layer<
+							| Context.Tag.Identifier<typeof ToolInstaller>
+							| Context.Tag.Identifier<typeof CommandRunner>
+							| Context.Tag.Identifier<typeof ActionOutputs>
+						>,
+					),
+					Effect.provide(Logger.replace(Logger.defaultLogger, Logger.none)),
+				),
 		),
 	);
 };
@@ -325,9 +333,10 @@ describe("makeRuntimeInstaller", () => {
 			const layer = mod.installerLayerFor("unknown");
 			const exit = await Effect.runPromise(
 				Effect.exit(
-					Effect.provide(
-						mod.RuntimeInstaller.pipe(Effect.flatMap((i) => i.install("1.0.0"))),
-						layer,
+					mod.RuntimeInstaller.pipe(
+						Effect.flatMap((i) => i.install("1.0.0")),
+						Effect.provide(layer),
+						Effect.provide(Logger.replace(Logger.defaultLogger, Logger.none)),
 					) as unknown as Effect.Effect<never, RuntimeInstallError>,
 				),
 			);

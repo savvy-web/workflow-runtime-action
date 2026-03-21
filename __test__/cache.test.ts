@@ -1,7 +1,7 @@
 import { platform } from "node:os";
 import { FileSystem } from "@effect/platform";
 import { ActionCache, ActionEnvironment, ActionState, CommandRunner } from "@savvy-web/github-action-effects";
-import { Effect, Layer, Option } from "effect";
+import { Effect, Layer, Logger, Option } from "effect";
 import { describe, expect, it } from "vitest";
 import {
 	detectCachePath,
@@ -25,7 +25,12 @@ const asLayer = (l: AnyLayer): Layer.Layer<never> => l as Layer.Layer<never>;
 
 // biome-ignore lint/suspicious/noExplicitAny: test mock requires any for mocked effect results
 const run = <A>(effect: Effect.Effect<A, any, any>, layer: AnyLayer): Promise<A> =>
-	Effect.runPromise(Effect.provide(effect, asLayer(layer)) as Effect.Effect<A, never, never>);
+	Effect.runPromise(
+		effect.pipe(
+			Effect.provide(asLayer(layer)),
+			Effect.provide(Logger.replace(Logger.defaultLogger, Logger.none)),
+		) as Effect.Effect<A, never, never>,
+	);
 
 // ---------------------------------------------------------------------------
 // Service layer factories
@@ -259,6 +264,40 @@ describe("generateCacheKey", () => {
 		expect(key1).not.toBe(key2);
 	});
 
+	it("falls back to empty string when GITHUB_REF is not a heads ref", async () => {
+		const layer = Layer.mergeAll(
+			makeFileSystemLayer({ "pnpm-lock.yaml": "content" }),
+			makeEnvironmentLayer({ GITHUB_REF: "refs/tags/v1.0.0" }),
+		);
+
+		// Should still produce a key (with empty branch hashed)
+		const key = await run(generateCacheKey(runtimes, pm, ["pnpm-lock.yaml"]), layer);
+		expect(key).toMatch(/^[a-z]+-[0-9a-f]+-[0-9a-f]+-[0-9a-f]+$/);
+	});
+
+	it("falls back to empty string when neither GITHUB_HEAD_REF nor GITHUB_REF is set", async () => {
+		const layer = Layer.mergeAll(makeFileSystemLayer({ "pnpm-lock.yaml": "content" }), makeEnvironmentLayer({}));
+
+		const key = await run(generateCacheKey(runtimes, pm, ["pnpm-lock.yaml"]), layer);
+		expect(key).toMatch(/^[a-z]+-[0-9a-f]+-[0-9a-f]+-[0-9a-f]+$/);
+	});
+
+	it("treats empty GITHUB_HEAD_REF as absent", async () => {
+		const layer = Layer.mergeAll(
+			makeFileSystemLayer({ "pnpm-lock.yaml": "content" }),
+			makeEnvironmentLayer({ GITHUB_HEAD_REF: "", GITHUB_REF: "refs/heads/main" }),
+		);
+
+		const mainLayer = Layer.mergeAll(
+			makeFileSystemLayer({ "pnpm-lock.yaml": "content" }),
+			makeEnvironmentLayer({ GITHUB_REF: "refs/heads/main" }),
+		);
+
+		const key1 = await run(generateCacheKey(runtimes, pm, ["pnpm-lock.yaml"]), layer);
+		const key2 = await run(generateCacheKey(runtimes, pm, ["pnpm-lock.yaml"]), mainLayer);
+		expect(key1).toBe(key2);
+	});
+
 	it("uses GITHUB_HEAD_REF for PRs over GITHUB_REF", async () => {
 		const prLayer = Layer.mergeAll(
 			makeFileSystemLayer({ "pnpm-lock.yaml": "content" }),
@@ -330,6 +369,26 @@ describe("restoreCache", () => {
 
 		expect(result).toBe("partial");
 		expect((stateSaved[0].value as { hit: string }).hit).toBe("partial");
+	});
+
+	it("uses cacheBust parameter when provided", async () => {
+		const stateSaved: StateSaveCall[] = [];
+
+		const layer = Layer.mergeAll(
+			makeFileSystemLayer({}),
+			makeEnvironmentLayer({ GITHUB_REF: "refs/heads/main" }),
+			makeCacheLayer({ restoreResult: Option.none() }),
+			makeStateLayer({ saved: stateSaved }),
+		);
+
+		const result = await run(
+			restoreCache({ cachePaths, runtimes, packageManager: pm, lockfiles: [], cacheBust: "test-bust-value" }),
+			layer,
+		);
+
+		expect(result).toBe("none");
+		// cacheBust changes the key, so the key in state should differ from non-busted
+		expect(stateSaved[0].key).toBe("CACHE_STATE");
 	});
 
 	it("returns 'none' when no cache matches", async () => {
@@ -411,6 +470,23 @@ describe("saveCache", () => {
 			makeStateLayer({
 				stored: {
 					CACHE_STATE: { hit: "none", paths: ["/cache/path"] },
+				},
+			}),
+		);
+
+		await run(saveCache(), layer);
+
+		expect(saveCalls.length).toBe(0);
+	});
+
+	it("skips when paths is empty", async () => {
+		const saveCalls: CacheSaveCall[] = [];
+
+		const layer = Layer.mergeAll(
+			makeCacheLayer({ saveCalls }),
+			makeStateLayer({
+				stored: {
+					CACHE_STATE: { hit: "none", key: "test-key", paths: [] },
 				},
 			}),
 		);

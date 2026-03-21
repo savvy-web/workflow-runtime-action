@@ -9,7 +9,7 @@ import {
 	ToolInstaller,
 } from "@savvy-web/github-action-effects";
 import type { Context as ContextType } from "effect";
-import { Config, ConfigProvider, Effect, Exit, Layer, Option } from "effect";
+import { Config, ConfigProvider, Effect, Exit, Layer, Logger, Option } from "effect";
 import { describe, expect, it } from "vitest";
 
 // ---------------------------------------------------------------------------
@@ -371,9 +371,10 @@ const buildBaseLayer = (opts: {
 /** Run the pipeline with given layers and config provider, erasing the R parameter for test. */
 const runPipeline = (layer: Layer.Layer<never>, configProvider: ConfigProvider.ConfigProvider) =>
 	Effect.runPromise(
-		Effect.provide(
-			Effect.withConfigProvider(buildPipeline as Effect.Effect<void, never, never>, configProvider),
-			layer,
+		(buildPipeline as Effect.Effect<void, never, never>).pipe(
+			Effect.withConfigProvider(configProvider),
+			Effect.provide(layer),
+			Effect.provide(Logger.replace(Logger.defaultLogger, Logger.none)),
 		),
 	);
 
@@ -381,9 +382,10 @@ const runPipeline = (layer: Layer.Layer<never>, configProvider: ConfigProvider.C
 const runPipelineExit = (layer: Layer.Layer<never>, configProvider: ConfigProvider.ConfigProvider) =>
 	Effect.runPromise(
 		Effect.exit(
-			Effect.provide(
-				Effect.withConfigProvider(buildPipeline as Effect.Effect<void, never, never>, configProvider),
-				layer,
+			(buildPipeline as Effect.Effect<void, never, never>).pipe(
+				Effect.withConfigProvider(configProvider),
+				Effect.provide(layer),
+				Effect.provide(Logger.replace(Logger.defaultLogger, Logger.none)),
 			),
 		),
 	);
@@ -607,15 +609,69 @@ describe("parseMultiValueInput", () => {
 // ---------------------------------------------------------------------------
 
 describe("installDependencies", () => {
-	it("runs bun install for bun PM", async () => {
-		const responses = new Map([["bun install", { exitCode: 0, stdout: "", stderr: "" }]]);
-		const cmdLayer = makeCommandRunnerLayer(responses);
+	const runInstallDeps = (pm: PackageManager, files: Record<string, boolean>, responses: Map<string, unknown>) => {
+		const cmdLayer = makeCommandRunnerLayer(responses as never);
 		const fsLayer = Layer.succeed(FileSystem.FileSystem, {
-			access: () => Effect.fail("not found"),
+			access: (path: string) => (files[path] ? Effect.void : Effect.fail("not found")),
 		} as unknown as FileSystem.FileSystem);
 		const layer = Layer.mergeAll(cmdLayer, fsLayer);
-		await Effect.runPromise(
-			Effect.provide(installDependencies("bun") as Effect.Effect<void, unknown, never>, layer as never),
+		return Effect.runPromise(
+			(installDependencies(pm) as Effect.Effect<void, unknown, never>).pipe(
+				Effect.provide(layer as never),
+				Effect.provide(Logger.replace(Logger.defaultLogger, Logger.none)),
+			),
+		);
+	};
+
+	it("runs bun install for bun PM (no lockfile)", async () => {
+		await runInstallDeps("bun", {}, new Map([["bun install", { exitCode: 0, stdout: "", stderr: "" }]]));
+	});
+
+	it("runs bun install --frozen-lockfile with bun.lock", async () => {
+		await runInstallDeps(
+			"bun",
+			{ "bun.lock": true },
+			new Map([["bun install --frozen-lockfile", { exitCode: 0, stdout: "", stderr: "" }]]),
+		);
+	});
+
+	it("runs npm ci with package-lock.json", async () => {
+		await runInstallDeps(
+			"npm",
+			{ "package-lock.json": true },
+			new Map([["npm ci", { exitCode: 0, stdout: "", stderr: "" }]]),
+		);
+	});
+
+	it("runs npm install without lockfile", async () => {
+		await runInstallDeps("npm", {}, new Map([["npm install", { exitCode: 0, stdout: "", stderr: "" }]]));
+	});
+
+	it("runs pnpm install --frozen-lockfile with pnpm-lock.yaml", async () => {
+		await runInstallDeps(
+			"pnpm",
+			{ "pnpm-lock.yaml": true },
+			new Map([["pnpm install --frozen-lockfile", { exitCode: 0, stdout: "", stderr: "" }]]),
+		);
+	});
+
+	it("runs pnpm install without lockfile", async () => {
+		await runInstallDeps("pnpm", {}, new Map([["pnpm install", { exitCode: 0, stdout: "", stderr: "" }]]));
+	});
+
+	it("runs yarn install --immutable with yarn.lock", async () => {
+		await runInstallDeps(
+			"yarn",
+			{ "yarn.lock": true },
+			new Map([["yarn install --immutable", { exitCode: 0, stdout: "", stderr: "" }]]),
+		);
+	});
+
+	it("runs yarn install --no-immutable without lockfile", async () => {
+		await runInstallDeps(
+			"yarn",
+			{},
+			new Map([["yarn install --no-immutable", { exitCode: 0, stdout: "", stderr: "" }]]),
 		);
 	});
 });
@@ -625,18 +681,20 @@ describe("installDependencies", () => {
 // ---------------------------------------------------------------------------
 
 describe("setupPackageManager", () => {
-	it("skips setup for bun", async () => {
-		const cmdLayer = makeCommandRunnerLayer();
-		await Effect.runPromise(
-			Effect.provide(setupPackageManager("bun", "1.3.3") as Effect.Effect<void, unknown, never>, cmdLayer as never),
+	const runSetup = (pm: PackageManager, version: string, cmdLayer: Layer.Layer<never>) =>
+		Effect.runPromise(
+			(setupPackageManager(pm, version) as Effect.Effect<void, unknown, never>).pipe(
+				Effect.provide(cmdLayer as never),
+				Effect.provide(Logger.replace(Logger.defaultLogger, Logger.none)),
+			),
 		);
+
+	it("skips setup for bun", async () => {
+		await runSetup("bun", "1.3.3", makeCommandRunnerLayer());
 	});
 
 	it("skips setup for deno", async () => {
-		const cmdLayer = makeCommandRunnerLayer();
-		await Effect.runPromise(
-			Effect.provide(setupPackageManager("deno", "2.5.6") as Effect.Effect<void, unknown, never>, cmdLayer as never),
-		);
+		await runSetup("deno", "2.5.6", makeCommandRunnerLayer());
 	});
 
 	it("runs corepack for pnpm", async () => {
@@ -646,10 +704,7 @@ describe("setupPackageManager", () => {
 			["corepack prepare pnpm@10.20.0 --activate", { exitCode: 0, stdout: "", stderr: "" }],
 			["pnpm --version", { exitCode: 0, stdout: "10.20.0\n", stderr: "" }],
 		]);
-		const cmdLayer = makeCommandRunnerLayer(responses);
-		await Effect.runPromise(
-			Effect.provide(setupPackageManager("pnpm", "10.20.0") as Effect.Effect<void, unknown, never>, cmdLayer as never),
-		);
+		await runSetup("pnpm", "10.20.0", makeCommandRunnerLayer(responses));
 	});
 
 	it("runs npm install -g for npm when version differs", async () => {
@@ -658,18 +713,12 @@ describe("setupPackageManager", () => {
 			["sudo npm install -g npm@11.6.0", { exitCode: 0, stdout: "", stderr: "" }],
 			["sudo chown -R", { exitCode: 0, stdout: "", stderr: "" }],
 		]);
-		const cmdLayer = makeCommandRunnerLayer(responses);
-		await Effect.runPromise(
-			Effect.provide(setupPackageManager("npm", "11.6.0") as Effect.Effect<void, unknown, never>, cmdLayer as never),
-		);
+		await runSetup("npm", "11.6.0", makeCommandRunnerLayer(responses));
 	});
 
 	it("skips npm install when version already matches", async () => {
 		const responses = new Map([["npm --version", { exitCode: 0, stdout: "11.6.0\n", stderr: "" }]]);
-		const cmdLayer = makeCommandRunnerLayer(responses);
-		await Effect.runPromise(
-			Effect.provide(setupPackageManager("npm", "11.6.0") as Effect.Effect<void, unknown, never>, cmdLayer as never),
-		);
+		await runSetup("npm", "11.6.0", makeCommandRunnerLayer(responses));
 	});
 
 	it("runs corepack for yarn (no tmpdir)", async () => {
@@ -679,14 +728,10 @@ describe("setupPackageManager", () => {
 			["corepack prepare yarn@4.6.0 --activate", { exitCode: 0, stdout: "", stderr: "" }],
 			["yarn --version", { exitCode: 0, stdout: "4.6.0\n", stderr: "" }],
 		]);
-		const cmdLayer = makeCommandRunnerLayer(responses);
-		await Effect.runPromise(
-			Effect.provide(setupPackageManager("yarn", "4.6.0") as Effect.Effect<void, unknown, never>, cmdLayer as never),
-		);
+		await runSetup("yarn", "4.6.0", makeCommandRunnerLayer(responses));
 	});
 
 	it("runs npm install -g without sudo on windows", async () => {
-		// Temporarily mock platform to win32
 		const origPlatform = process.platform;
 		Object.defineProperty(process, "platform", { value: "win32", writable: true });
 		try {
@@ -694,10 +739,7 @@ describe("setupPackageManager", () => {
 				["npm --version", { exitCode: 0, stdout: "10.8.2\n", stderr: "" }],
 				["npm install -g npm@11.6.0", { exitCode: 0, stdout: "", stderr: "" }],
 			]);
-			const cmdLayer = makeCommandRunnerLayer(responses);
-			await Effect.runPromise(
-				Effect.provide(setupPackageManager("npm", "11.6.0") as Effect.Effect<void, unknown, never>, cmdLayer as never),
-			);
+			await runSetup("npm", "11.6.0", makeCommandRunnerLayer(responses));
 		} finally {
 			Object.defineProperty(process, "platform", { value: origPlatform, writable: true });
 		}
@@ -711,10 +753,7 @@ describe("setupPackageManager", () => {
 			["corepack prepare pnpm@10.20.0 --activate", { exitCode: 0, stdout: "", stderr: "" }],
 			["pnpm --version", { exitCode: 0, stdout: "10.20.0\n", stderr: "" }],
 		]);
-		const cmdLayer = makeCommandRunnerLayer(responses);
-		await Effect.runPromise(
-			Effect.provide(setupPackageManager("pnpm", "10.20.0") as Effect.Effect<void, unknown, never>, cmdLayer as never),
-		);
+		await runSetup("pnpm", "10.20.0", makeCommandRunnerLayer(responses));
 	});
 });
 
