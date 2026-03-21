@@ -1065,17 +1065,30 @@ __webpack_require__.d(__webpack_exports__, {
         }
     }
     // 3. Restore cache (non-fatal)
-    const cacheResult = yield* logger.group("Restore cache", (0,_cache_js__rspack_import_1/* .restoreCache */.P3)({
-        cachePaths: finalCachePaths,
-        runtimes: runtimeEntries,
-        packageManager: {
-            name: config.packageManager.name,
-            version: config.packageManager.version
-        },
-        lockfiles,
-        cacheBust: cacheBustValue
+    const cacheResult = yield* logger.group("Restore cache", effect__rspack_import_5/* .gen */.JkU(function*() {
+        // Diagnostic: check which cache env vars are available
+        const cacheEnvDiag = [
+            `ACTIONS_CACHE_URL: ${process.env.ACTIONS_CACHE_URL ? "set" : "NOT SET"}`,
+            `ACTIONS_RESULTS_URL: ${process.env.ACTIONS_RESULTS_URL ? "set" : "NOT SET"}`,
+            `ACTIONS_RUNTIME_TOKEN: ${process.env.ACTIONS_RUNTIME_TOKEN ? "set" : "NOT SET"}`,
+            `ACTIONS_CACHE_SERVICE_V2: ${process.env.ACTIONS_CACHE_SERVICE_V2 ?? "NOT SET"}`
+        ].join(", ");
+        yield* effect__rspack_import_5/* .logDebug */.MDB(`Cache env diagnostic: ${cacheEnvDiag}`);
+        return yield* (0,_cache_js__rspack_import_1/* .restoreCache */.P3)({
+            cachePaths: finalCachePaths,
+            runtimes: runtimeEntries,
+            packageManager: {
+                name: config.packageManager.name,
+                version: config.packageManager.version
+            },
+            lockfiles,
+            cacheBust: cacheBustValue
+        });
     }).pipe(effect__rspack_import_5/* .catchTag */.KuX("CacheError", (e)=>effect__rspack_import_5/* .gen */.JkU(function*() {
             yield* effect__rspack_import_5/* .logWarning */.FFw(`Cache restore failed: ${e.reason}`);
+            if (e.cause) {
+                yield* effect__rspack_import_5/* .logWarning */.FFw(`Cache restore cause: ${e.cause instanceof Error ? e.cause.message : JSON.stringify(e.cause)}`);
+            }
             return "none";
         }))));
     // 4. Install runtimes
@@ -32831,8 +32844,9 @@ __webpack_require__.d(__webpack_exports__, {
   khu: () => (/* binding */ matchCauseEffect),
   NS5: () => (/* binding */ exit),
   SvU: () => (/* binding */ try_),
-  RIP: () => (/* binding */ unsafeMakeSemaphore),
+  MDB: () => (/* binding */ logDebug),
   bIC: () => (/* binding */ Effect_async),
+  RIP: () => (/* binding */ unsafeMakeSemaphore),
   FcF: () => (/* binding */ uninterruptibleMask),
   TSs: () => (/* binding */ reduce),
   TjK: () => (/* binding */ map),
@@ -32853,7 +32867,7 @@ __webpack_require__.d(__webpack_exports__, {
   KuX: () => (/* binding */ catchTag)
 });
 
-// UNUSED EXPORTS: runPromiseExit, custom, tryMapPromise, console, logAnnotations, setFiberRefs, addFinalizer, inheritFiberRefs, ensuringChildren, onExit, schedule, consoleWith, fork, descriptor, validate, tapError, catchSomeDefect, checkInterruptible, parallelFinalizers, patchFiberRefs, logError, updateService, annotateLogsScoped, cachedWithTTL, makeLatch, cached, serviceFunctionEffect, configProviderWith, random, fiberId, cachedFunction, labelMetricsScoped, unlessEffect, currentParentSpan, logWithLevel, linkSpans, randomWith, withTracer, supervised, fn, timeoutTo, forkAll, tracerWith, bind, withUnhandledErrorLogLevel, withExecutionPlan, flipWith, bindTo, serviceFunction, tracer, disconnect, withTracerEnabled, cause, descriptorWith, spanAnnotations, timedWith, unsandbox, filterMap, withRandomFixed, withTracerTiming, step, ensuringChild, repeatN, logDebug, retryOrElse, unless, filterOrDieMessage, mapInputContext, Tag, acquireReleaseInterruptible, withRandom, replicateEffect, locallyScopedWith, optionFromOptional, sandbox, bindAll, withClock, runSyncExit, Do, option, diffFiberRefs, whileLoop, loop, allWith, contextWithEffect, locallyScoped, ignoreLogged, catchTags, finalizersMask, parallelErrors, andThen, whenEffect, replicate, request, firstSuccessOf, exists, fnUntraced, ensureSuccessType, scheduleFrom, filterEffectOrElse, withClockScoped, withRandomScoped, isSuccess, getRuntimeFlags, withConfigProviderScoped, fromNullable, withConsoleScoped, forkWithErrorHandler, validateFirst, functionWithSpan, delay, withSpanScoped, tagMetricsScoped, whenLogLevel, cachedInvalidateWithTTL, blocked, logFatal, serviceConstants, timeoutOption, tapDefect, locally, yieldNow, filterOrDie, makeSpanScoped, logTrace, metricLabels, ensureErrorType, raceAll, transposeOption, ensureRequirementsType, asSomeError, useSpan, linkSpanCurrent, isFailure, withRequestCaching, validateWith, catchIf, negate, sequentialFinalizers, tapBoth, onInterrupt, timeout, every, tapErrorTag, withConfigProvider, mapErrorCause, catchSome, whenFiberRef, once, withParentSpan, updateFiberRefs, none, patchRuntimeFlags, clockWith, flip, fromFiberEffect, let, reduceEffect, withLogSpan, cacheRequestResult, daemonChildren, withConcurrency, scheduleForked, withRuntimeFlagsPatch, head, labelMetrics, withSchedulingPriority, runRequestBlock, serviceFunctions, spanLinks, annotateLogs, mergeAll, merge, annotateSpans, withEarlyRelease, ap, tagMetrics, filterOrElse, if, reduceWhile, withScheduler, succeedSome, withSpan, interruptWith, orDieWith, validateAll, summarized, transposeMapOption, catchAllDefect, withTracerScoped, filterOrFail, allowInterrupt, logInfo, withConsole, catch, getFiberRefs, runCallback, withMaxOpsBeforeYield, fromFiber, serviceMembers, using, currentSpan, annotateCurrentSpan, whenRef, interruptibleMask, mapAccum, takeUntil, orElseSucceed, reduceRight, serviceOptional, withMetric, liftPredicate, withRequestCache, withRequestBatching, eventually, Service, timed, filterEffectOrFail, transplant, orElseFail, asyncEffect, locallyWith, partition, provideService, repeatOrElse, allSuccesses, withRuntimeFlagsPatchScoped, awaitAllChildren, iterate
+// UNUSED EXPORTS: runPromiseExit, custom, tryMapPromise, console, logAnnotations, setFiberRefs, addFinalizer, inheritFiberRefs, ensuringChildren, onExit, schedule, consoleWith, fork, descriptor, validate, tapError, catchSomeDefect, checkInterruptible, parallelFinalizers, patchFiberRefs, logError, updateService, annotateLogsScoped, cachedWithTTL, makeLatch, cached, serviceFunctionEffect, configProviderWith, random, fiberId, cachedFunction, labelMetricsScoped, unlessEffect, currentParentSpan, logWithLevel, linkSpans, randomWith, withTracer, supervised, fn, timeoutTo, forkAll, tracerWith, bind, withUnhandledErrorLogLevel, withExecutionPlan, flipWith, bindTo, serviceFunction, tracer, disconnect, withTracerEnabled, cause, descriptorWith, spanAnnotations, timedWith, unsandbox, filterMap, withRandomFixed, withTracerTiming, step, ensuringChild, repeatN, retryOrElse, unless, filterOrDieMessage, mapInputContext, Tag, acquireReleaseInterruptible, withRandom, replicateEffect, locallyScopedWith, optionFromOptional, sandbox, bindAll, withClock, runSyncExit, Do, option, diffFiberRefs, whileLoop, loop, allWith, contextWithEffect, locallyScoped, ignoreLogged, catchTags, finalizersMask, parallelErrors, andThen, whenEffect, replicate, request, firstSuccessOf, exists, fnUntraced, ensureSuccessType, scheduleFrom, filterEffectOrElse, withClockScoped, withRandomScoped, isSuccess, getRuntimeFlags, withConfigProviderScoped, fromNullable, withConsoleScoped, forkWithErrorHandler, validateFirst, functionWithSpan, delay, withSpanScoped, tagMetricsScoped, whenLogLevel, cachedInvalidateWithTTL, blocked, logFatal, serviceConstants, timeoutOption, tapDefect, locally, yieldNow, filterOrDie, makeSpanScoped, logTrace, metricLabels, ensureErrorType, raceAll, transposeOption, ensureRequirementsType, asSomeError, useSpan, linkSpanCurrent, isFailure, withRequestCaching, validateWith, catchIf, negate, sequentialFinalizers, tapBoth, onInterrupt, timeout, every, tapErrorTag, withConfigProvider, mapErrorCause, catchSome, whenFiberRef, once, withParentSpan, updateFiberRefs, none, patchRuntimeFlags, clockWith, flip, fromFiberEffect, let, reduceEffect, withLogSpan, cacheRequestResult, daemonChildren, withConcurrency, scheduleForked, withRuntimeFlagsPatch, head, labelMetrics, withSchedulingPriority, runRequestBlock, serviceFunctions, spanLinks, annotateLogs, mergeAll, merge, annotateSpans, withEarlyRelease, ap, tagMetrics, filterOrElse, if, reduceWhile, withScheduler, succeedSome, withSpan, interruptWith, orDieWith, validateAll, summarized, transposeMapOption, catchAllDefect, withTracerScoped, filterOrFail, allowInterrupt, logInfo, withConsole, catch, getFiberRefs, runCallback, withMaxOpsBeforeYield, fromFiber, serviceMembers, using, currentSpan, annotateCurrentSpan, whenRef, interruptibleMask, mapAccum, takeUntil, orElseSucceed, reduceRight, serviceOptional, withMetric, liftPredicate, withRequestCache, withRequestBatching, eventually, Service, timed, filterEffectOrFail, transplant, orElseFail, asyncEffect, locallyWith, partition, provideService, repeatOrElse, allSuccesses, withRuntimeFlagsPatchScoped, awaitAllChildren, iterate
 
 // EXTERNAL MODULE: ./node_modules/.pnpm/effect@3.20.0/node_modules/effect/dist/esm/Function.js
 var Function = __webpack_require__(7218);

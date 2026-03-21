@@ -12,7 +12,17 @@ export const post = Effect.gen(function* () {
 	yield* saveCache();
 }).pipe(
 	// Non-fatal: cache save errors should warn, not fail the action
-	Effect.catchAll((error) => Effect.logWarning(`Post action cache save failed: ${extractErrorReason(error)}`)),
+	Effect.catchAll((error) =>
+		Effect.gen(function* () {
+			yield* Effect.logWarning(`Post action cache save failed: ${extractErrorReason(error)}`);
+			if (error && typeof error === "object" && "cause" in error) {
+				const cause = (error as { cause?: unknown }).cause;
+				yield* Effect.logWarning(
+					`Post action cache save cause: ${cause instanceof Error ? cause.message : JSON.stringify(cause)}`,
+				);
+			}
+		}),
+	),
 );
 
 // Business logic layers for post action — Action.run provides core services

@@ -388,16 +388,32 @@ export const main = Effect.gen(function* () {
 	// 3. Restore cache (non-fatal)
 	const cacheResult = yield* logger.group(
 		"Restore cache",
-		restoreCache({
-			cachePaths: finalCachePaths,
-			runtimes: runtimeEntries,
-			packageManager: { name: config.packageManager.name, version: config.packageManager.version },
-			lockfiles,
-			cacheBust: cacheBustValue,
+		Effect.gen(function* () {
+			// Diagnostic: check which cache env vars are available
+			const cacheEnvDiag = [
+				`ACTIONS_CACHE_URL: ${process.env.ACTIONS_CACHE_URL ? "set" : "NOT SET"}`,
+				`ACTIONS_RESULTS_URL: ${process.env.ACTIONS_RESULTS_URL ? "set" : "NOT SET"}`,
+				`ACTIONS_RUNTIME_TOKEN: ${process.env.ACTIONS_RUNTIME_TOKEN ? "set" : "NOT SET"}`,
+				`ACTIONS_CACHE_SERVICE_V2: ${process.env.ACTIONS_CACHE_SERVICE_V2 ?? "NOT SET"}`,
+			].join(", ");
+			yield* Effect.logDebug(`Cache env diagnostic: ${cacheEnvDiag}`);
+
+			return yield* restoreCache({
+				cachePaths: finalCachePaths,
+				runtimes: runtimeEntries,
+				packageManager: { name: config.packageManager.name, version: config.packageManager.version },
+				lockfiles,
+				cacheBust: cacheBustValue,
+			});
 		}).pipe(
 			Effect.catchTag("CacheError", (e) =>
 				Effect.gen(function* () {
 					yield* Effect.logWarning(`Cache restore failed: ${e.reason}`);
+					if (e.cause) {
+						yield* Effect.logWarning(
+							`Cache restore cause: ${e.cause instanceof Error ? e.cause.message : JSON.stringify(e.cause)}`,
+						);
+					}
 					return "none" as const;
 				}),
 			),

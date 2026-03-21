@@ -531,7 +531,13 @@ __webpack_require__.d(__webpack_exports__, {
 const post = effect__rspack_import_2/* .gen */.JkU(function*() {
     yield* (0,_cache_js__rspack_import_0/* .saveCache */.Io)();
 }).pipe(// Non-fatal: cache save errors should warn, not fail the action
-effect__rspack_import_2/* .catchAll */.h9N((error)=>effect__rspack_import_2/* .logWarning */.FFw(`Post action cache save failed: ${(0,_runtime_installer_js__rspack_import_1/* .extractErrorReason */.YV)(error)}`)));
+effect__rspack_import_2/* .catchAll */.h9N((error)=>effect__rspack_import_2/* .gen */.JkU(function*() {
+        yield* effect__rspack_import_2/* .logWarning */.FFw(`Post action cache save failed: ${(0,_runtime_installer_js__rspack_import_1/* .extractErrorReason */.YV)(error)}`);
+        if (error && typeof error === "object" && "cause" in error) {
+            const cause = error.cause;
+            yield* effect__rspack_import_2/* .logWarning */.FFw(`Post action cache save cause: ${cause instanceof Error ? cause.message : JSON.stringify(cause)}`);
+        }
+    })));
 // Business logic layers for post action — Action.run provides core services
 // ActionStateLive requires FileSystem, so we provide NodeFileSystem.layer.
 const PostLive = effect__rspack_import_3/* .mergeAll */.Um(_savvy_web_github_action_effects__rspack_import_4/* .ActionCacheLive */.bB, _savvy_web_github_action_effects__rspack_import_4/* .ActionStateLive.pipe */.AY.pipe(effect__rspack_import_3/* .provide */.Gt(_effect_platform_node__rspack_import_5/* .layer */.q)));
