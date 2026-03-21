@@ -15,7 +15,7 @@ Key architectural properties:
 - **Logging via Effect.log** -- `Effect.log`, `Effect.logWarning`, `Effect.logError`, `Effect.logDebug` for all log output; `ActionLogger.group()` for collapsible sections
 - **Build via rsbuild** -- `@savvy-web/github-action-builder` 0.5.0 uses rsbuild under the hood
 
-For a full architectural spec see `docs/superpowers/specs/2026-03-17-effect-refactor-design.md`.
+For a full architectural spec see `.claude/design/workflow-runtime-action/architecture.md`.
 
 ## Entry Points
 
@@ -224,3 +224,12 @@ Ensure the required service is included in the layer passed to `Effect.provide` 
 - [**test**/CLAUDE.md](../__test__/CLAUDE.md) - Unit testing strategy
 - [**fixtures**/CLAUDE.md](../__fixtures__/CLAUDE.md) - Integration testing
 - [Effect Documentation](https://effect.website/docs) - Effect framework reference
+
+### Design Documentation
+
+For deep architectural details:
+
+- **Architecture:** `@../.claude/design/workflow-runtime-action/architecture.md`
+- **Effect Service Model:** `@../.claude/design/workflow-runtime-action/effect-service-model.md`
+- **Runtime Installation:** `@../.claude/design/workflow-runtime-action/runtime-installation.md`
+- **Caching Strategy:** `@../.claude/design/workflow-runtime-action/caching-strategy.md`

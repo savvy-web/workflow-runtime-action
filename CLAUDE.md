@@ -167,6 +167,23 @@ This repository uses modular documentation organized by directory:
 * **[**fixtures**/CLAUDE.md](__fixtures__/CLAUDE.md)** - Test fixtures for integration testing
 * **[.github/workflows/CLAUDE.md](.github/workflows/CLAUDE.md)** - Workflow testing patterns and reusable actions
 
+### Design Documentation
+
+For deep architectural details, rationale, and design decisions:
+
+* **Architecture:** `@./.claude/design/workflow-runtime-action/architecture.md`
+  Load when understanding overall system design, entry points, or layer composition.
+* **Effect Service Model:** `@./.claude/design/workflow-runtime-action/effect-service-model.md`
+  Load when working with services, error handling, or dependency injection.
+* **Runtime Installation:** `@./.claude/design/workflow-runtime-action/runtime-installation.md`
+  Load when modifying runtime descriptors, PM setup, or Biome installation.
+* **Caching Strategy:** `@./.claude/design/workflow-runtime-action/caching-strategy.md`
+  Load when working with cache keys, lockfiles, or cross-phase state.
+* **Build and Distribution:** `@./.claude/design/workflow-runtime-action/build-and-distribution.md`
+  Load when modifying build config, dist management, or release process.
+* **Testing Strategy:** `@./.claude/design/workflow-runtime-action/testing-strategy.md`
+  Load when writing tests, understanding mock patterns, or fixture setup.
+
 ## Project Structure
 
 ```text
