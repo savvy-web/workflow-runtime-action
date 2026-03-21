@@ -1,14 +1,14 @@
-# **tests**/CLAUDE.md
+# **test**/CLAUDE.md
 
 Unit testing strategy, mocking patterns, and coverage requirements for workflow-runtime-action.
 
-**See also:** [Root CLAUDE.md](../CLAUDE.md) for repository overview | [**fixtures**/CLAUDE.md](../__fixtures__/CLAUDE.md) for integration testing.
+**See also:** [Root CLAUDE.md](../CLAUDE.md) | [src/CLAUDE.md](../src/CLAUDE.md) | [**fixtures**/CLAUDE.md](../__fixtures__/CLAUDE.md) for integration testing.
 
 ## Testing Strategy
 
 This action uses a **dual testing approach**:
 
-1. **Unit Tests** (this document) - Fast, isolated tests of individual utility functions with Vitest
+1. **Unit Tests** (this document) - Fast, isolated tests using Effect test layers with Vitest
 2. **Fixture Tests** (see [**fixtures**/CLAUDE.md](../__fixtures__/CLAUDE.md)) - Real-world integration tests in GitHub Actions workflows
 
 Unit tests provide fast feedback during development and ensure code coverage thresholds are met.
@@ -16,15 +16,15 @@ Unit tests provide fast feedback during development and ensure code coverage thr
 ## Test Organization
 
 ```text
-__tests__/
-├── cache-utils.test.ts       # Dependency caching tests
-├── install-biome.test.ts     # Biome installation tests
-├── install-bun.test.ts       # Bun installation tests
-├── install-deno.test.ts      # Deno installation tests
-├── install-node.test.ts      # Node.js installation tests
-├── main.test.ts              # Main action orchestration tests
-└── utils/
-    └── github-mocks.ts       # Shared test utilities
+__test__/
+├── cache.test.ts             # Cache restore/save, key generation, lockfile detection
+├── config.test.ts            # devEngines loading, Biome/Turbo detection
+├── descriptors.test.ts       # Per-runtime download URL and install option helpers
+├── errors.test.ts            # TaggedError construction and tag assertions
+├── main.test.ts              # Full pipeline integration via Effect test layers
+├── post.test.ts              # Post-action cache save logic
+├── runtime-installer.test.ts # RuntimeInstaller service, makeRuntimeInstaller factory
+└── schemas.test.ts           # Effect Schema validators (AbsoluteVersion, DevEngines, etc.)
 ```
 
 ## Running Tests
@@ -37,432 +37,182 @@ pnpm test
 pnpm test --watch
 
 # Run specific test file
-pnpm test __tests__/install-node.test.ts
+pnpm test __test__/cache.test.ts
 
 # View coverage report
 open coverage/index.html
 ```
 
-## Coverage Requirements
-
-Configured in [../vitest.config.ts](../vitest.config.ts):
-
-```json
-{
-  "branches": 85,
-  "functions": 90,
-  "lines": 90,
-  "statements": 90
-}
-```
-
-**Current Coverage:**
-
-* **88% branch coverage** ✅ (exceeds 85% threshold)
-* **~95%+ function/line/statement coverage** ✅ (exceeds 90% threshold)
-
 ## Mocking Strategy
 
-All external dependencies are mocked using Vitest to ensure tests are:
+### No vi.mock Needed
 
-* **Fast** - No network requests or file system operations
-* **Reliable** - No flaky tests due to external dependencies
-* **Isolated** - Each test runs independently
-
-### Basic Mock Setup
+Since `@savvy-web/github-action-effects` 0.11.10 has **zero `@actions/*` dependencies** (it implements the GitHub Actions runtime protocol natively), there are no problematic transitive imports that break in the test environment. Tests import service tags directly and provide inline mock implementations via `Layer.succeed`:
 
 ```typescript
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import * as core from "@actions/core";
-import * as tc from "@actions/tool-cache";
-import { HttpClient } from "@actions/http-client";
-import { readdirSync } from "node:fs";
+import { ActionOutputs, ActionLogger, ActionCache } from "@savvy-web/github-action-effects"
+import { FileSystem } from "@effect/platform"
+import { Effect, Layer } from "effect"
+import type { Context as ContextType } from "effect"
 
-// Mock all external modules
-vi.mock("@actions/core");
-vi.mock("@actions/tool-cache");
-vi.mock("@actions/http-client");
-vi.mock("node:fs");
-
-describe("installNode", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-
-    // Setup default mocks
-    vi.mocked(core.info).mockImplementation(() => {});
-    vi.mocked(tc.find).mockReturnValue("");
-  });
-
-  it("should install Node.js", async () => {
-    // Test implementation
-  });
-});
+const makeOutputsLayer = (store: Record<string, string>) =>
+  Layer.succeed(ActionOutputs, {
+    set: (name: string, value: string) => {
+      store[name] = value
+      return Effect.void
+    },
+    setJson: () => Effect.void,
+    summary: () => Effect.void,
+    exportVariable: (name: string, value: string) => {
+      exportedVars[name] = value
+      return Effect.void
+    },
+    addPath: () => Effect.void,
+    setFailed: () => Effect.void,
+    setSecret: () => Effect.void,
+  } as unknown as ContextType.Tag.Service<typeof ActionOutputs>)
 ```
 
-### Type-Safe Mocking
+### Effect Test Layers
 
-**Never use `any` types.** Always use `as unknown as Type`:
+Services are injected via `Layer.succeed` with inline mock implementations. This mirrors the real production layer composition and tests the actual Effect plumbing. No `vi.mock`, no `/testing` subpath import -- just direct imports and layers.
+
+**Pattern:**
 
 ```typescript
-// ✅ Correct - Type-safe mock
-vi.mocked(readdirSync).mockReturnValue(
-  ["node-v20.11.0-linux-x64"] as unknown as ReturnType<typeof readdirSync>
-);
+const makeFileSystemLayer = (files: Record<string, string>) =>
+  Layer.succeed(
+    FileSystem.FileSystem,
+    FileSystem.makeNoop({
+      readFileString: (path) => {
+        const content = files[path]
+        if (content === undefined) return Effect.fail(new Error(`File not found: ${path}`))
+        return Effect.succeed(content)
+      },
+      access: (path) => {
+        if (files[path] !== undefined) return Effect.void
+        return Effect.fail(new Error(`No access: ${path}`))
+      },
+    }),
+  )
 
-// ✅ Correct - Class instance mock
-vi.mocked(HttpClient).mockImplementation(
-  () => ({ get: mockGet }) as unknown as InstanceType<typeof HttpClient>
-);
+const layer = Layer.mergeAll(
+  makeOutputsLayer(outputStore),
+  makeLoggerLayer(),
+  makeCacheLayer("none"),
+  makeStateLayer(),
+  makeEnvironmentLayer({ GITHUB_REF: "refs/heads/main" }),
+  makeCommandRunnerLayer(cmdResponses),
+  makeToolInstallerLayer(),
+  makeFileSystemLayer({ "package.json": VALID_PACKAGE_JSON }),
+)
 
-// ❌ Incorrect - Using 'any'
-vi.mocked(readdirSync).mockReturnValue(["file.txt"] as any);
+await Effect.runPromise(Effect.provide(pipeline, layer))
 ```
 
-This ensures type safety and catches errors at compile time.
+### Config Inputs in Tests
 
-## Common Mocking Patterns
-
-### Mocking HTTP Requests
-
-For functions that download binaries from external sources:
+Since action inputs use the Effect `Config` API (`Config.string`, `Config.boolean`, `Config.withDefault`), tests provide input values via `ConfigProvider.fromMap`:
 
 ```typescript
-import * as tc from "@actions/tool-cache";
-
-beforeEach(() => {
-  vi.mocked(tc.downloadTool).mockResolvedValue("/tmp/download-path");
-  vi.mocked(tc.extractTar).mockResolvedValue("/tmp/extracted-path");
-  vi.mocked(tc.cacheDir).mockResolvedValue("/cached/tool/path");
-});
+const configLayer = Layer.setConfigProvider(
+  ConfigProvider.fromMap(new Map([
+    ["install-deps", "false"],
+    ["biome-version", "2.3.14"],
+  ]))
+)
 ```
 
-### Mocking File System Operations
+## Key Test Files
 
-For functions that read or write files:
+### main.test.ts
+
+Tests the full pipeline by re-composing the same Effect logic that `main.ts` uses, injecting all services as test layers. Assertions run against the captured `outputStore` and `exportedVars` records.
+
+Scenarios covered:
+
+* Full pipeline with valid config sets all outputs correctly
+* `install-deps=false` skips dependency installation
+* Biome install failure is non-fatal
+* Cache restore failure is non-fatal
+* Missing `package.json` fails with `ConfigError`
+* Cache hit mapping (`exact` -> `"true"`, `partial` -> `"partial"`, `none` -> `"false"`)
+* Multi-runtime config installs all runtimes
+* Turbo detection sets `TURBO_TOKEN` and `TURBO_TEAM` env vars
+
+### runtime-installer.test.ts
+
+Tests `makeRuntimeInstaller` in isolation with `ToolInstaller` and `CommandRunner` mock layers. Covers:
+
+* Returns correct `InstalledRuntime` on success
+* Wraps download/extract failures as `RuntimeInstallError`
+* `installerLayerFor` returns correct layers and fails for unknown names
+
+### cache.test.ts
+
+Tests cache key generation, lockfile detection, path defaults, and the restore/save roundtrip.
+
+### config.test.ts
+
+Tests `loadPackageJson`, `parseDevEngines`, `detectBiome`, and `detectTurbo` against mock `FileSystem` layers. Uses `ConfigProvider.fromMap` for Config input overrides.
+
+### schemas.test.ts
+
+Tests `AbsoluteVersion` rejects range operators and accepts well-formed semver strings. Tests `DevEngines` schema decoding with typed `RuntimeName` and `PackageManagerName` fields.
+
+## Layer Composition Pattern
 
 ```typescript
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+const buildBaseLayer = (opts: { files?, cacheHit?, env?, cmdResponses? }) => {
+  const outputStore: Record<string, string> = {}
+  const exportedVars: Record<string, string> = {}
+  const layer = Layer.mergeAll(
+    makeOutputsLayer(outputStore, exportedVars),
+    makeLoggerLayer(),
+    makeCacheLayer(opts.cacheHit ?? "none"),
+    makeStateLayer(),
+    makeEnvironmentLayer(opts.env ?? { GITHUB_REF: "refs/heads/main" }),
+    makeCommandRunnerLayer(opts.cmdResponses),
+    makeToolInstallerLayer(),
+    makeFileSystemLayer(opts.files ?? { "package.json": VALID_PACKAGE_JSON }),
+  )
+  return { layer, outputStore, exportedVars }
+}
 
-beforeEach(() => {
-  // Mock file existence checks
-  vi.mocked(existsSync).mockReturnValue(true);
-
-  // Mock file reads
-  vi.mocked(readFileSync).mockReturnValue('{"version": "2.3.14"}');
-
-  // Mock directory listings
-  vi.mocked(readdirSync).mockReturnValue(
-    ["node-v20.11.0-linux-x64"] as unknown as ReturnType<typeof readdirSync>
-  );
-});
+const runPipeline = (layer: Layer.Layer<never>) =>
+  Effect.runPromise(Effect.provide(pipeline, layer))
 ```
 
-### Mocking @actions/tool-cache
+## Coverage Requirements
 
-For functions that download and cache binaries:
+Configured in `vitest.config.ts`:
 
-```typescript
-import * as tc from "@actions/tool-cache";
-
-beforeEach(() => {
-  // Mock tool cache lookup
-  vi.mocked(tc.find).mockReturnValue("");
-
-  // Mock downloads
-  vi.mocked(tc.downloadTool).mockResolvedValue("/tmp/download");
-
-  // Mock extraction
-  vi.mocked(tc.extractTar).mockResolvedValue("/tmp/extracted");
-  vi.mocked(tc.extractZip).mockResolvedValue("/tmp/extracted");
-
-  // Mock caching
-  vi.mocked(tc.cacheDir).mockResolvedValue("/cached/path");
-});
-```
-
-### Mocking @actions/core
-
-For action inputs, outputs, and logging:
-
-```typescript
-import * as core from "@actions/core";
-
-beforeEach(() => {
-  // Mock inputs
-  vi.mocked(core.getInput).mockImplementation((name: string) => {
-    const inputs: Record<string, string> = {
-      "node-version": "20.x",
-      "package-manager": "pnpm",
-    };
-    return inputs[name] || "";
-  });
-
-  // Mock outputs
-  vi.mocked(core.setOutput).mockImplementation(() => {});
-
-  // Mock logging
-  vi.mocked(core.info).mockImplementation(() => {});
-  vi.mocked(core.warning).mockImplementation(() => {});
-  vi.mocked(core.error).mockImplementation(() => {});
-});
-```
-
-## Testing Best Practices
-
-### 1. Test All Code Paths
-
-Cover all branches, switch cases, and error handling:
-
-```typescript
-describe("installNode", () => {
-  it("should handle cached Node.js", async () => {
-    vi.mocked(tc.find).mockReturnValue("/cached/node");
-    // Test cached path
-  });
-
-  it("should download Node.js if not cached", async () => {
-    vi.mocked(tc.find).mockReturnValue("");
-    vi.mocked(tc.downloadTool).mockResolvedValue("/tmp/download");
-    // Test download path
-  });
-
-  it("should throw error on download failure", async () => {
-    vi.mocked(tc.find).mockReturnValue("");
-    vi.mocked(tc.downloadTool).mockRejectedValue(new Error("Network error"));
-    // Test error handling
-  });
-});
-```
-
-### 2. Test Configuration Validation
-
-Test validation of package.json devEngines configuration:
-
-```typescript
-describe("validateRuntimeConfig", () => {
-  it("should validate exact versions", () => {
-    const config = { name: "node", version: "24.10.0", onFail: "error" };
-    expect(() => validateRuntimeConfig(config, 0)).not.toThrow();
-  });
-
-  it("should emit notice for missing onFail", () => {
-    const config = { name: "node", version: "24.10.0" };
-    expect(() => validateRuntimeConfig(config, 0)).not.toThrow();
-    expect(core.notice).toHaveBeenCalledWith(expect.stringContaining("onFail"));
-  });
-
-  it("should emit notice for non-error onFail value", () => {
-    const config = { name: "node", version: "24.10.0", onFail: "warn" };
-    expect(() => validateRuntimeConfig(config, 0)).not.toThrow();
-    expect(core.notice).toHaveBeenCalledWith(expect.stringContaining("onFail"));
-  });
-});
-```
-
-### 3. Test Platform Differences
-
-Test platform-specific behavior (Linux tar vs Windows zip):
-
-```typescript
-describe("platform-specific extraction", () => {
-  it("should use extractTar on Linux", async () => {
-    vi.spyOn(process, "platform", "get").mockReturnValue("linux");
-    await installNode({ version: "20.11.0" });
-    expect(tc.extractTar).toHaveBeenCalled();
-  });
-
-  it("should use extractZip on Windows", async () => {
-    vi.spyOn(process, "platform", "get").mockReturnValue("win32");
-    await installNode({ version: "20.11.0" });
-    expect(tc.extractZip).toHaveBeenCalled();
-  });
-});
-```
-
-### 4. Test Error Scenarios
-
-Ensure errors are handled gracefully:
-
-```typescript
-describe("error handling", () => {
-  it("should throw on download failure", async () => {
-    vi.mocked(tc.downloadTool).mockRejectedValue(new Error("Network error"));
-
-    await expect(installNode({ version: "20.11.0" }))
-      .rejects.toThrow("Network error");
-  });
-
-  it("should throw on extraction failure", async () => {
-    vi.mocked(tc.extractTar).mockRejectedValue(new Error("Extraction failed"));
-
-    await expect(installNode({ version: "20.11.0" }))
-      .rejects.toThrow("Extraction failed");
-  });
-});
-```
-
-### 5. Test Edge Cases
-
-Cover empty inputs, malformed data, missing configuration:
-
-```typescript
-describe("edge cases", () => {
-  it("should handle missing devEngines", async () => {
-    vi.mocked(readFile).mockResolvedValue("{}");
-
-    await expect(parsePackageJson()).rejects.toThrow("devEngines not found");
-  });
-
-  it("should handle malformed package.json", async () => {
-    vi.mocked(readFile).mockResolvedValue("invalid json");
-
-    await expect(parsePackageJson()).rejects.toThrow();
-  });
-});
-```
-
-## Test File Structure
-
-Each test file should follow this structure:
-
-```typescript
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import * as core from "@actions/core";
-import * as tc from "@actions/tool-cache";
-import { myFunction } from "../src/utils/my-module.js";
-
-// Mock all external dependencies at the top
-vi.mock("@actions/core");
-vi.mock("@actions/tool-cache");
-
-describe("myFunction", () => {
-  beforeEach(() => {
-    // Clear all mocks before each test
-    vi.clearAllMocks();
-
-    // Setup default mocks
-    vi.mocked(core.info).mockImplementation(() => {});
-  });
-
-  describe("happy path", () => {
-    it("should do X when Y", async () => {
-      // Arrange
-      vi.mocked(tc.find).mockReturnValue("/cached");
-
-      // Act
-      await myFunction();
-
-      // Assert
-      expect(tc.find).toHaveBeenCalledWith("tool", "1.0.0");
-    });
-  });
-
-  describe("error handling", () => {
-    it("should throw when X fails", async () => {
-      // Arrange
-      vi.mocked(tc.find).mockImplementation(() => {
-        throw new Error("Not found");
-      });
-
-      // Act & Assert
-      await expect(myFunction()).rejects.toThrow("Not found");
-    });
-  });
-
-  describe("edge cases", () => {
-    it("should handle empty input", async () => {
-      // Test edge case
-    });
-  });
-});
-```
-
-## Debugging Tests
-
-### View Test Output
-
-```bash
-# Run with verbose output
-pnpm test --reporter=verbose
-
-# Run single test file with output
-pnpm test __tests__/install-node.test.ts --reporter=verbose
-```
-
-### Debug Mocks
-
-```typescript
-// Log mock calls
-console.log(vi.mocked(core.info).mock.calls);
-
-// Check if mock was called
-expect(core.info).toHaveBeenCalled();
-
-// Check mock call arguments
-expect(core.info).toHaveBeenCalledWith("Installing Node.js 20.11.0");
-
-// Check number of calls
-expect(core.info).toHaveBeenCalledTimes(3);
-```
-
-### Coverage Reports
-
-```bash
-# Generate coverage report
-pnpm test
-
-# Open HTML report
-open coverage/index.html
-
-# View coverage summary
-pnpm test --coverage
-```
+* **Branches:** 85%
+* **Functions/Lines/Statements:** 90%
 
 ## Common Issues
 
-### "Module not mocked"
+### Type errors in test layers
 
-**Issue:** Test fails because a module isn't mocked
+Use `as unknown as ContextType.Tag.Service<typeof ServiceTag>` at service boundaries -- mock implementations don't need to satisfy the full service type, only the methods actually called by the code under test.
 
-**Solution:** Add mock at the top of the test file:
+### "Effect service not found"
 
-```typescript
-vi.mock("@actions/core");
-vi.mock("node:fs");
-```
+Ensure all services required by the Effect under test are present in `Layer.mergeAll(...)`.
 
-### "Type error in mock"
+### Config values not picked up in tests
 
-**Issue:** TypeScript complains about mock types
-
-**Solution:** Use `as unknown as Type`:
+Wrap the effect with a `ConfigProvider` layer:
 
 ```typescript
-vi.mocked(func).mockReturnValue(value as unknown as ReturnType<typeof func>);
+const result = await Effect.runPromise(
+  myEffect.pipe(
+    Effect.provide(Layer.setConfigProvider(
+      ConfigProvider.fromMap(new Map([["input-name", "value"]]))
+    )),
+  ),
+)
 ```
-
-### "Mock not reset between tests"
-
-**Issue:** Mock state carries over between tests
-
-**Solution:** Clear mocks in `beforeEach`:
-
-```typescript
-beforeEach(() => {
-  vi.clearAllMocks();
-});
-```
-
-### "Coverage not meeting threshold"
-
-**Issue:** Tests pass but coverage is below threshold
-
-**Solution:** Add tests for uncovered branches:
-
-1. Run `pnpm test --coverage`
-2. Open `coverage/index.html`
-3. Find uncovered lines (highlighted in red)
-4. Add tests for those code paths
 
 ## Related Documentation
 
@@ -470,4 +220,4 @@ beforeEach(() => {
 * [src/CLAUDE.md](../src/CLAUDE.md) - Source code architecture
 * [**fixtures**/CLAUDE.md](../__fixtures__/CLAUDE.md) - Integration testing
 * [Vitest Documentation](https://vitest.dev/) - Testing framework
-* [Vitest Mocking](https://vitest.dev/guide/mocking.html) - Mocking guide
+* [Effect Documentation](https://effect.website/docs) - Effect framework reference

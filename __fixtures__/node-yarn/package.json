@@ -6,12 +6,12 @@
 		"packageManager": {
 			"name": "yarn",
 			"version": "4.0.0",
-			"onFail": "error"
+			"onFail": "ignore"
 		},
 		"runtime": {
 			"name": "node",
 			"version": "20.11.0",
-			"onFail": "error"
+			"onFail": "ignore"
 		}
 	},
 	"dependencies": {

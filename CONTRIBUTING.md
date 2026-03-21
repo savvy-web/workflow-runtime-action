@@ -27,7 +27,7 @@ pnpm install
 
 1. **Create a branch** for your feature or fix
 2. **Make your changes** in the `src/` directory
-3. **Add or update tests** in `__tests__/`
+3. **Add or update tests** in `__test__/`
 4. **Run tests** to ensure everything works
 5. **Build the action** (required before committing!)
 6. **Commit your changes** including built files
@@ -45,8 +45,8 @@ pnpm lint:fix
 # Build the action (REQUIRED before commit!)
 pnpm build
 
-# Commit both source and dist (including .github/actions/runtime/)
-git add src/ dist/ .github/actions/runtime/
+# Commit both source and dist (including .github/actions/local/)
+git add src/ dist/ .github/actions/local/
 git commit -m "feat: add new feature"
 ```
 
@@ -55,7 +55,7 @@ git commit -m "feat: add new feature"
 The build process compiles TypeScript to JavaScript and creates two copies:
 
 1. **Production build** (`dist/`) - Used by the published action
-2. **Local testing copy** (`.github/actions/runtime/`) - Used by integration
+2. **Local testing copy** (`.github/actions/local/`) - Used by integration
    tests
 
 **Important:** Always run `pnpm build` and commit both directories!
@@ -98,20 +98,20 @@ pnpm test              # Run unit tests with coverage
 pnpm test --watch      # Run tests in watch mode
 
 # Building
-pnpm build             # Build action with @vercel/ncc
+pnpm build             # Build action with @savvy-web/github-action-builder
 ```
 
 ## Testing
 
 ### Unit Tests
 
-Unit tests are in `__tests__/` and use Vitest:
+Unit tests are in `__test__/` and use Vitest:
 
 ```bash
 pnpm test
 ```
 
-See [**tests**/CLAUDE.md](__tests__/CLAUDE.md) for testing guidelines.
+See [**test**/CLAUDE.md](__test__/CLAUDE.md) for testing guidelines.
 
 ### Integration Tests
 
@@ -134,11 +134,11 @@ The action can be tested in GitHub Actions workflows:
 
 **Workflow:** `.github/workflows/demo.yml`
 
-Demonstrates three usage patterns:
+Demonstrates usage patterns:
 
-* Auto-detect configuration from package.json
-* Explicit configuration via inputs
+* Auto-detect configuration from package.json devEngines
 * Skip dependency installation
+* Biome and Turbo integration
 
 **To run:** Actions → "Demo - Quick Test" → Run workflow
 
@@ -160,21 +160,31 @@ Full test suite across:
 ```text
 .
 ├── src/                     # TypeScript source code
-│   ├── pre.ts              # Pre-action hook
-│   ├── main.ts             # Main action logic
-│   ├── post.ts             # Post-action hook
-│   └── utils/              # Utility modules
+│   ├── main.ts              # Main action logic (Effect pipeline)
+│   ├── post.ts              # Post-action hook (cache save)
+│   ├── config.ts            # devEngines parsing and detection helpers
+│   ├── cache.ts             # Cache operations (restore/save)
+│   ├── runtime-installer.ts # RuntimeInstaller service + descriptor layers
+│   ├── schemas.ts           # Effect Schema definitions
+│   ├── errors.ts            # TaggedError hierarchy
+│   ├── emoji.ts             # Log formatting helpers
+│   └── descriptors/         # Per-runtime download descriptors
+│       ├── node.ts
+│       ├── bun.ts
+│       ├── deno.ts
+│       └── biome.ts
 ├── dist/                    # Compiled JavaScript (committed!)
-│   ├── pre.js
 │   ├── main.js
-│   └── post.js
-├── __tests__/               # Unit tests
+│   ├── post.js
+│   └── package.json
+├── __test__/                # Unit tests
 ├── __fixtures__/            # Integration test fixtures
 ├── .github/
 │   ├── actions/
 │   │   ├── test-fixture/   # Unified test helper
-│   │   └── runtime/        # Local copy for testing (committed!)
+│   │   └── local/          # Local copy of action for testing (committed!)
 │   └── workflows/          # CI/CD workflows
+├── action.config.ts         # Build configuration for github-action-builder
 ├── action.yml               # Action definition
 ├── package.json             # Dependencies and scripts
 └── CLAUDE.md                # Detailed documentation
@@ -186,7 +196,7 @@ This repository uses modular documentation:
 
 * **[CLAUDE.md](CLAUDE.md)** - Comprehensive developer documentation
 * **[src/CLAUDE.md](src/CLAUDE.md)** - Source code architecture
-* **[**tests**/CLAUDE.md](__tests__/CLAUDE.md)** - Unit testing guidelines
+* **[**test**/CLAUDE.md](__test__/CLAUDE.md)** - Unit testing guidelines
 * **[**fixtures**/CLAUDE.md](__fixtures__/CLAUDE.md)** - Test fixtures
 * **[.github/workflows/CLAUDE.md](.github/workflows/CLAUDE.md)** - Workflow
   testing patterns
@@ -234,7 +244,7 @@ Follow the prompts to:
 
 ```bash
 pnpm build
-git add dist/ .github/actions/runtime/
+git add dist/ .github/actions/local/
 git commit --amend --no-edit
 ```
 
@@ -245,12 +255,12 @@ git commit --amend --no-edit
 **Solution:** Always use `.js` extensions and `node:` protocol
 
 ```typescript
-// ✅ Correct
-import { installNode } from "./install-node.js";
+// Correct
+import { loadPackageJson } from "./config.js";
 import { readFile } from "node:fs/promises";
 
-// ❌ Incorrect
-import { installNode } from "./install-node";
+// Incorrect
+import { loadPackageJson } from "./config";
 import { readFile } from "fs/promises";
 ```
 
@@ -273,7 +283,7 @@ pnpm lint:md:fix    # Fix markdown issues
 * [ ] Type checking passes (`pnpm typecheck`)
 * [ ] Linting passes (`pnpm lint`)
 * [ ] Action is built (`pnpm build`)
-* [ ] Both `dist/` and `.github/actions/runtime/` are committed
+* [ ] Both `dist/` and `.github/actions/local/` are committed
 * [ ] Changeset created (`pnpm changeset`)
 * [ ] Documentation updated if needed
 
@@ -314,4 +324,4 @@ MIT License.
 
 ---
 
-Thank you for contributing! 🎉
+Thank you for contributing!
