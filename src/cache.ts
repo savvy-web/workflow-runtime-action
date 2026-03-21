@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
-import { platform, tmpdir } from "node:os";
+import { homedir, platform, tmpdir } from "node:os";
+import { join } from "node:path";
 import { FileSystem } from "@effect/platform";
 import { ActionCache, ActionEnvironment, ActionState, CommandRunner } from "@savvy-web/github-action-effects";
 import { Effect, Option } from "effect";
@@ -38,25 +39,34 @@ const hashString = (input: string): string => createHash("sha256").update(input)
 /* v8 ignore start -- platform-specific constant mappings, only one branch executes per OS */
 export const getDefaultCachePaths = (pm: PackageManager): string[] => {
 	const plat = platform();
+	const home = homedir();
 
 	switch (pm) {
 		case "npm":
-			return [plat === "win32" ? "~/AppData/Local/npm-cache" : "~/.npm"];
+			return [plat === "win32" ? join(home, "AppData", "Local", "npm-cache") : join(home, ".npm")];
 
 		case "pnpm":
-			return [plat === "win32" ? "~/AppData/Local/pnpm/store" : "~/.local/share/pnpm/store"];
+			return [
+				plat === "win32"
+					? join(home, "AppData", "Local", "pnpm", "store")
+					: join(home, ".local", "share", "pnpm", "store"),
+			];
 
 		case "yarn":
 			return [
-				plat === "win32" ? "~/AppData/Local/Yarn/Cache" : "~/.yarn/cache",
-				plat === "win32" ? "~/AppData/Local/Yarn/Berry/cache" : "~/.cache/yarn",
+				plat === "win32" ? join(home, "AppData", "Local", "Yarn", "Cache") : join(home, ".yarn", "cache"),
+				plat === "win32" ? join(home, "AppData", "Local", "Yarn", "Berry", "cache") : join(home, ".cache", "yarn"),
 			];
 
 		case "bun":
-			return [plat === "win32" ? "~/AppData/Local/bun/install/cache" : "~/.bun/install/cache"];
+			return [
+				plat === "win32"
+					? join(home, "AppData", "Local", "bun", "install", "cache")
+					: join(home, ".bun", "install", "cache"),
+			];
 
 		case "deno":
-			return [plat === "win32" ? "~/AppData/Local/deno" : "~/.cache/deno"];
+			return [plat === "win32" ? join(home, "AppData", "Local", "deno") : join(home, ".cache", "deno")];
 	}
 };
 /* v8 ignore stop */
@@ -108,8 +118,7 @@ const getToolCachePaths = (runtimes: ReadonlyArray<{ name: string; version: stri
 
 	for (const { name, version } of runtimes) {
 		if (name === "node" || name === "bun" || name === "deno" || name === "biome") {
-			paths.push(`${toolCacheBase}/${name}/${version}`);
-			paths.push(`${toolCacheBase}/${name}/${version}/*`);
+			paths.push(join(toolCacheBase, name, version));
 		}
 	}
 
@@ -380,6 +389,16 @@ export const restoreCache = (config: {
 
 		const restoreKeys = yield* generateRestoreKeys(config.runtimes, config.packageManager, config.cacheBust);
 
+		// Log cache key details for debugging
+		yield* Effect.logDebug(`Cache primary key: ${primaryKey}`);
+		yield* Effect.logDebug(
+			`Cache restore keys: ${restoreKeys.length > 0 ? restoreKeys.join(", ") : "(none — exact match only)"}`,
+		);
+		yield* Effect.logDebug(`Cache paths (${config.cachePaths.length}): ${config.cachePaths.join(", ")}`);
+		if (config.cacheBust) {
+			yield* Effect.logDebug(`Cache bust value: ${config.cacheBust}`);
+		}
+
 		const matchedKey = yield* cache.restore(config.cachePaths, primaryKey, restoreKeys).pipe(
 			Effect.mapError(
 				(cause) =>
@@ -397,6 +416,10 @@ export const restoreCache = (config: {
 				? ("exact" as const)
 				: ("partial" as const)
 			: ("none" as const);
+
+		yield* Effect.log(
+			`Cache ${hit === "exact" ? "restored (exact match)" : hit === "partial" ? `restored (partial: ${Option.getOrElse(matchedKey, () => "?")})` : "miss"}`,
+		);
 
 		// Save state for post action
 		yield* state.save(
@@ -432,8 +455,13 @@ export const saveCache = () =>
 			),
 		);
 
+		yield* Effect.log(
+			`Cache state from main: hit=${cacheState.hit}, key=${cacheState.key ?? "(none)"}, paths=${cacheState.paths?.length ?? 0}`,
+		);
+
 		// Skip save on exact hit — cache is already up to date
 		if (cacheState.hit === "exact") {
+			yield* Effect.log("Cache exact hit — skipping save");
 			return;
 		}
 
@@ -441,8 +469,11 @@ export const saveCache = () =>
 		const paths = cacheState.paths;
 
 		if (!key || !paths || paths.length === 0) {
+			yield* Effect.log("No cache key or paths — skipping save");
 			return;
 		}
+
+		yield* Effect.log(`Saving cache: key=${key}, paths (${paths.length}): ${paths.join(", ")}`);
 
 		yield* cache.save(paths, key).pipe(
 			Effect.mapError(
@@ -454,4 +485,6 @@ export const saveCache = () =>
 					}),
 			),
 		);
+
+		yield* Effect.log(`Cache saved successfully: key=${key}`);
 	});

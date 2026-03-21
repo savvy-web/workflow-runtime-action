@@ -373,6 +373,10 @@ export const main = Effect.gen(function* () {
 	const turboPaths = config.turbo ? ["**/.turbo"] : [];
 	const finalCachePaths = [...cacheConfig.cachePaths, ...additionalCachePaths, ...turboPaths];
 
+	yield* Effect.logDebug(`Active PMs: ${activePackageManagers.join(", ")}`);
+	yield* Effect.logDebug(`Lockfiles found: ${lockfiles.length > 0 ? lockfiles.join(", ") : "(none)"}`);
+	yield* Effect.logDebug(`Cache paths (${finalCachePaths.length}): ${finalCachePaths.join(", ")}`);
+
 	// Handle turbo env vars
 	if (config.turbo) {
 		const turboToken = yield* Config.string("turbo-token").pipe(Config.withDefault(""));
@@ -409,9 +413,10 @@ export const main = Effect.gen(function* () {
 			Effect.catchTag("CacheError", (e) =>
 				Effect.gen(function* () {
 					yield* Effect.logWarning(`Cache restore failed: ${e.reason}`);
-					if (e.cause) {
+					const cause = e.cause as Record<string, unknown> | undefined;
+					if (cause) {
 						yield* Effect.logWarning(
-							`Cache restore cause: ${e.cause instanceof Error ? e.cause.message : JSON.stringify(e.cause)}`,
+							`Cache restore cause detail: reason=${cause.reason ?? "?"}, operation=${cause.operation ?? "?"}, key=${cause.key ?? "?"}`,
 						);
 					}
 					return "none" as const;

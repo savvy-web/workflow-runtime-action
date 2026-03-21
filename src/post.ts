@@ -16,10 +16,12 @@ export const post = Effect.gen(function* () {
 		Effect.gen(function* () {
 			yield* Effect.logWarning(`Post action cache save failed: ${extractErrorReason(error)}`);
 			if (error && typeof error === "object" && "cause" in error) {
-				const cause = (error as { cause?: unknown }).cause;
-				yield* Effect.logWarning(
-					`Post action cache save cause: ${cause instanceof Error ? cause.message : JSON.stringify(cause)}`,
-				);
+				const cause = (error as { cause?: Record<string, unknown> }).cause;
+				if (cause) {
+					yield* Effect.logWarning(
+						`Post action cache save cause detail: reason=${cause.reason ?? "?"}, operation=${cause.operation ?? "?"}, key=${cause.key ?? "?"}`,
+					);
+				}
 			}
 		}),
 	),
