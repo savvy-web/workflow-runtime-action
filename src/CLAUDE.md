@@ -4,525 +4,232 @@ Source code architecture, build process, and development guidelines for the work
 
 **See also:** [Root CLAUDE.md](../CLAUDE.md) for repository overview.
 
-## Source Code Architecture
+## Architecture Overview
 
-This is a **compiled TypeScript GitHub Action** that bundles TypeScript to JavaScript using `@vercel/ncc`.
+The action is written as an **Effect-based program** using `@savvy-web/github-action-effects` (0.11.10) for GitHub Action service abstractions. All side effects (file I/O, command execution, caching, outputs) flow through Effect services rather than direct API calls.
 
-### Entry Points
+Key architectural properties:
 
-The action has three lifecycle hooks defined in [action.yml](../action.yml):
+- **Zero `@actions/*` dependencies** -- `github-action-effects` implements the GitHub Actions runtime protocol natively (V2 Twirp protocol with Azure Blob Storage for caching, native process execution, etc.)
+- **Inputs via Effect Config API** -- `Config.string`, `Config.boolean`, `Config.withDefault` backed by a `ConfigProvider` that reads GitHub Actions input environment variables
+- **Logging via Effect.log** -- `Effect.log`, `Effect.logWarning`, `Effect.logError`, `Effect.logDebug` for all log output; `ActionLogger.group()` for collapsible sections
+- **Build via rsbuild** -- `@savvy-web/github-action-builder` 0.5.0 uses rsbuild under the hood
+
+For a full architectural spec see `.claude/design/workflow-runtime-action/architecture.md`.
+
+## Entry Points
+
+The action has two lifecycle hooks:
 
 ```yaml
 runs:
   using: "node24"
-  pre: "dist/pre.js"      # Pre-execution hook
-  main: "dist/main.js"    # Main action logic
-  post: "dist/post.js"    # Post-execution hook (cache saving)
+  main: "dist/main.js"
+  post: "dist/post.js"
 ```
 
-**Source files:**
+- **[main.ts](main.ts)** -> `dist/main.js` -- Effect pipeline that detects config, installs runtimes, sets up package manager, caches dependencies, and sets outputs
+- **[post.ts](post.ts)** -> `dist/post.js` -- Saves the dependency cache after the job completes (non-fatal; errors are warnings)
 
-* **[pre.ts](pre.ts)** → `dist/pre.js` - Logs action inputs (pre-execution)
-* **[main.ts](main.ts)** → `dist/main.js` - Main setup logic
-* **[post.ts](post.ts)** → `dist/post.js` - Cache saving (post-execution)
+## Source Modules
 
-### Core Modules
+### [main.ts](main.ts)
 
-Located in [utils/](utils/):
+Top-level Effect pipeline composed of nine sequential steps:
 
-#### [install-node.ts](utils/install-node.ts)
+1. Parse configuration (load `package.json`, detect Biome, detect Turbo)
+2. Compute cache config and find lockfiles
+3. Restore cache (non-fatal on error)
+4. Install runtimes via `RuntimeInstaller` service
+5. Setup package manager (corepack/npm)
+6. Install dependencies (lockfile-aware)
+7. Install Biome (non-fatal on error)
+8. Set action outputs
+9. Log a summary
 
-Node.js installation from exact versions specified in `devEngines.runtime`.
+Also contains:
 
-* Downloads and extracts Node.js tarballs from `https://nodejs.org/dist/v{version}/`
-* Uses GitHub Actions tool cache for caching binaries
-* Supports all platforms (Linux, macOS, Windows)
+- **`parseMultiValueInput`** -- Parses multi-value input strings (newlines, bullets, commas, JSON arrays)
+- **`installBiome`** -- Installs Biome as a raw binary using `ToolInstaller.download` + `ToolInstaller.cacheFile`
+- **`getActivePackageManagers`** -- Determines active package managers from runtimes
+- **`installDependencies`** -- Runs lockfile-aware install command for the detected package manager
+- **`setupPackageManager`** -- Activates the correct package manager version via corepack or npm global install
+- **`setOutputs`** -- Sets all action outputs from pipeline results
 
-**Key functions:**
+Layer composition at the bottom wires `ActionCacheLive`, `ToolInstallerLive`, `CommandRunnerLive`, `ActionStateLive` (with `NodeFileSystem`), `ActionEnvironmentLive`, and `NodeFileSystem.layer` into `MainLive`, then calls `Action.run(main, { layer: MainLive })`.
 
-* `installNode({ version })` - Downloads and installs exact Node.js version
-* `downloadNode(version)` - Downloads and caches Node.js from official distribution
+### [post.ts](post.ts)
 
-#### [install-bun.ts](utils/install-bun.ts)
+Minimal Effect program that calls `saveCache()`. Errors are caught globally and demoted to warnings so a cache-save failure never fails the job.
 
-Bun runtime installation.
+### [config.ts](config.ts)
 
-* Downloads from GitHub releases (`oven-sh/bun`)
-* Extracts platform-specific zip archives
-* Cross-platform support (Linux, macOS, Windows)
-* Version detection from `package.json` `packageManager` field
+Pure Effect functions for configuration loading and detection:
 
-**Platform binaries:**
+- **`loadPackageJson`** -- Reads and decodes `package.json` via `FileSystem.FileSystem`, wrapping all failures in `ConfigError`
+- **`parseDevEngines`** -- Normalises `devEngines.runtime` from single-object or array form to always-array
+- **`detectBiome`** -- Checks the `biome-version` Config input override first (via `Config.string("biome-version").pipe(Config.withDefault(""))`), then reads `$schema` from `biome.jsonc` / `biome.json`
+- **`detectTurbo`** -- Returns `true` if `turbo.json` exists in the working directory
 
-* Linux x64: `bun-linux-x64.zip`
-* macOS ARM64: `bun-darwin-aarch64.zip`
-* Windows x64: `bun-windows-x64.zip`
+### [cache.ts](cache.ts)
 
-#### [install-deno.ts](utils/install-deno.ts)
+Effect functions backed by `ActionCache`, `ActionState`, `ActionEnvironment`, `CommandRunner`, and `FileSystem` services:
 
-Deno runtime installation.
+- **`getDefaultCachePaths`** / **`getLockfilePatterns`** -- Pure helpers per package manager
+- **`detectCachePath`** -- Queries the installed package manager for its actual cache directory (e.g., `pnpm store path`)
+- **`getCacheConfig`** / **`getCombinedCacheConfig`** -- Merges configs for all active package managers and adds tool cache paths for installed runtimes
+- **`findLockFiles`** -- Checks for known lockfile filenames at the workspace root
+- **`generateCacheKey`** / **`generateRestoreKeys`** -- Build deterministic cache keys from runtime versions, package manager version, branch, and lockfile hashes
+- **`restoreCache`** -- Restores cache via `ActionCache` (V2 Twirp protocol) and saves state (key + paths + hit status) for the post action
+- **`saveCache`** -- Reads state saved by `restoreCache` and saves cache only when the previous restore was not an exact hit
 
-* Downloads from GitHub releases (`denoland/deno`)
-* Uses Rust target triples for platform detection
-* Cross-platform support (Linux, macOS, Windows)
-* Version detection from `deno.json`/`deno.jsonc` or `package.json`
+### [runtime-installer.ts](runtime-installer.ts)
 
-**Platform binaries:**
+Service-based runtime installation:
 
-* Linux x64: `deno-x86_64-unknown-linux-gnu.zip`
-* macOS ARM64: `deno-aarch64-apple-darwin.zip`
-* Windows x64: `deno-x86_64-pc-windows-msvc.zip`
+- **`RuntimeDescriptor`** interface -- Describes how to download and install a tool: download URL factory, tool install options factory (archive type, bin sub-path), verify command
+- **`RuntimeInstaller`** service tag -- `Context.GenericTag<RuntimeInstaller>` with a single `install(version)` method
+- **`makeRuntimeInstaller`** -- Factory that creates a `RuntimeInstaller` from a `RuntimeDescriptor`; uses individual `ToolInstaller` primitives (`download`, `extractTar`/`extractZip`, `cacheDir`) rather than a single high-level call; wraps all failures in `RuntimeInstallError`
+- Pre-built layers: `NodeInstallerLive`, `BunInstallerLive`, `DenoInstallerLive` (Biome uses `installBiome()` directly since it's a raw binary)
+- **`installerLayerFor(name)`** -- Returns the appropriate layer by runtime name
 
-#### [install-biome.ts](utils/install-biome.ts)
+### [schemas.ts](schemas.ts)
 
-Biome CLI installation.
+Effect Schema definitions shared across the codebase:
 
-* Downloads binaries from GitHub releases (`biomejs/biome`)
-* Detects version from `biome.jsonc` `$schema` field:
+- **`AbsoluteVersion`** -- Rejects semver range operators; requires `major.minor.patch` format
+- **`RuntimeName`** -- `Schema.Literal("node", "bun", "deno")`
+- **`PackageManagerName`** -- `Schema.Literal("npm", "pnpm", "yarn", "bun", "deno")`
+- **`RuntimeEntry`** -- `{ name: RuntimeName, version: AbsoluteVersion, onFail? }` struct
+- **`PackageManagerEntry`** -- `{ name: PackageManagerName, version: AbsoluteVersion, onFail? }` struct
+- **`DevEngines`** -- `{ packageManager: PackageManagerEntry, runtime: RuntimeEntry | RuntimeEntry[] }`
+- **`CacheStateSchema`** -- State persisted between main and post actions: `{ hit, key?, paths? }`
 
-  ```json
-  {
-    "$schema": "https://biomejs.dev/schemas/2.3.14/schema.json"
-  }
-  ```
+### [errors.ts](errors.ts)
 
-* Cross-platform binary selection
+`Data.TaggedError` hierarchy for typed error handling:
 
-**Platform binaries:**
+| Tag | Fields | When thrown |
+| --- | ------- | ----------- |
+| `ConfigError` | `reason`, `file?`, `cause?` | Invalid/missing `package.json` or `devEngines` |
+| `RuntimeInstallError` | `runtime`, `version`, `reason`, `cause?` | Runtime download or setup failure |
+| `PackageManagerSetupError` | `packageManager`, `version`, `reason`, `cause?` | Package manager setup failure |
+| `DependencyInstallError` | `packageManager`, `reason`, `cause?` | `npm install` / `pnpm install` etc. failure |
+| `CacheError` | `operation`, `reason`, `cause?` | Cache restore, save, or key-generation failure |
 
-* Linux x64: `biome-linux-x64`
-* macOS ARM64: `biome-darwin-arm64`
-* Windows x64: `biome-win32-x64.exe`
+### [emoji.ts](emoji.ts)
 
-#### [cache-utils.ts](utils/cache-utils.ts)
+Formatting helpers used by `main.ts` log messages. Provides `formatRuntime`, `formatPackageManager`, `formatDetection`, `formatInstallation`, `formatSuccess`, and similar functions that prepend emoji to log strings.
 
-Dependency caching with `@actions/cache`.
+### [descriptors/](descriptors/)
 
-* Platform-specific cache paths
-* Lock file hashing for cache keys
-* Restore and save operations
-* Supports npm, pnpm, yarn, bun, deno
+One file per installable runtime (`node.ts`, `bun.ts`, `deno.ts`). Each exports a `descriptor` conforming to the `RuntimeDescriptor` interface, encoding the download URL template, archive options, and verify command. Descriptors are pure data with no `postInstall` hooks -- package manager setup is handled separately in `main.ts`.
 
-**Cache paths by package manager:**
-
-* **npm:** `~/.npm`, `**/node_modules`
-* **pnpm:** `~/.local/share/pnpm/store`, `**/node_modules`
-* **yarn:** `~/.yarn/cache`, `**/.yarn/cache`, `**/node_modules`
-* **bun:** `~/.bun/install/cache`, `**/node_modules`
-* **deno:** `~/.cache/deno`, `~/.deno`
-
-**Cache key format:**
-
-```text
-{packageManager}-{platform}-{arch}-{lockfileHash}
-```
-
-### Action Workflow
-
-The main action follows this workflow:
-
-```typescript
-// 1. Detect configuration (package.json, version files, configs)
-const config = await detectConfiguration();
-
-// 2. Install all detected runtimes (Node.js, Bun, Deno)
-for (const runtime of config.runtimes) {
-  if (runtime === "node") await installNode({ version, versionFile });
-  if (runtime === "bun") await installBun({ version });
-  if (runtime === "deno") await installDeno({ version });
-}
-
-// 3. Setup package manager (corepack for pnpm/yarn)
-await setupPackageManager(packageManager);
-
-// 4. Restore dependency cache
-await restoreCache(packageManager);
-
-// 5. Install dependencies (with lockfile detection)
-await installDependencies(packageManager);
-
-// 6. Install Biome (optional, from config)
-await installBiome(version);
-
-// Post-action: Save cache for next run
-await saveCache();
-```
+`biome.ts` exports a `binaryMap` (platform/arch to binary name) rather than a `RuntimeDescriptor`, since Biome is a single binary download that uses `installBiome()` directly with `ToolInstaller.download` + `ToolInstaller.cacheFile`.
 
 ## Build Process
 
-### Why @vercel/ncc?
-
-`@vercel/ncc` bundles TypeScript and all dependencies into a single JavaScript file:
-
-* **No node_modules required** - All dependencies bundled
-* **Faster action startup** - No dependency installation
-* **Deterministic builds** - Same code produces same output
-* **ES module support** - Outputs ES2022 with import/export
-
-### Build Script
-
-The build is orchestrated by [../lib/scripts/build.ts](../lib/scripts/build.ts):
+Build is configured in [`action.config.ts`](../action.config.ts) at the repo root:
 
 ```typescript
-import { mkdir, rm, writeFile } from "node:fs/promises";
-import { createRequire } from "node:module";
-import { resolve } from "node:path";
-
-const require: NodeJS.Require = createRequire(import.meta.url);
-const ncc: NccFunction = require("@vercel/ncc");
-
-const entries: BuildEntry[] = [
-  { entry: "src/pre.ts", output: "dist/pre.js" },
-  { entry: "src/main.ts", output: "dist/main.js" },
-  { entry: "src/post.ts", output: "dist/post.js" },
-];
-
-async function buildEntry({ entry, output }: BuildEntry): Promise<void> {
-  const { code } = await ncc(resolve(entry), {
-    minify: true,
-    target: "es2022",
-    externals: [],
-  });
-
-  await mkdir("dist", { recursive: true });
-  await writeFile(output, code);
-}
-
-// Build all entries
-for (const entry of entries) {
-  await buildEntry(entry);
-}
-
-// Create package.json to mark dist files as ES modules
-await writeFile("dist/package.json", JSON.stringify({ type: "module" }, null, "\t"));
+export default defineConfig({
+  entries: { main: "src/main.ts", post: "src/post.ts" },
+  build: { minify: false },
+  persistLocal: { enabled: true, path: ".github/actions/local" },
+});
 ```
 
-### Running the Build
+Run the build:
 
 ```bash
-# Build all entry points (pre/main/post)
 pnpm build
-
-# This runs: tsx lib/scripts/build.ts
-# Which uses @vercel/ncc to bundle TypeScript → JavaScript
 ```
 
-**Important:** The `dist/` directory is committed to git (required for GitHub Actions).
+This uses `@savvy-web/github-action-builder` (0.5.0, rsbuild-based) to bundle both entry points to `dist/` and copy a testing variant to `.github/actions/local/`.
 
-### ES Module Configuration
-
-The bundled files use ES module syntax (`import`/`export`). To ensure Node.js recognizes them as ES modules, the build script creates `dist/package.json`:
-
-```json
-{
-  "type": "module"
-}
-```
-
-Without this file, Node.js emits a warning about module type detection.
+**Always commit `dist/` and `.github/actions/local/` after building.**
 
 ## TypeScript Configuration
 
-### Base Configuration
-
-See [../tsconfig.json](../tsconfig.json):
-
-```json
-{
-  "compilerOptions": {
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "target": "ES2022",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "noEmit": true
-  }
-}
-```
-
-**Key Settings:**
-
-* `module: "ESNext"` - Use ES modules
-* `moduleResolution: "bundler"` - Resolve imports for bundler (ncc)
-* `target: "ES2022"` - Match ncc target
-* `noEmit: true` - Don't emit JS (ncc handles compilation)
-* `strict: true` - Enable all strict type checking
-
-### Import Extensions
-
-All imports **must** use `.js` extensions (enforced by Biome):
-
-```typescript
-// ✅ Correct
-import { installNode } from "./utils/install-node.js";
-import type { InstallOptions } from "./utils/types.js";
-
-// ❌ Incorrect
-import { installNode } from "./utils/install-node";
-import type { InstallOptions } from "./utils/types";
-```
-
-This ensures imports work correctly with ES modules.
-
-### Node.js Import Protocol
-
-Built-in Node.js modules **must** use the `node:` protocol (enforced by Biome):
-
-```typescript
-// ✅ Correct
-import { readFile } from "node:fs/promises";
-import { platform, arch } from "node:os";
-import { join, resolve } from "node:path";
-
-// ❌ Incorrect
-import { readFile } from "fs/promises";
-import { platform, arch } from "os";
-import { join, resolve } from "path";
-```
-
-### Type Imports
-
-Separate type imports from value imports (enforced by Biome):
-
-```typescript
-// ✅ Correct
-import { installNode } from "./install-node.js";
-import type { InstallOptions } from "./types.js";
-
-// ❌ Incorrect
-import { installNode, InstallOptions } from "./install-node.js";
-```
+- `module: "ESNext"`, `moduleResolution: "bundler"`, `target: "ES2022"`, `strict: true`, `noEmit: true`
+- All imports must use `.js` extensions (enforced by Biome)
+- Built-in Node.js modules must use the `node:` protocol (enforced by Biome)
+- Separate type imports from value imports (enforced by Biome)
 
 ## Development Workflow
 
-### 1. Make Changes
-
-Edit TypeScript files in `src/` or `src/utils/`:
-
 ```bash
-vim src/utils/install-node.ts
-```
+# 1. Edit source
+vim src/config.ts
 
-### 2. Run Type Checking
-
-```bash
+# 2. Type-check
 pnpm typecheck
-```
 
-### 3. Run Tests
-
-See [../**tests**/CLAUDE.md](../__tests__/CLAUDE.md) for testing documentation.
-
-```bash
+# 3. Run tests
 pnpm test
-```
 
-### 4. Run Linting
-
-```bash
-pnpm lint
-
-# Auto-fix issues
+# 4. Lint
 pnpm lint:fix
-```
 
-### 5. Build the Action
-
-**Critical:** Always build after making changes:
-
-```bash
-pnpm build
-```
-
-This compiles TypeScript to `dist/` using @vercel/ncc.
-
-### 6. Commit Source AND Dist
-
-**Both source and compiled output must be committed:**
-
-```bash
-git add src/utils/install-node.ts dist/main.js
-git commit -m "feat: add version resolution"
-```
-
-### 7. Test in CI
-
-Push to trigger GitHub Actions workflows (see [../**fixtures**/CLAUDE.md](../__fixtures__/CLAUDE.md)):
-
-```bash
-git push
-```
-
-Watch the workflow runs to verify the changes work in the real GitHub Actions environment.
-
-## Lockfile Intelligence
-
-The action checks for lock files before using frozen/immutable flags:
-
-```typescript
-case "npm":
-  command = existsSync("package-lock.json") ? ["ci"] : ["install"];
-  break;
-
-case "pnpm":
-  command = existsSync("pnpm-lock.yaml")
-    ? ["install", "--frozen-lockfile"]
-    : ["install"];
-  break;
-
-case "yarn":
-  command = existsSync("yarn.lock")
-    ? ["install", "--immutable"]
-    : ["install", "--no-immutable"];  // Yarn 4+ needs explicit flag
-  break;
-
-case "bun":
-  command = existsSync("bun.lock")
-    ? ["install", "--frozen-lockfile"]
-    : ["install"];
-  break;
-```
-
-**Important:** Yarn 4+ automatically enables immutable mode in CI environments, so we must explicitly use `--no-immutable` when no lock file exists.
-
-## Package Manager Setup
-
-* **npm** - Already included with Node.js
-* **pnpm** - Installed via corepack (`corepack prepare pnpm@latest`)
-* **yarn** - Installed via corepack (`corepack prepare yarn@stable`)
-* **bun** - Installed via [install-bun.ts](utils/install-bun.ts)
-* **deno** - Installed via [install-deno.ts](utils/install-deno.ts)
-
-## Best Practices
-
-### 1. Always Build Before Committing
-
-**If you forget to build, the action won't work in CI:**
-
-```bash
-# Make changes
-vim src/main.ts
-
-# Build (REQUIRED!)
+# 5. Build
 pnpm build
 
-# Commit source AND dist
-git add src/main.ts dist/main.js
-git commit -m "fix: update main logic"
+# 6. Commit source AND dist
+git add src/ dist/ .github/actions/local/
+git commit -m "feat: ..."
 ```
 
-### 2. Never Edit dist/ Directly
+## Effect Patterns
 
-The `dist/` directory is generated. Always edit `src/` and rebuild:
+### Service injection
 
-```bash
-# ❌ WRONG
-vim dist/main.js
+All services (FileSystem, CommandRunner, ActionOutputs, ToolInstaller, etc.) are provided via `Effect.provide` or as layers. Never import `@actions/*` packages directly -- they are not dependencies of this project.
 
-# ✅ CORRECT
-vim src/main.ts
-pnpm build
-```
+### Input reading
 
-### 3. Test Before Pushing
-
-Run the full test suite before pushing:
-
-```bash
-pnpm typecheck && pnpm lint && pnpm test && pnpm build
-```
-
-Or rely on pre-commit hooks (automatically run by Husky).
-
-### 4. Use Explicit Types
-
-Always export functions with explicit return types:
+Action inputs are read via the Effect `Config` API at point of use:
 
 ```typescript
-// ✅ Correct
-export async function installNode(options: InstallOptions): Promise<void> {
-  // ...
-}
-
-// ❌ Incorrect (implicit return type)
-export async function installNode(options: InstallOptions) {
-  // ...
-}
+const installDeps = yield* Config.boolean("install-deps").pipe(Config.withDefault(true))
+const biomeVersion = yield* Config.string("biome-version").pipe(Config.withDefault(""))
 ```
 
-### 5. Prefer `type` Over `interface`
+`Action.run` sets up a `ConfigProvider` that reads from GitHub Actions input environment variables (`INPUT_*`).
 
-Use `type` for type definitions (enforced by Biome):
+### Error handling
 
-```typescript
-// ✅ Correct
-export type InstallOptions = {
-  version: string;
-  versionFile: string;
-};
+Use tagged errors (`ConfigError`, `RuntimeInstallError`, etc.) and handle them with `Effect.catchTag`. Non-fatal steps use `Effect.catchAll` or `Effect.catchTag` to demote failures to warnings.
 
-// ❌ Incorrect
-export interface InstallOptions {
-  version: string;
-  versionFile: string;
-}
-```
+### Testing
+
+Tests import service tags directly from `@savvy-web/github-action-effects` and provide inline mock implementations via `Layer.succeed`. No `vi.mock` needed since `github-action-effects` 0.11.10 has no `@actions/*` transitive imports. See [`__test__/CLAUDE.md`](../__test__/CLAUDE.md).
 
 ## Common Issues
 
-### "Changes don't take effect in CI"
+### Changes don't take effect in CI
 
-**Cause:** You didn't rebuild or commit `dist/`
+Run `pnpm build` and commit `dist/` + `.github/actions/local/`.
 
-**Solution:**
+### Import not found
 
-```bash
-pnpm build
-git add dist/
-git commit --amend --no-edit
-git push --force-with-lease
-```
+Add the `.js` extension to all local imports.
 
-### "Module type warning in CI"
+### Effect service not provided
 
-**Cause:** Missing or incorrect `dist/package.json`
-
-**Solution:** Rebuild - the build script creates this file automatically:
-
-```bash
-pnpm build
-git add dist/package.json
-git commit -m "fix: add dist/package.json"
-```
-
-### "Import not found" errors
-
-**Cause:** Missing `.js` extension in import
-
-**Solution:**
-
-```typescript
-// Add .js extension
-import { myFunction } from "./my-module.js";
-```
-
-### Platform-specific issues
-
-**Cause:** Platform detection or binary naming mismatch
-
-**Solution:** Check platform mappings in `install-*.ts` files:
-
-* Verify OS detection: `process.platform` → `linux`, `darwin`, `win32`
-* Verify arch detection: `process.arch` → `x64`, `arm64`
-* Check binary naming conventions for each runtime
+Ensure the required service is included in the layer passed to `Effect.provide` or `Action.run`.
 
 ## Related Documentation
 
-* [Root CLAUDE.md](../CLAUDE.md) - Repository overview
-* [**tests**/CLAUDE.md](../__tests__/CLAUDE.md) - Unit testing strategy
-* [**fixtures**/CLAUDE.md](../__fixtures__/CLAUDE.md) - Integration testing
-* [@vercel/ncc Documentation](https://github.com/vercel/ncc) - Bundler documentation
-* [GitHub Actions Documentation](https://docs.github.com/en/actions/creating-actions/creating-a-javascript-action) - Creating JavaScript actions
+- [Root CLAUDE.md](../CLAUDE.md) - Repository overview
+- [**test**/CLAUDE.md](../__test__/CLAUDE.md) - Unit testing strategy
+- [**fixtures**/CLAUDE.md](../__fixtures__/CLAUDE.md) - Integration testing
+- [Effect Documentation](https://effect.website/docs) - Effect framework reference
+
+### Design Documentation
+
+For deep architectural details:
+
+- **Architecture:** `@../.claude/design/workflow-runtime-action/architecture.md`
+- **Effect Service Model:** `@../.claude/design/workflow-runtime-action/effect-service-model.md`
+- **Runtime Installation:** `@../.claude/design/workflow-runtime-action/runtime-installation.md`
+- **Caching Strategy:** `@../.claude/design/workflow-runtime-action/caching-strategy.md`

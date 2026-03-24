@@ -1,0 +1,77 @@
+{
+	"$schema": "../../.claude/skills/design-config/json-schemas/current.json",
+	"version": "1.0.0",
+	"project": {
+		"name": "savvy-web/workflow-runtime-action",
+		"type": "application",
+		"repository": "https://github.com/savvy-web/workflow-runtime-action",
+		"maintainer": "C. Spencer Beggs"
+	},
+	"paths": {
+		"designDocs": ".claude/design",
+		"plans": ".claude/plans",
+		"skills": ".claude/skills",
+		"context": "CLAUDE.md",
+		"localContext": "CLAUDE.local.md"
+	},
+	"modules": {
+		"workflow-runtime-action": {
+			"path": ".",
+			"designDocsPath": ".claude/design/workflow-runtime-action",
+			"categories": ["architecture", "performance", "integration", "testing", "meta"],
+			"maintainer": "C. Spencer Beggs",
+			"userDocs": {
+				"readme": "README.md",
+				"repoDocs": "docs",
+				"siteDocs": null
+			}
+		}
+	},
+	"skills": {
+		"baseNamespace": "/",
+		"enabled": [
+			"design-init",
+			"design-validate",
+			"design-update",
+			"design-sync",
+			"design-review",
+			"design-audit",
+			"design-search",
+			"design-index",
+			"design-report",
+			"design-archive",
+			"design-config",
+			"design-prune",
+			"design-compare",
+			"design-link",
+			"design-export",
+			"plan-validate",
+			"plan-create",
+			"plan-list"
+		]
+	},
+	"quality": {
+		"designDocs": {
+			"maxLineLength": 120,
+			"requireFrontmatter": true,
+			"requireTOC": true,
+			"minSections": ["Overview", "Current State", "Rationale"]
+		},
+		"context": {
+			"rootMaxLines": 500,
+			"childMaxLines": 300,
+			"requireDesignDocPointers": true
+		}
+	},
+	"integration": {
+		"ci": {
+			"enabled": false,
+			"validateOnPR": false,
+			"syncOnMerge": false
+		},
+		"git": {
+			"trackDesignDocs": true,
+			"requireReviewForChanges": false
+		}
+	}
+}
