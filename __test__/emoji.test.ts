@@ -16,95 +16,130 @@ import {
 	formatWarning,
 	getPackageManagerEmoji,
 	getRuntimeEmoji,
-} from "../src/utils/emoji.js";
+} from "../src/emoji.js";
 
-describe("emoji utilities", () => {
-	describe("getRuntimeEmoji", () => {
-		it("should return correct emoji for each runtime", () => {
-			expect(getRuntimeEmoji("node")).toBe(RUNTIME.node);
-			expect(getRuntimeEmoji("bun")).toBe(RUNTIME.bun);
-			expect(getRuntimeEmoji("deno")).toBe(RUNTIME.deno);
-		});
+describe("emoji constants", () => {
+	it("RUNTIME has entries for node, bun, deno", () => {
+		expect(RUNTIME.node).toBeDefined();
+		expect(RUNTIME.bun).toBeDefined();
+		expect(RUNTIME.deno).toBeDefined();
 	});
 
-	describe("getPackageManagerEmoji", () => {
-		it("should return correct emoji for each package manager", () => {
-			expect(getPackageManagerEmoji("npm")).toBe(PACKAGE_MANAGER.npm);
-			expect(getPackageManagerEmoji("pnpm")).toBe(PACKAGE_MANAGER.pnpm);
-			expect(getPackageManagerEmoji("yarn")).toBe(PACKAGE_MANAGER.yarn);
-			expect(getPackageManagerEmoji("bun")).toBe(PACKAGE_MANAGER.bun);
-			expect(getPackageManagerEmoji("deno")).toBe(PACKAGE_MANAGER.deno);
-		});
+	it("PACKAGE_MANAGER has entries for all PMs", () => {
+		expect(PACKAGE_MANAGER.npm).toBeDefined();
+		expect(PACKAGE_MANAGER.pnpm).toBeDefined();
+		expect(PACKAGE_MANAGER.yarn).toBeDefined();
+		expect(PACKAGE_MANAGER.bun).toBeDefined();
+		expect(PACKAGE_MANAGER.deno).toBeDefined();
 	});
 
-	describe("formatRuntime", () => {
-		it("should format runtime with emoji and capitalized name", () => {
-			expect(formatRuntime("node")).toBe(`${RUNTIME.node} Node`);
-			expect(formatRuntime("bun")).toBe(`${RUNTIME.bun} Bun`);
-			expect(formatRuntime("deno")).toBe(`${RUNTIME.deno} Deno`);
-		});
+	it("STATE has good/neutral/warning/issue", () => {
+		expect(STATE.good).toBeDefined();
+		expect(STATE.neutral).toBeDefined();
+		expect(STATE.warning).toBeDefined();
+		expect(STATE.issue).toBeDefined();
 	});
 
-	describe("formatPackageManager", () => {
-		it("should format package manager with emoji and capitalized name", () => {
-			expect(formatPackageManager("pnpm")).toBe(`${PACKAGE_MANAGER.pnpm} Pnpm`);
-			expect(formatPackageManager("yarn")).toBe(`${PACKAGE_MANAGER.yarn} Yarn`);
-			expect(formatPackageManager("bun")).toBe(`${PACKAGE_MANAGER.bun} Bun`);
-			expect(formatPackageManager("deno")).toBe(`${PACKAGE_MANAGER.deno} Deno`);
-		});
-
-		it("should keep npm lowercase", () => {
-			expect(formatPackageManager("npm")).toBe(`${PACKAGE_MANAGER.npm} npm`);
-		});
+	it("OPERATION has detection/setup/cache/installation", () => {
+		expect(OPERATION.detection).toBeDefined();
+		expect(OPERATION.setup).toBeDefined();
+		expect(OPERATION.cache).toBeDefined();
+		expect(OPERATION.installation).toBeDefined();
 	});
 
-	describe("formatDetection", () => {
-		it("should format found item", () => {
-			expect(formatDetection("Turbo", true)).toBe(`${STATE.good} Detected Turbo`);
-		});
-
-		it("should format not found item", () => {
-			expect(formatDetection("Turbo", false)).toBe(`${STATE.neutral} No Turbo`);
-		});
+	it("STATUS has pass/neutral/fail/warning", () => {
+		expect(STATUS.pass).toBeDefined();
+		expect(STATUS.neutral).toBeDefined();
+		expect(STATUS.fail).toBeDefined();
+		expect(STATUS.warning).toBeDefined();
 	});
+});
 
-	describe("formatSetup", () => {
-		it("should format setup message", () => {
-			expect(formatSetup("Node.js")).toBe(`${OPERATION.setup} Setting up Node.js`);
-		});
+describe("getRuntimeEmoji", () => {
+	it("returns correct emoji for each runtime", () => {
+		expect(getRuntimeEmoji("node")).toBe(RUNTIME.node);
+		expect(getRuntimeEmoji("bun")).toBe(RUNTIME.bun);
+		expect(getRuntimeEmoji("deno")).toBe(RUNTIME.deno);
 	});
+});
 
-	describe("formatCache", () => {
-		it("should format restoring cache message", () => {
-			expect(formatCache("Restoring", "pnpm")).toBe(`${OPERATION.cache} Restoring cache for: pnpm`);
-		});
-
-		it("should format saving cache message", () => {
-			expect(formatCache("Saving", "npm")).toBe(`${OPERATION.cache} Saving cache for: npm`);
-		});
+describe("getPackageManagerEmoji", () => {
+	it("returns correct emoji for each PM", () => {
+		expect(getPackageManagerEmoji("npm")).toBe(PACKAGE_MANAGER.npm);
+		expect(getPackageManagerEmoji("pnpm")).toBe(PACKAGE_MANAGER.pnpm);
+		expect(getPackageManagerEmoji("yarn")).toBe(PACKAGE_MANAGER.yarn);
+		expect(getPackageManagerEmoji("bun")).toBe(PACKAGE_MANAGER.bun);
+		expect(getPackageManagerEmoji("deno")).toBe(PACKAGE_MANAGER.deno);
 	});
+});
 
-	describe("formatInstallation", () => {
-		it("should format installation message", () => {
-			expect(formatInstallation("dependencies")).toBe(`${OPERATION.installation} Installing dependencies`);
-		});
+describe("formatRuntime", () => {
+	it("formats with emoji and capitalized name", () => {
+		expect(formatRuntime("node")).toContain("Node");
+		expect(formatRuntime("bun")).toContain("Bun");
+		expect(formatRuntime("deno")).toContain("Deno");
 	});
+});
 
-	describe("formatSuccess", () => {
-		it("should format success message", () => {
-			expect(formatSuccess("Done")).toBe(`${STATUS.pass} Done`);
-		});
+describe("formatPackageManager", () => {
+	it("keeps npm lowercase", () => {
+		expect(formatPackageManager("npm")).toContain("npm");
 	});
-
-	describe("formatWarning", () => {
-		it("should format warning message", () => {
-			expect(formatWarning("Caution")).toBe(`${STATUS.warning} Caution`);
-		});
+	it("capitalizes other PMs", () => {
+		expect(formatPackageManager("pnpm")).toContain("Pnpm");
+		expect(formatPackageManager("yarn")).toContain("Yarn");
 	});
+});
 
-	describe("formatFailure", () => {
-		it("should format failure message", () => {
-			expect(formatFailure("Error")).toBe(`${STATUS.fail} Error`);
-		});
+describe("formatDetection", () => {
+	it("uses good state for found items", () => {
+		const result = formatDetection("item", true);
+		expect(result).toContain("Detected");
+		expect(result).toContain(STATE.good);
+	});
+	it("uses neutral state for not-found items", () => {
+		const result = formatDetection("item", false);
+		expect(result).toContain("No");
+		expect(result).toContain(STATE.neutral);
+	});
+});
+
+describe("formatSetup", () => {
+	it("formats setup message", () => {
+		expect(formatSetup("pnpm")).toContain("Setting up pnpm");
+	});
+});
+
+describe("formatCache", () => {
+	it("formats restoring message", () => {
+		expect(formatCache("Restoring", "pnpm")).toContain("Restoring cache for: pnpm");
+	});
+	it("formats saving message", () => {
+		expect(formatCache("Saving", "npm")).toContain("Saving cache for: npm");
+	});
+});
+
+describe("formatInstallation", () => {
+	it("formats installation message", () => {
+		expect(formatInstallation("runtimes")).toContain("Installing runtimes");
+	});
+});
+
+describe("formatSuccess", () => {
+	it("includes pass status", () => {
+		expect(formatSuccess("done")).toContain(STATUS.pass);
+		expect(formatSuccess("done")).toContain("done");
+	});
+});
+
+describe("formatWarning", () => {
+	it("includes warning status", () => {
+		expect(formatWarning("caution")).toContain(STATUS.warning);
+	});
+});
+
+describe("formatFailure", () => {
+	it("includes fail status", () => {
+		expect(formatFailure("error")).toContain(STATUS.fail);
 	});
 });

@@ -1,0 +1,51 @@
+name: Local Test
+permissions:
+  contents: read
+  actions: write
+on:
+  workflow_dispatch: null
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Runtime
+        id: runtime
+        uses: ./.github/actions/local
+
+      - name: Verify PATH and binaries
+        run: |
+          echo "=== Environment ==="
+          echo "PATH=$PATH"
+          echo ""
+          echo "=== Binary locations ==="
+          which node && node --version
+          which pnpm && pnpm --version
+          which biome && biome --version || echo "biome not on PATH"
+          which corepack && corepack --version || echo "corepack not on PATH"
+          echo ""
+          echo "=== Node flags ==="
+          node --print 'process.execArgv.join(" ")' || true
+          echo ""
+          echo "=== pnpm bin ==="
+          pnpm bin || true
+          pnpm bin -g || true
+          echo ""
+          echo "=== Test pnpm exec ==="
+          pnpm exec which biome || echo "pnpm exec which biome failed"
+          echo ""
+          echo "=== Test npx-style ==="
+          pnpm dlx biome --version || echo "pnpm dlx biome failed"
+
+      - name: Test pnpm install and run
+        run: |
+          echo "=== pnpm install ==="
+          pnpm install --frozen-lockfile || pnpm install
+          echo ""
+          echo "=== pnpm run build ==="
+          pnpm build || echo "build failed"
+          echo ""
+          echo "=== pnpm lint ==="
+          pnpm lint || echo "lint failed"

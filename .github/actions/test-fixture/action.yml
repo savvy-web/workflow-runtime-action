@@ -7,21 +7,6 @@ inputs:
   title:
     description: Title for the test results section (including emoji)
     required: true
-  node-version:
-    description: Node.js version to install
-    required: false
-  bun-version:
-    description: Bun version to install
-    required: false
-  deno-version:
-    description: Deno version to install
-    required: false
-  package-manager:
-    description: Package manager name
-    required: false
-  package-manager-version:
-    description: Package manager version
-    required: false
   biome-version:
     description: Biome version to install
     required: false
@@ -283,11 +268,6 @@ runs:
       if: inputs.test-cache != 'true'
       uses: ./.github/actions/local
       with:
-        node-version: ${{ inputs.node-version }}
-        bun-version: ${{ inputs.bun-version }}
-        deno-version: ${{ inputs.deno-version }}
-        package-manager: ${{ inputs.package-manager }}
-        package-manager-version: ${{ inputs.package-manager-version }}
         biome-version: ${{ inputs.biome-version }}
         install-deps: ${{ inputs.install-deps }}
         turbo-token: ${{ inputs.turbo-token }}
@@ -300,11 +280,6 @@ runs:
       if: inputs.test-cache == 'true'
       uses: ./.github/actions/local
       with:
-        node-version: ${{ inputs.node-version }}
-        bun-version: ${{ inputs.bun-version }}
-        deno-version: ${{ inputs.deno-version }}
-        package-manager: ${{ inputs.package-manager }}
-        package-manager-version: ${{ inputs.package-manager-version }}
         biome-version: ${{ inputs.biome-version }}
         install-deps: ${{ inputs.install-deps }}
         turbo-token: ${{ inputs.turbo-token }}
@@ -348,11 +323,6 @@ runs:
       if: inputs.test-cache == 'true'
       uses: ./.github/actions/local
       with:
-        node-version: ${{ inputs.node-version }}
-        bun-version: ${{ inputs.bun-version }}
-        deno-version: ${{ inputs.deno-version }}
-        package-manager: ${{ inputs.package-manager }}
-        package-manager-version: ${{ inputs.package-manager-version }}
         biome-version: ${{ inputs.biome-version }}
         install-deps: ${{ inputs.install-deps }}
         turbo-token: ${{ inputs.turbo-token }}
