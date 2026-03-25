@@ -4,26 +4,6 @@ branding:
   icon: package
   color: green
 inputs:
-  node-version:
-    description: Node.js version to install (e.g., '24.10.0'). Overrides package.json devEngines.runtime if provided.
-    required: false
-    default: ""
-  bun-version:
-    description: Bun version to install (e.g., '1.3.3'). Overrides package.json devEngines.runtime if provided.
-    required: false
-    default: ""
-  deno-version:
-    description: Deno version to install (e.g., '2.5.6'). Overrides package.json devEngines.runtime if provided.
-    required: false
-    default: ""
-  package-manager:
-    description: Package manager name (npm | pnpm | yarn | bun | deno). Overrides package.json devEngines.packageManager if provided.
-    required: false
-    default: ""
-  package-manager-version:
-    description: Package manager version (e.g., '10.20.0'). Overrides package.json devEngines.packageManager if provided.
-    required: false
-    default: ""
   biome-version:
     description: Biome version to install (e.g., '2.3.14'). If not provided, auto-detects from biome.jsonc/biome.json $schema field. Leave empty to skip.
     required: false
@@ -41,11 +21,11 @@ inputs:
     required: false
     default: "true"
   cache-bust:
-    description: Cache busting for testing - 'true' (auto-generate), 'false' (normal cache), or custom string. Only use for testing - do not use in production!
+    description: Cache busting string appended to cache key. Use a unique value (e.g., run ID) to force cache miss. 'false' disables. Only use for testing!
     required: false
     default: "false"
   additional-lockfiles:
-    description: Additional lockfile patterns to include in cache key generation. Multiline string with glob patterns (e.g., '**/some.lock', '**/some.db').
+    description: Additional lockfile patterns to include in cache key generation. Supports glob patterns. Multiline or comma-separated (e.g., 'deno.lock', '**/yarn.lock').
     required: false
     default: ""
   additional-cache-paths:
@@ -76,7 +56,7 @@ outputs:
   turbo-enabled:
     description: Whether Turbo configuration was detected (true | false)
   cache-hit:
-    description: Whether dependencies were restored from cache (true | partial | false | n/a)
+    description: Whether dependencies were restored from cache (true | partial | false)
   lockfiles:
     description: Comma-separated list of detected lockfiles used for cache key generation (e.g., 'pnpm-lock.yaml,deno.lock')
   cache-paths:
