@@ -1,5 +1,17 @@
 # @savvy-web/workflow-runtime-action
 
+## 0.1.8
+
+### Dependencies
+
+* | [`358dce1`](https://github.com/savvy-web/workflow-runtime-action/commit/358dce10a1486bad3b524257ea67b84daa360fc1) | Dependency | Type    | Action | From   | To |
+  | :---------------------------------------------------------------------------------------------------------------- | :--------- | :------ | :----- | :----- | -- |
+  | @savvy-web/changesets                                                                                             | dependency | updated | ^0.4.2 | ^0.5.3 |    |
+  | @savvy-web/commitlint                                                                                             | dependency | updated | ^0.4.0 | ^0.4.2 |    |
+  | @savvy-web/github-action-builder                                                                                  | dependency | updated | ^0.2.1 | ^0.4.0 |    |
+  | @savvy-web/lint-staged                                                                                            | dependency | updated | ^0.5.0 | ^0.6.1 |    |
+  | @savvy-web/vitest                                                                                                 | dependency | updated | ^0.2.0 | ^0.2.2 |    |
+
 ## 0.1.7
 
 ### Dependencies
