@@ -54,8 +54,8 @@ importers:
         specifier: catalog:silk
         version: 0.51.0(@effect/experimental@0.60.0(@effect/platform@0.96.0(effect@3.21.0))(effect@3.21.0))(@effect/platform@0.96.0(effect@3.21.0))(effect@3.21.0)
       '@savvy-web/github-action-effects':
-        specifier: ^0.11.10
-        version: 0.11.11(6cbeceb527d33af4cf1d8a05e5f7874c)
+        specifier: ^0.11.12
+        version: 0.11.12(6cbeceb527d33af4cf1d8a05e5f7874c)
       effect:
         specifier: catalog:silk
         version: 3.21.0
@@ -936,15 +936,15 @@ packages:
       '@typescript/native-preview': ^7.0.0-dev.20260124.1
       typescript: ^5.9.3
 
-  '@savvy-web/github-action-effects@0.11.11':
-    resolution: {integrity: sha512-eHGISyu02rFIiI9zj1y6Wz/Zkw0scEDoGPy6W6GAK2QiJHPRhUJ/AkIftnR+RcmH2xZ4OFpzsuIpeunPVkpobA==}
+  '@savvy-web/github-action-effects@0.11.12':
+    resolution: {integrity: sha512-yqAXtnyK5N1GyT4IsjoxYhk9tCFCZoPgxuO2vVFZyK3UaOTurOYtxhjf+msw7ds8qcRy9cCjAxgdWzAQbXZ9vQ==}
     peerDependencies:
-      '@effect/cluster': '>=0.56.0'
-      '@effect/platform': '>=0.94.0'
-      '@effect/platform-node': '>=0.104.0'
-      '@effect/rpc': '>=0.73.0'
-      '@effect/sql': '>=0.49.0'
-      effect: ^3.19.0
+      '@effect/cluster': '>=0.58.0'
+      '@effect/platform': '>=0.96.0'
+      '@effect/platform-node': '>=0.106.0'
+      '@effect/rpc': '>=0.75.0'
+      '@effect/sql': '>=0.51.0'
+      effect: '>=3.21.0'
 
   '@savvy-web/lint-staged@0.6.2':
     resolution: {integrity: sha512-nhXpNZ3hCo/2g1J4FxwAf+Kn0bPb5Z2UXrvaFlIhm5xjQZVGLJxJ90ilBzC1idTOnZCBo8rOyGukkZnTVikaJg==}
@@ -4330,7 +4330,7 @@ snapshots:
       - bufferutil
       - utf-8-validate
 
-  '@savvy-web/github-action-effects@0.11.11(6cbeceb527d33af4cf1d8a05e5f7874c)':
+  '@savvy-web/github-action-effects@0.11.12(6cbeceb527d33af4cf1d8a05e5f7874c)':
     dependencies:
       '@azure/storage-blob': 12.31.0
       '@effect/cluster': 0.58.0(@effect/platform@0.96.0(effect@3.21.0))(@effect/rpc@0.75.0(@effect/platform@0.96.0(effect@3.21.0))(effect@3.21.0))(@effect/sql@0.51.0(@effect/experimental@0.60.0(@effect/platform@0.96.0(effect@3.21.0))(effect@3.21.0))(@effect/platform@0.96.0(effect@3.21.0))(effect@3.21.0))(@effect/workflow@0.18.0(@effect/experimental@0.60.0(@effect/platform@0.96.0(effect@3.21.0))(effect@3.21.0))(@effect/platform@0.96.0(effect@3.21.0))(@effect/rpc@0.75.0(@effect/platform@0.96.0(effect@3.21.0))(effect@3.21.0))(effect@3.21.0))(effect@3.21.0)

@@ -186,10 +186,12 @@ export const detectCachePath = (pm: PackageManager) =>
 				case "deno": {
 					const out = yield* runner.execCapture("deno", ["info", "--json"], opts);
 					if (out.stdout.trim()) {
-						const info = yield* Effect.try({
-							try: () => JSON.parse(out.stdout) as { denoDir?: string },
-							catch: () => null,
-						});
+						let info: { denoDir?: string } | null = null;
+						try {
+							info = JSON.parse(out.stdout) as { denoDir?: string };
+						} catch {
+							// deno info output may not be valid JSON
+						}
 						return info?.denoDir ?? null;
 					}
 					return null;
