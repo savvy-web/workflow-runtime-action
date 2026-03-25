@@ -1,0 +1,17 @@
+{
+	"name": "biome-enabled-test",
+	"version": "1.0.0",
+	"description": "Project with Biome auto-detection testing",
+	"devEngines": {
+		"packageManager": {
+			"name": "npm",
+			"version": "11.6.0",
+			"onFail": "ignore"
+		},
+		"runtime": {
+			"name": "node",
+			"version": "24.11.0",
+			"onFail": "ignore"
+		}
+	}
+}
