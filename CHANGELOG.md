@@ -1,5 +1,11 @@
 # @savvy-web/workflow-runtime-action
 
+## 0.2.1
+
+### Bug Fixes
+
+* [`d16d202`](https://github.com/savvy-web/workflow-runtime-action/commit/d16d202c9d0025de9797662008e1b73e8c695616) Fix Node.js not being available on PATH after installation. The Node tar archive extracts to a nested directory (e.g., `node-v24.11.0-linux-x64/`), so the `bin/` path added to PATH didn't contain the actual binary. Now passes `--strip 1` to tar during extraction to flatten the archive root, matching the pattern used by `actions/setup-node`. Also adds `streaming: true` to dependency install for visible error output on failure, and temporary runtime diagnostics logging.
+
 ## 0.2.0
 
 ### Breaking Changes
