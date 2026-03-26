@@ -29,12 +29,12 @@ export const descriptor = {
 		_version: string,
 		platform: string,
 		_arch: string,
-	): { archiveType?: "tar.gz" | "tar.xz" | "zip"; binSubPath?: string } {
+	): { archiveType?: "tar.gz" | "tar.xz" | "zip"; binSubPath?: string; tarFlags?: ReadonlyArray<string> } {
 		const isWindows = platform === "win32";
 		if (isWindows) {
 			return { archiveType: "zip" };
 		}
-		return { archiveType: "tar.gz", binSubPath: "bin" };
+		return { archiveType: "tar.gz", binSubPath: "bin", tarFlags: ["xz", "--strip=1", "-f"] };
 	},
 
 	verifyCommand: ["node", "--version"] as [string, ...string[]],

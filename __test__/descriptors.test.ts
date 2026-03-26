@@ -39,6 +39,7 @@ describe("node descriptor", () => {
 			expect(node.getToolInstallOptions("24.11.0", "linux", "x64")).toEqual({
 				archiveType: "tar.gz",
 				binSubPath: "bin",
+				tarFlags: ["xz", "--strip=1", "-f"],
 			});
 		});
 
@@ -46,6 +47,7 @@ describe("node descriptor", () => {
 			expect(node.getToolInstallOptions("24.11.0", "darwin", "arm64")).toEqual({
 				archiveType: "tar.gz",
 				binSubPath: "bin",
+				tarFlags: ["xz", "--strip=1", "-f"],
 			});
 		});
 

@@ -45,7 +45,7 @@ export interface RuntimeDescriptor {
 		version: string,
 		platform: string,
 		arch: string,
-	) => Partial<{ archiveType: "tar.gz" | "tar.xz" | "zip"; binSubPath: string }>;
+	) => Partial<{ archiveType: "tar.gz" | "tar.xz" | "zip"; binSubPath: string; tarFlags: ReadonlyArray<string> }>;
 	readonly verifyCommand: readonly [string, ...string[]];
 }
 
@@ -99,7 +99,7 @@ export const makeRuntimeInstaller = (descriptor: RuntimeDescriptor): RuntimeInst
 			if (options.archiveType === "zip") {
 				extractedDir = yield* toolInstaller.extractZip(downloadedPath);
 			} else {
-				extractedDir = yield* toolInstaller.extractTar(downloadedPath);
+				extractedDir = yield* toolInstaller.extractTar(downloadedPath, undefined, options.tarFlags);
 			}
 
 			// Cache the extracted directory

@@ -174,16 +174,19 @@ export const installDependencies = (
 			}
 		}
 
-		yield* runner.exec(packageManager, command).pipe(
-			/* v8 ignore next 5 -- error path tested via CI fixtures */
-			Effect.mapError(
-				(cause) =>
-					new DependencyInstallError({
-						packageManager,
-						reason: `Failed to install dependencies: ${cause instanceof Error ? cause.message : String(cause)}`,
-						cause,
-					}),
-			),
+		yield* runner.exec(packageManager, command, { streaming: true }).pipe(
+			/* v8 ignore next 8 -- error path tested via CI fixtures */
+			Effect.mapError((cause) => {
+				const msg = cause instanceof Error ? cause.message : String(cause);
+				const stderr =
+					cause && typeof cause === "object" && "stderr" in cause ? (cause as { stderr?: string }).stderr : undefined;
+				const detail = stderr ? `\n${stderr}` : "";
+				return new DependencyInstallError({
+					packageManager,
+					reason: `Failed to install dependencies: ${msg}${detail}`,
+					cause,
+				});
+			}),
 		);
 
 		yield* Effect.log(formatSuccess("Dependencies installed successfully"));
@@ -215,14 +218,14 @@ export const setupPackageManager = (
 				yield* Effect.log(`Upgrading npm from ${currentVersion} to ${version}...`);
 				const plat = osPlatform();
 				if (plat === "linux" || plat === "darwin") {
-					yield* runner.exec("sudo", ["npm", "install", "-g", `npm@${version}`]);
+					yield* runner.exec("sudo", ["npm", "install", "-g", `npm@${version}`], { streaming: true });
 					// Fix npm cache ownership after sudo (sudo creates root-owned files in ~/.npm)
 					const npmCacheDir = join(homedir(), ".npm");
 					yield* runner
 						.exec("sudo", ["chown", "-R", `${process.getuid?.() ?? 1000}:${process.getgid?.() ?? 1000}`, npmCacheDir])
 						.pipe(Effect.catchAll(() => Effect.void));
 				} else {
-					yield* runner.exec("npm", ["install", "-g", `npm@${version}`]);
+					yield* runner.exec("npm", ["install", "-g", `npm@${version}`], { streaming: true });
 				}
 			} else {
 				yield* Effect.log(`npm ${currentVersion} already matches required version`);
@@ -243,35 +246,44 @@ export const setupPackageManager = (
 					yield* Effect.log("Node.js >= 25 detected, installing corepack globally...");
 					const plat = osPlatform();
 					if (plat === "linux" || plat === "darwin") {
-						yield* runner.exec("sudo", ["npm", "install", "-g", "--force", "corepack@latest"], { cwd });
+						yield* runner.exec("sudo", ["npm", "install", "-g", "--force", "corepack@latest"], {
+							cwd,
+							streaming: true,
+						});
 					} else {
-						yield* runner.exec("npm", ["install", "-g", "--force", "corepack@latest"], { cwd });
+						yield* runner.exec("npm", ["install", "-g", "--force", "corepack@latest"], { cwd, streaming: true });
 					}
 				}
 			}
 
 			yield* Effect.log("Enabling corepack...");
-			yield* runner.exec("corepack", ["enable"], { cwd });
+			yield* runner.exec("corepack", ["enable"], { cwd, streaming: true });
 
 			yield* Effect.log(`Preparing ${packageManager}@${version}...`);
-			yield* runner.exec("corepack", ["prepare", `${packageManager}@${version}`, "--activate"], { cwd });
+			yield* runner.exec("corepack", ["prepare", `${packageManager}@${version}`, "--activate"], {
+				cwd,
+				streaming: true,
+			});
 		}
 
 		// Verify — pnpm must run from tmpdir to avoid configDependencies hang
 		const verifyOpts = packageManager === "pnpm" ? { cwd: tmpdir() } : {};
-		yield* runner.exec(packageManager, ["--version"], verifyOpts);
+		yield* runner.exec(packageManager, ["--version"], { ...verifyOpts, streaming: true });
 		yield* Effect.log(formatSuccess(`${packageManager}@${version} activated`));
 	}).pipe(
 		/* v8 ignore next 5 -- error path tested via CI fixtures */
-		Effect.mapError(
-			(cause) =>
-				new PackageManagerSetupError({
-					packageManager,
-					version,
-					reason: `Package manager setup failed: ${extractErrorReason(cause)}`,
-					cause,
-				}),
-		),
+		Effect.mapError((cause) => {
+			const reason = extractErrorReason(cause);
+			const stderr =
+				cause && typeof cause === "object" && "stderr" in cause ? (cause as { stderr?: string }).stderr : undefined;
+			const detail = stderr ? `\n${stderr}` : "";
+			return new PackageManagerSetupError({
+				packageManager,
+				version,
+				reason: `Package manager setup failed: ${reason}${detail}`,
+				cause,
+			});
+		}),
 	);
 
 /**
