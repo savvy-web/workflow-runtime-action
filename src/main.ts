@@ -257,7 +257,21 @@ export const setupPackageManager = (
 			}
 
 			yield* Effect.log("Enabling corepack...");
-			yield* runner.exec("corepack", ["enable"], { cwd, streaming: true });
+			yield* runner.exec("corepack", ["enable"], { cwd }).pipe(
+				Effect.catchAll(() =>
+					// Retry after removing stale shims (EEXIST from cached Node installs)
+					Effect.gen(function* () {
+						const whichNode = yield* runner.execCapture("which", ["node"], { cwd });
+						const binDir = join(whichNode.stdout.trim(), "..");
+						yield* Effect.logDebug("Removing stale corepack shims and retrying...");
+						const shims = ["pnpm", "pnpx", "yarn", "yarnpkg", "npm", "npx"];
+						const exts = ["", ".js", ".cmd", ".ps1"];
+						const allShims = shims.flatMap((s) => exts.map((e) => join(binDir, `${s}${e}`)));
+						yield* runner.exec("rm", ["-f", ...allShims]).pipe(Effect.catchAll(() => Effect.void));
+						yield* runner.exec("corepack", ["enable"], { cwd, streaming: true });
+					}),
+				),
+			);
 
 			yield* Effect.log(`Preparing ${packageManager}@${version}...`);
 			yield* runner.exec("corepack", ["prepare", `${packageManager}@${version}`, "--activate"], {
