@@ -1,5 +1,11 @@
 # @savvy-web/workflow-runtime-action
 
+## 0.2.2
+
+### Bug Fixes
+
+* [`64f2859`](https://github.com/savvy-web/workflow-runtime-action/commit/64f285956b82a93639139358dc843acd1db65c89) Retry `corepack enable` after removing stale shims when it fails with EEXIST. This handles the case where a cached Node installation contains symlinks from a previous corepack setup, causing `corepack enable` to fail when trying to create them again.
+
 ## 0.2.1
 
 ### Bug Fixes
