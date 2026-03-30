@@ -1,5 +1,37 @@
 # @savvy-web/workflow-runtime-action
 
+## 0.2.3
+
+### Dependencies
+
+* | [`039b043`](https://github.com/savvy-web/workflow-runtime-action/commit/039b043447ddd58033804e394507408685d50b30) | Dependency    | Type    | Action | From   | To |
+  | :---------------------------------------------------------------------------------------------------------------- | :------------ | :------ | :----- | :----- | -- |
+  | @savvy-web/lint-staged                                                                                            | devDependency | updated | ^0.6.5 | ^0.6.6 |    |
+
+- | [`8bbfcd3`](https://github.com/savvy-web/workflow-runtime-action/commit/8bbfcd38a15909e4c0417d5e923d8d6fbe12b61b) | Dependency    | Type    | Action | From   | To |
+  | :---------------------------------------------------------------------------------------------------------------- | :------------ | :------ | :----- | :----- | -- |
+  | @savvy-web/changesets                                                                                             | devDependency | updated | ^0.7.1 | ^0.7.2 |    |
+  | @savvy-web/commitlint                                                                                             | devDependency | updated | ^0.4.4 | ^0.5.0 |    |
+  | @savvy-web/lint-staged                                                                                            | devDependency | updated | ^0.6.6 | ^0.7.0 |    |
+  | @savvy-web/vitest                                                                                                 | devDependency | updated | ^1.1.0 | ^1.2.0 |    |
+
+* | [`2c7d5a7`](https://github.com/savvy-web/workflow-runtime-action/commit/2c7d5a793f3abde461ab6e4f7997bd209b24b924) | Dependency    | Type    | Action | From   | To |
+  | :---------------------------------------------------------------------------------------------------------------- | :------------ | :------ | :----- | :----- | -- |
+  | @savvy-web/lint-staged                                                                                            | devDependency | updated | ^0.6.3 | ^0.6.4 |    |
+
+- | [`25e26c2`](https://github.com/savvy-web/workflow-runtime-action/commit/25e26c2a30abdc522a2b7e754c221ad0b664251a) | Dependency    | Type    | Action | From   | To |
+  | :---------------------------------------------------------------------------------------------------------------- | :------------ | :------ | :----- | :----- | -- |
+  | @savvy-web/changesets                                                                                             | devDependency | updated | ^0.7.0 | ^0.7.1 |    |
+  | @savvy-web/commitlint                                                                                             | devDependency | updated | ^0.4.3 | ^0.4.4 |    |
+  | @savvy-web/github-action-builder                                                                                  | devDependency | updated | ^0.6.0 | ^0.6.2 |    |
+  | @savvy-web/lint-staged                                                                                            | devDependency | updated | ^0.6.4 | ^0.6.5 |    |
+  | @savvy-web/vitest                                                                                                 | devDependency | updated | ^1.0.1 | ^1.1.0 |    |
+
+* | [`5f8778d`](https://github.com/savvy-web/workflow-runtime-action/commit/5f8778db6c875b112fb0ee242eedbfd73821a94c) | Dependency    | Type    | Action | From   | To |
+  | :---------------------------------------------------------------------------------------------------------------- | :------------ | :------ | :----- | :----- | -- |
+  | @savvy-web/changesets                                                                                             | devDependency | updated | ^0.6.0 | ^0.7.0 |    |
+  | @savvy-web/vitest                                                                                                 | devDependency | updated | ^1.0.0 | ^1.0.1 |    |
+
 ## 0.2.2
 
 ### Bug Fixes
