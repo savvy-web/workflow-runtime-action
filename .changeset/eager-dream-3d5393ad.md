@@ -1,0 +1,9 @@
+---
+"@savvy-web/workflow-runtime-action": patch
+---
+
+## Dependencies
+
+| Dependency | Type | Action | From | To |
+| :--- | :--- | :--- | :--- | :--- |
+| @savvy-web/lint-staged | devDependency | updated | ^0.8.0 | ^1.0.0 |
